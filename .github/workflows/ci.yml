@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+          rustup default stable
+
+      - name: Rust tests
+        run: cargo test --release --workspace
+
+      - name: Build the plug-in (WebAssembly) and the native helper
+        run: |
+          cargo build --release --target wasm32-unknown-unknown --workspace
+          cargo build --release -p cartographer-cli
+
+      - name: Panel and script tests
+        run: node --test panel/test/*.test.mjs scripts/test/*.test.mjs
+
+      - name: Install check
+        run: node scripts/check.mjs --ci

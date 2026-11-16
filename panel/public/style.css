@@ -1,0 +1,30 @@
+:root {
+  --bg: #f4f4f1; --card: #fff; --ink: #1d1f22; --muted: #6b6f76; --line: #d9d9d4; --accent: #2b6cb0; --accent-ink: #fff; --bad: #b3261e; --good: #2e7d32;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1b1c1e; --card: #26282b; --ink: #ececec; --muted: #9aa0a6; --line: #3a3d41; --accent: #5b9bd5; --accent-ink: #0d1117; --bad: #f2867f; --good: #7bc67e; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; } /* author display rules (grid, flex) must not defeat the hidden attribute */
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--card); position: sticky; top: 0; }
+h1 { font-size: 17px; margin: 0; flex: 1; }
+h2 { font-size: 14px; margin: 0 0 8px; }
+select, input { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+main { max-width: 440px; margin: 0 auto; padding: 12px 16px 40px; display: grid; gap: 12px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); }
+.dot.on { background: var(--good); }
+.problem { background: var(--card); border: 1px solid var(--bad); color: var(--bad); border-radius: 10px; padding: 10px 14px; margin: 0; }
+.message { min-height: 1.4em; margin: 0; font-size: 14px; }
+.message.err { color: var(--bad); }
+.fields { display: grid; gap: 10px; }
+.field { display: grid; gap: 2px; }
+.field label { font-size: 13px; font-weight: 600; }
+.field .help { color: var(--muted); font-size: 12px; margin: 0; }
+.row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+button { font: inherit; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 7px 14px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); flex: 1; font-weight: 600; padding: 10px; }
+button.plain { padding: 4px 10px; font-size: 13px; }
+button:disabled { opacity: 0.5; cursor: default; }

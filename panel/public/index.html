@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartographer</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>Cartographer</h1>
+  <span id="dot" class="dot" title="Connection to VectorCraft"></span>
+</header>
+
+<main>
+  <p id="problem" class="problem" hidden></p>
+
+  <section id="settingsCard" class="card" hidden>
+    <h2 id="stitle">Document settings</h2>
+    <p id="ssummary"></p>
+    <div id="fields" class="fields"></div>
+    <div class="row">
+      <button id="draw" class="primary" disabled>Draw this</button>
+      <button id="cancel" class="plain" hidden>Cancel</button>
+    </div>
+  </section>
+
+  <p id="message" class="message"></p>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
