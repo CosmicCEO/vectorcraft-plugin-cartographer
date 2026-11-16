@@ -4,6 +4,7 @@ pub mod abi;
 pub mod geom;
 pub mod offset;
 pub mod output;
+pub mod units;
 pub mod vcdoc;
 
 /// The plug-in's version (the workspace version).
