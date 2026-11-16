@@ -1,0 +1,29 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { compareSvg, normalizeSvg } from "../lib/svgcompare.mjs";
+
+test("normalizeSvg ignores ids and rounds numbers", () => {
+  const a = normalizeSvg('<?xml version="1.0"?>\n<path id="a1" d="M1.00004 2"/>');
+  const b = normalizeSvg('<path   id="b9" data-x="7" d="M1 2.0000"/>');
+  assert.equal(a, b);
+  assert.equal(normalizeSvg('<path d="M-0.0001 5.12345"/>'), normalizeSvg('<path d="M0 5.123"/>'));
+});
+
+test("compareSvg says same for equal geometry", () => {
+  const r = compareSvg('<svg><path d="M1 2"/></svg>', '<svg>\n<path id="q" d="M1.0 2.0"/>\n</svg>');
+  assert.equal(r.same, true);
+  assert.equal(r.summary, "identical");
+});
+
+test("compareSvg names the first differing element", () => {
+  const r = compareSvg('<svg><path d="M1 2"/><path d="M3 4"/></svg>', '<svg><path d="M1 2"/><path d="M3 9"/></svg>');
+  assert.equal(r.same, false);
+  assert.match(r.summary, /element 2/);
+  assert.match(r.summary, /M3 4/);
+});
+
+test("compareSvg reports a different element count when one is a prefix of the other", () => {
+  const r = compareSvg("<g/>", "<g/><g/>");
+  assert.equal(r.same, false);
+  assert.match(r.summary, /different element count: 1 elements against 2/);
+});

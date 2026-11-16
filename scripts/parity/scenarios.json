@@ -1,0 +1,993 @@
+[
+ {
+  "name": "two-lane",
+  "size": [
+   400,
+   800
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      100,
+      700
+     ],
+     [
+      100,
+      100
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   }
+  ]
+ },
+ {
+  "name": "divided-story",
+  "size": [
+   400,
+   800
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      790
+     ],
+     [
+      200,
+      10
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "facing N: bike-lane | apron | lane S x2 | margin 3 | lane N x2 | apron | bike-lane"
+    }
+   }
+  ]
+ },
+ {
+  "name": "lane-add-drop",
+  "size": [
+   400,
+   800
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      790
+     ],
+     [
+      200,
+      10
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "sidewalk | bike-lane | lane S x3 | median 4 | lane N x3 | bike-lane | sidewalk"
+    }
+   },
+   {
+    "select": [
+     0
+    ],
+    "command": "set_transition",
+    "params": {
+     "description": {
+      "change": "drop",
+      "side": "right",
+      "direction": "back",
+      "at": 260,
+      "length": 70,
+      "piece": 1
+     }
+    }
+   },
+   {
+    "select": [
+     0
+    ],
+    "command": "set_transition",
+    "params": {
+     "description": {
+      "change": "add",
+      "side": "right",
+      "at": 470,
+      "length": 70,
+      "piece": 1
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "junction-tee",
+  "size": [
+   400,
+   800
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      700
+     ],
+     [
+      200,
+      420
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      200,
+      300
+     ],
+     [
+      200,
+      20
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      200,
+      420
+     ],
+     [
+      200,
+      300
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     2
+    ],
+    "command": "set_junction",
+    "params": {
+     "description": {
+      "legs": [
+       {
+        "side": "left",
+        "cross_section": "lane back | lane fwd"
+       },
+       {
+        "side": "right",
+        "cross_section": "lane back | lane fwd"
+       }
+      ],
+      "control": "signal",
+      "crosswalks": true
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "four-way-stop",
+  "size": [
+   400,
+   400
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      400
+     ],
+     [
+      200,
+      0
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      0,
+      200
+     ],
+     [
+      400,
+      200
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "sidewalk | lane back | lane fwd | sidewalk"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "sidewalk | lane back | lane fwd | sidewalk"
+    }
+   },
+   {
+    "select": [
+     0,
+     1
+    ],
+    "command": "set_crossing",
+    "params": {
+     "description": {
+      "treatment": "four-way-stop",
+      "crosswalks": true
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "signal-pockets-slip",
+  "size": [
+   400,
+   800
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      790
+     ],
+     [
+      200,
+      10
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      0,
+      400
+     ],
+     [
+      400,
+      400
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "sidewalk | bike-lane | lane S x3 | median 4 | lane N x3 | bike-lane | sidewalk"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "sidewalk | lane back x2 | median 4 | lane fwd x2 | sidewalk"
+    }
+   },
+   {
+    "select": [
+     0,
+     1
+    ],
+    "command": "set_crossing",
+    "params": {
+     "description": {
+      "treatment": "signal",
+      "crosswalks": true,
+      "pocket": "both",
+      "pocket_length": 45,
+      "slip": true
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "roundabout",
+  "size": [
+   400,
+   400
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      400
+     ],
+     [
+      200,
+      0
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      0,
+      200
+     ],
+     [
+      400,
+      200
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     0,
+     1
+    ],
+    "command": "set_crossing",
+    "params": {
+     "description": {
+      "treatment": "roundabout",
+      "diameter": 40,
+      "crosswalks": true
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "overpass",
+  "size": [
+   400,
+   400
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      400
+     ],
+     [
+      200,
+      0
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      0,
+      200
+     ],
+     [
+      400,
+      200
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     0,
+     1
+    ],
+    "command": "set_crossing",
+    "params": {
+     "description": {
+      "treatment": "overpass",
+      "over": "r2",
+      "crosswalks": true
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "on-ramp-gore",
+  "size": [
+   400,
+   800
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      700
+     ],
+     [
+      200,
+      100
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      250.7,
+      508.8
+     ],
+     [
+      204.65,
+      409.97
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane S x2 | median 4 | lane N x2"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane fwd"
+    }
+   },
+   {
+    "select": [
+     0,
+     1
+    ],
+    "command": "set_crossing",
+    "params": {
+     "description": {
+      "treatment": "on-ramp"
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "hub-three",
+  "size": [
+   600,
+   800
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      700
+     ],
+     [
+      200,
+      100
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      -100,
+      400
+     ],
+     [
+      500,
+      400
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      -100,
+      700
+     ],
+     [
+      500,
+      100
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     2
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     0,
+     1,
+     2
+    ],
+    "command": "set_hub",
+    "params": {
+     "description": {
+      "treatment": "signal",
+      "crosswalks": true
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "creek-bridge",
+  "size": [
+   600,
+   900
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      0,
+      400
+     ],
+     [
+      600,
+      400
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      300,
+      700
+     ],
+     [
+      300,
+      100
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_water",
+    "params": {
+     "description": {
+      "kind": "flowing",
+      "width": 10,
+      "bank_left": 1.5,
+      "bank_right": 1.5,
+      "slope": 2
+     }
+    }
+   },
+   {
+    "select": [
+     0,
+     1
+    ],
+    "command": "set_wet",
+    "params": {
+     "description": {
+      "treatment": "bridge",
+      "deck_height": 3.5,
+      "abutment": 4
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "culvert",
+  "size": [
+   600,
+   900
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      0,
+      400
+     ],
+     [
+      600,
+      400
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      300,
+      700
+     ],
+     [
+      300,
+      100
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_water",
+    "params": {
+     "description": {
+      "kind": "flowing",
+      "width": 10,
+      "bank_left": 1.5,
+      "bank_right": 1.5,
+      "slope": 2
+     }
+    }
+   },
+   {
+    "select": [
+     0,
+     1
+    ],
+    "command": "set_wet",
+    "params": {
+     "description": {
+      "treatment": "culvert",
+      "count": 2,
+      "size": 1.5,
+      "fill_height": 3
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "causeway-pond",
+  "size": [
+   400,
+   400
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      0,
+      200
+     ],
+     [
+      400,
+      200
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      100,
+      100
+     ],
+     [
+      300,
+      100
+     ],
+     [
+      300,
+      300
+     ],
+     [
+      100,
+      300
+     ]
+    ],
+    "closed": true
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_water",
+    "params": {
+     "description": {
+      "kind": "still",
+      "bank_left": 1.5,
+      "bank_right": 1.5,
+      "slope": 3
+     }
+    }
+   },
+   {
+    "select": [
+     0,
+     1
+    ],
+    "command": "set_wet",
+    "params": {
+     "description": {
+      "treatment": "causeway",
+      "fill_height": 2,
+      "slope": 2
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "embankment",
+  "size": [
+   400,
+   800
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      200,
+      700
+     ],
+     [
+      200,
+      100
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_cross_section",
+    "params": {
+     "cross_section": "lane back | lane fwd"
+    }
+   },
+   {
+    "select": [
+     0
+    ],
+    "command": "set_embankment",
+    "params": {
+     "description": {
+      "height": 3,
+      "slope": 2,
+      "from": 100,
+      "to": 300
+     }
+    }
+   }
+  ]
+ },
+ {
+  "name": "creeks-joined",
+  "size": [
+   300,
+   300
+  ],
+  "lines": [
+   {
+    "points": [
+     [
+      0,
+      230
+     ],
+     [
+      60,
+      200
+     ],
+     [
+      110,
+      215
+     ],
+     [
+      150,
+      170
+     ]
+    ]
+   },
+   {
+    "points": [
+     [
+      150,
+      170
+     ],
+     [
+      190,
+      140
+     ],
+     [
+      250,
+      150
+     ],
+     [
+      300,
+      110
+     ]
+    ]
+   }
+  ],
+  "steps": [
+   {
+    "select": [
+     0
+    ],
+    "command": "set_water",
+    "params": {
+     "description": {
+      "kind": "flowing",
+      "width": 8,
+      "bank_left": 1.5,
+      "bank_right": 1.5,
+      "slope": 2
+     }
+    }
+   },
+   {
+    "select": [
+     1
+    ],
+    "command": "set_water",
+    "params": {
+     "description": {
+      "kind": "flowing",
+      "width": 24,
+      "bank_left": 1.5,
+      "bank_right": 1.5,
+      "slope": 2
+     }
+    }
+   }
+  ]
+ }
+]
