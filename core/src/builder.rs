@@ -15,6 +15,16 @@ use crate::wet;
 use serde_json::{Value, json};
 
 pub const GEN_PREFIX: &str = "gen.";
+
+/// Above this many input points a build gets a note: VectorCraft refuses a build of about 1,500 or more points (spike S1).
+const NEAR_LIMIT_POINTS: usize = 1_200;
+
+/// The stored descriptions of the document, after checking the record is one this version may read (a newer schema is refused).
+fn load_spec(params: &Value) -> Result<Spec, String> {
+    let data = &params["_context"]["documentData"];
+    Doc::from_document_data(data)?;
+    Ok(Spec::from_document_data(data))
+}
 /// The drawn line of a road or junction: bright and bold (metres of stroke), so it can be seen and clicked among the generated shapes.
 const SPINE_ROAD: [f64; 3] = [0.85, 0.1, 0.1];
 const SPINE_JUNCTION: [f64; 3] = [0.1, 0.35, 0.9];
@@ -55,7 +65,7 @@ pub fn set_settings_text(input: &Value, params: &Value) -> Result<String, String
 /// Filter output text: every source object kept by id, the old `gen.*` paths dropped, fresh `gen.*` paths added.
 pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let spec = Spec::from_document_data(&params["_context"]["documentData"]);
+    let spec = load_spec(params)?;
     let has_road = items.iter().any(|i| segment_id(&i.name).is_some() || junction_id(&i.name).is_some() || water::water_id(&i.name).is_some());
     if !has_road {
         return Err("Nothing to build. Draw a line and name it road.<id> (or a water line), then Select All so it is included.".into());
@@ -63,6 +73,10 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
 
     let mut out = Out::new();
     let mut notes: Vec<String> = Vec::new();
+    let points: usize = items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)).map(|i| i.subs.iter().map(Vec::len).sum::<usize>()).sum();
+    if points > NEAR_LIMIT_POINTS {
+        notes.push(format!("this build has {points} points; VectorCraft refuses a build of about 1,500 or more points, so split long roads"));
+    }
     for it in items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)) {
         let Some(id) = it.id else { continue };
         // The line you drew stays on top of what is built from it, and is drawn bold so it is easy to find and click.
@@ -113,7 +127,7 @@ fn is_reserved_name(name: &str) -> bool {
 /// selected `road.*` lines, or to the segment named in `segment`; a single plain line is turned into a road with a fresh id.
 pub fn set_cross_section_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let mut spec = Spec::from_document_data(&params["_context"]["documentData"]);
+    let mut spec = load_spec(params)?;
     let text = params["cross_section"].as_str().map(str::trim).filter(|t| !t.is_empty()).ok_or("Write the cross-section, for example: bike-lane | lane back x2 | margin 3 | lane fwd x2 | bike-lane")?;
     let anchor = params["anchor"].as_str().and_then(anchor_from);
     let clean = |t: &str| t.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').take(16).collect::<String>();
@@ -178,7 +192,7 @@ pub fn set_cross_section_text(input: &Value, params: &Value) -> Result<String, S
 /// `junction.*` line, or to the one selected plain line, which is renamed `junction.<id>`; `junction` names the id explicitly.
 pub fn set_junction_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let mut spec = Spec::from_document_data(&params["_context"]["documentData"]);
+    let mut spec = load_spec(params)?;
     let raw = params["description"].as_str().map(str::trim).filter(|t| !t.is_empty()).ok_or("Give the junction description (JSON), for example {\"legs\": [{\"side\": \"left\", \"cross_section\": \"lane back | lane fwd\"}], \"control\": \"signal\", \"crosswalks\": true}")?;
     let value: Value = serde_json::from_str(raw).map_err(|e| format!("the junction description is not valid JSON: {e}"))?;
     let js = JunctionSpec::from_json(&value, &spec.library)?;
@@ -218,7 +232,7 @@ pub fn set_junction_text(input: &Value, params: &Value) -> Result<String, String
 /// document's plug-in data. `description` is JSON (control, crosswalks, radius, minor); the two road ids come from the selection.
 pub fn set_crossing_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let mut spec = Spec::from_document_data(&params["_context"]["documentData"]);
+    let mut spec = load_spec(params)?;
     let mut roads: Vec<String> = Vec::new();
     for it in &items {
         if let Some(id) = segment_id(&it.name).filter(|id| !roads.contains(id)) {
@@ -250,7 +264,7 @@ pub fn set_crossing_text(input: &Value, params: &Value) -> Result<String, String
 /// (treatment, crosswalks, radius, minor, stub); the road ids come from the selection.
 pub fn set_hub_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let mut spec = Spec::from_document_data(&params["_context"]["documentData"]);
+    let mut spec = load_spec(params)?;
     let mut roads: Vec<String> = Vec::new();
     for it in &items {
         if let Some(id) = segment_id(&it.name).filter(|id| !roads.contains(id)) {
@@ -281,7 +295,7 @@ pub fn set_hub_text(input: &Value, params: &Value) -> Result<String, String> {
 /// data. `description` is JSON (change, side, direction, count, at, length, speed, to, piece, remove).
 pub fn set_transition_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let mut spec = Spec::from_document_data(&params["_context"]["documentData"]);
+    let mut spec = load_spec(params)?;
     let mut roads: Vec<String> = Vec::new();
     for it in &items {
         if let Some(id) = segment_id(&it.name).filter(|id| !roads.contains(id)) {
@@ -316,7 +330,7 @@ pub fn set_transition_text(input: &Value, params: &Value) -> Result<String, Stri
 /// document's plug-in data for each.
 pub fn set_water_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let mut spec = Spec::from_document_data(&params["_context"]["documentData"]);
+    let mut spec = load_spec(params)?;
     let chosen: Vec<&Item> = items.iter().filter(|i| i.subs.first().is_some_and(|s| s.len() >= 2)).collect();
     if chosen.is_empty() {
         return Err("Select the line or shape to describe as water first.".into());
@@ -365,7 +379,7 @@ pub fn set_water_text(input: &Value, params: &Value) -> Result<String, String> {
 /// `description` is JSON (height, slope, from, to, sides, ramp, piece, remove).
 pub fn set_embankment_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let mut spec = Spec::from_document_data(&params["_context"]["documentData"]);
+    let mut spec = load_spec(params)?;
     let mut roads: Vec<String> = Vec::new();
     for it in &items {
         if let Some(id) = segment_id(&it.name).filter(|id| !roads.contains(id)) {
@@ -392,7 +406,7 @@ pub fn set_embankment_text(input: &Value, params: &Value) -> Result<String, Stri
 /// `description` is JSON (treatment bridge, culvert or causeway, and its numbers); the road and water ids come from the selection.
 pub fn set_wet_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let mut spec = Spec::from_document_data(&params["_context"]["documentData"]);
+    let mut spec = load_spec(params)?;
     let roads: Vec<String> = items.iter().filter_map(|i| segment_id(&i.name)).fold(Vec::new(), |mut v, id| { if !v.contains(&id) { v.push(id); } v });
     let waters: Vec<String> = items.iter().filter_map(|i| water::water_id(&i.name)).fold(Vec::new(), |mut v, id| { if !v.contains(&id) { v.push(id); } v });
     if roads.len() != 1 || waters.len() != 1 {
