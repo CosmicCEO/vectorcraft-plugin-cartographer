@@ -97,7 +97,7 @@ docs/
 
 ### 6.1 Names and stored data
 
-Lines and shapes the user draws are named `<kind>.<id>`: `road.a`, `rail.t1`, `stream.c`, `water.l`, later `trail.x`, `forest.f`. Generated shapes are named `gen.<kind>.<id>.<piece>.<role>` and are stable across rebuilds, so a click maps back to the line it came from and an animation can find them. The document's plug-in data holds one versioned record (`schema` number first), with features by id, the document settings (target print scale, style, north, seed), the document library (materials the user accepted), joins and crossings. Names carry enough to rebuild the feature list if plug-in data is lost in an export (spike S3 checks what each export format keeps).
+Lines and shapes the user draws are named `<kind>.<id>`: `road.a`, `rail.t1`, `stream.c`, `water.l`, later `trail.x`, `forest.f`. Generated shapes are named `gen.<kind>.<id>.<piece>.<role>` and are stable across rebuilds, so a click maps back to the line it came from and an animation can find them. The document's plug-in data holds one versioned record (`schema` number first), with features by id, the document settings (target print scale, style, north, seed), the document library (materials the user accepted), joins and crossings. Names carry enough to rebuild the feature list if plug-in data is lost in an export. Spike S3 (2026-11-16, `docs/spikes/S3-survival.md`) found that Save, Save As, reopen and PDF keep the plug-in data, while SVG keeps names, shapes and direction but drops the plug-in data.
 
 The drawn line itself (the spine) is never altered by a build. Its direction is the feature's direction (traffic or flow with the line), which is what lets a later animation travel along it.
 
