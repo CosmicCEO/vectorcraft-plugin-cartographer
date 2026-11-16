@@ -128,3 +128,11 @@ fn the_closed_flag_follows_the_document() {
     assert!(items_from_filter_input(&shape(true))[0].closed);
     assert!(!items_from_filter_input(&shape(false))[0].closed);
 }
+
+#[test]
+fn a_plain_polygon_keeps_a_repeated_first_point_as_drawn() {
+    // Road Builder writes some rings that end where they began (a slope band that starts from nothing); they stay exactly as given.
+    let mut out = Out::new();
+    out.polygon("slope", &[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 0.0]], |p| p, [0.0; 3]);
+    assert_eq!(out.finish().matches("\"p\":[").count(), 4);
+}

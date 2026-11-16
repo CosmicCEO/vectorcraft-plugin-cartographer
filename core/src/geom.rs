@@ -209,3 +209,32 @@ impl Curve {
         Some(if span > 0.0 { a[1] + (b[1] - a[1]) * (s - a[0]) / span } else { b[1] })
     }
 }
+
+/// Drops points that lie within `tol` metres of the straight line between their kept neighbours (iterative Douglas-Peucker).
+pub fn simplify(pts: &[P], tol: f64) -> Vec<P> {
+    if pts.len() < 3 {
+        return pts.to_vec();
+    }
+    let mut keep = vec![false; pts.len()];
+    keep[0] = true;
+    keep[pts.len() - 1] = true;
+    let mut stack = vec![(0, pts.len() - 1)];
+    while let Some((a, b)) = stack.pop() {
+        let (p, q) = (pts[a], pts[b]);
+        let (dx, dy) = (q[0] - p[0], q[1] - p[1]);
+        let len = dx.hypot(dy).max(1e-9);
+        let (mut far, mut at) = (0.0, a);
+        for (i, r) in pts.iter().enumerate().take(b).skip(a + 1) {
+            let d = ((r[0] - p[0]) * dy - (r[1] - p[1]) * dx).abs() / len;
+            if d > far {
+                (far, at) = (d, i);
+            }
+        }
+        if far > tol {
+            keep[at] = true;
+            stack.push((a, at));
+            stack.push((at, b));
+        }
+    }
+    pts.iter().zip(keep).filter_map(|(p, k)| k.then_some(*p)).collect()
+}

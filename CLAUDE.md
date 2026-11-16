@@ -5,7 +5,7 @@ A VectorCraft plug-in plus a companion panel that turn drawn lines and shapes an
 The owner is not a developer: keep chat answers short and plain; write documents and commit messages in plain prose. Never push to `main`; work on a branch. Never force-push, merge, tag or release without being asked. Drawings are an illustrative reconstruction, not a survey.
 
 ## Layout
-- `core/` shared Rust library: plug-in glue (`abi`), geometry, offsetting, output written as text, document reading, units, storage, library, and (later) the band engine and element modules.
+- `core/` shared Rust library: plug-in glue (`abi`), geometry, offsetting, output written as text, document reading, units, storage, the material library; the road network from Road Builder (`crosssection` and `library` are the band engine, `roads`, `transition`, `junction`, `crossing`, `scenarios`, `hub`, `water`, `embank`, `wet`, `standards`) and `builder` (the commands).
 - `filter/` the plug-in (WebAssembly): manifest and commands. `cli/` the native helper `cartographer-cli`: checks what an agent proposes and prints schemas for the panel.
 - `panel/` zero-dependency Node server and page (port 8789). `scripts/` portable Node scripts. `library/` JSON data. `tools/fuel/` measures a build's instruction cost (outside the workspace). `spikes/` throwaway experiments (outside the workspace); results are in `docs/spikes/`.
 
@@ -21,7 +21,11 @@ The owner is not a developer: keep chat answers short and plain; write documents
 - An object with no anchor points is refused: never write an empty one. Stroke dashes in filter output are ignored. Fills are `{"type":"solid","color":...}`; strokes have `paint` and `width`. A command parameter cannot be called `id`.
 - Fuel: the host refuses a build at about 21 M plus a share that grows with the input (50 M instructions plus 4,000 per input byte). `f64::hypot` and `f64::round` are slow in WebAssembly: use `Len2::len2` and a truncating cast. Every number written costs hundreds. Measure with `tools/fuel`; never guess (`docs/spikes/S1-fuel.md`).
 - A drawn Bezier arrives flattened (16 points per segment): offset with the bisector normal at each vertex and refit Beziers on output. Shapes in one object that overlap must wind the same way.
-- Right-hand traffic: facing along the line the right lane is `fwd`.
+- Right-hand traffic: facing along the line the right lane is `fwd`; a driver's "left" is toward the centre of the road for both directions.
+- Lane changes (`transition.rs`): `derive` returns the exact operation (which lane appears or vanishes) because identical lanes cannot be told apart from the text; `align` uses it; shared elements are pinned at the joints.
+- A trim keeps one end of a line; a *gap* trim cuts the middle out (the second piece is named `.part2` so click mapping still works). A road that only touches another is found by extending its ends 30 m: test both a road stopping short and one stopping more than 30 m short.
+- Water lies below roads, intersections and crossings above (the panel's `organise` orders layers). Ring offsets depend on winding: test both. Lines that meet end to end share one cut at the bisector of their directions.
+- Parity first: ported tests keep their names and numbers; `node scripts/parity.mjs` must say all identical before a change to the road code is accepted.
 - A headless session (`vectorcraft-cli mcp`) can only read and write inside its root and cannot install a heavy-budget plug-in. There is no Linux headless CLI (spike S2).
 
 ## Build, test, run

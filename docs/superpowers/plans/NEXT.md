@@ -1,12 +1,13 @@
-# Next: Plan 2, the band engine and the Road Builder port
+# Next: Plan 3, the panel port (and what follows)
 
-Written at the end of the foundation (Plan 1). Plan 2 implements spec section 10, Phase 2, and must take these spike results into account:
+Written at the end of Plan 2 (the road core port, 0.2.0). Plan 3 ports Road Builder's companion panel so the road commands have their cards again.
 
-- **S1 (fuel):** one road builds up to about 1,500 points (15 km at 10 m) and is refused at 2,000, at about 64,000 fuel per point. Stay a light filter; do not use the `heavy` budget. Give the engine a per-kind fuel ceiling and a plain note when a build is near the limit. Starting ceilings are in `docs/spikes/S1-fuel.md`.
-- **S3 (survival):** Save, Save As, reopen and PDF keep the plug-in data; SVG keeps names, shapes and spine direction but not the data. Keep names as `<kind>.<id>` and `gen.<kind>.<id>.<piece>.<role>`.
-- **S4 (text):** a filter cannot create text objects. Nothing in Plan 2 needs text.
-- **S2 (Linux):** no Linux headless CLI, so the Road Builder render comparison runs on macOS only; Linux CI runs tests only. The manual Linux checklist is still the owner's to run.
+**Scope of Plan 3** (spec section 10, Phase 2, second half): `classify` and the shape-to-line mapping for roads, junctions, crossings, hubs, water and wet crossings; layers (one per feature, water under roads, crossings above, the panel shows and unlocks its layers for a build); the road card with the element bar and edits, the lane-change card, and the junction, intersection, hub, water, embankment and crossing cards, built from schemas served by `cartographer-cli` as the settings card already is; the agent providers (Claude, a command, an OpenAI-style endpoint, Apple Intelligence on macOS only), prompts, `changes`; and the Road Builder panel tests (`providers.test.mjs` 17, `panel.test.mjs` 40, `server.test.mjs` 5) with their numbers unchanged.
 
-Scope of Plan 2: the band grammar (the Road Builder cross-section shorthand, generalised), the engine that draws bands along a line, roads, lane changes, junctions, intersections, scenarios, hub, gore, water, embankment and wet crossings, with every Road Builder Rust and panel test ported with its numbers unchanged (the parity gate), and the README images of Road Builder reproduced in headless renders. Plan 3 is the Track Layer port and the standards-based library.
+**Facts to carry over**
+- The panel talks to the plug-in only through command ids that already exist (`set_cross_section`, `set_junction`, `set_crossing`, `set_hub`, `set_transition`, `set_water`, `set_embankment`, `set_wet`, `set_settings`) and the CLI's `parse`, `edit`, `diff` and `parse-*` commands; the fake VectorCraft in `panel/test` needs handlers for each.
+- Decisions from the owner: one width per river line (joined lines conform); no simulation facts export.
+- Spike results: filters cannot create text; one build is refused at about 2,000 points (a note appears above 1,200); SVG export drops plug-in data (PDF and the native file keep it); no Linux headless CLI.
+- Plan 2 left these open: the new plug-in is cheaper than Road Builder (`docs/PARITY.md`), so its real point limit should be re-measured with `scripts/spikes/s1-limit.mjs` (that script still names Road Builder's plug-in), and `water.rs` still decides closed shapes by coordinates, not by `Item.closed`; adopt the flag when a test for a loop road is added.
 
-Before writing Plan 2, re-read the design and ask the owner which of Road Builder's open items (a facts export for the simulation, a river width that changes along one line) are in scope.
+**After Plan 3:** Plan 4 Track Layer and the rail kind (the registry and `set_feature` arrive here); Plan 5 styles and the target print scale; Plan 6 the legacy `.pmap` importer and exporter, `add_junction`, the migration command, release 1.0 and the deprecation of the old repos.

@@ -121,6 +121,19 @@ fn migrate(v: &Value) -> Result<Map<String, Value>, String> {
 }
 
 impl Doc {
+    /// Only checks that the record is one this version may read (a newer schema is refused); the settings are not looked at.
+    pub fn check_schema(v: &Value) -> Result<(), String> {
+        migrate(v).map(|_| ())
+    }
+
+    /// Like `from_document_data`, but stored settings that cannot be read (a value from a later version, or a hand edit) become the defaults
+    /// instead of an error, so a settings command can repair them.
+    pub fn from_document_data_lenient(v: &Value) -> Result<Doc, String> {
+        let raw = migrate(v)?;
+        let settings = Settings::from_json(raw.get("settings").unwrap_or(&Value::Null)).unwrap_or_default();
+        Ok(Doc { settings, raw })
+    }
+
     pub fn from_document_data(v: &Value) -> Result<Doc, String> {
         let raw = migrate(v)?;
         let settings = Settings::from_json(raw.get("settings").unwrap_or(&Value::Null))?;

@@ -133,8 +133,9 @@ impl Out {
             .filter(|s| s.len() >= min)
             .map(|s| {
                 let mut m: Vec<P> = s.iter().map(|&w| map(w)).collect();
-                // A closed ring that repeats its first point (how a drawn shape is read) is one point shorter: the repeat would be a zero-length side.
-                if closed && m.len() > 2 && m.first() == m.last() {
+                // A smooth closed ring that repeats its first point (how a drawn shape is read) is one point shorter: the repeat would be a zero-length
+                // chord and `thin` would drop every corner. A plain polygon keeps its points exactly as given.
+                if smooth && closed && m.len() > 2 && m.first() == m.last() {
                     m.pop();
                 }
                 m
