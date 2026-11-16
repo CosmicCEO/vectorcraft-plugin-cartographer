@@ -2,7 +2,9 @@
 
 pub mod abi;
 pub mod builder;
+pub mod crosssection;
 pub mod geom;
+pub mod library;
 pub mod materials;
 pub mod offset;
 pub mod output;
