@@ -9,6 +9,15 @@ test("normalizeSvg ignores ids and rounds numbers", () => {
   assert.equal(normalizeSvg('<path d="M-0.0001 5.12345"/>'), normalizeSvg('<path d="M0 5.123"/>'));
 });
 
+test("object names in ids are compared; other ids are not", () => {
+  const a = '<svg><path id="gen.road.r1.1.surface.0.lane" d="M1 2"/></svg>';
+  const b = '<svg><path id="gen.road.r1.1.surface.1.lane" d="M1 2"/></svg>';
+  assert.equal(compareSvg(a, b).same, false, "a renamed object differs");
+  assert.match(compareSvg(a, b).summary, /gen\.road\.r1\.1\.surface/);
+  assert.equal(compareSvg('<svg><path id="gen.road.a" d="M1 2"/></svg>', '<svg><path id="gen.road.a" d="M1 2"/></svg>').same, true);
+  assert.equal(compareSvg('<svg><clipPath id="clip7"/></svg>', '<svg><clipPath id="clip9"/></svg>').same, true, "session counters are ignored");
+});
+
 test("compareSvg says same for equal geometry", () => {
   const r = compareSvg('<svg><path d="M1 2"/></svg>', '<svg>\n<path id="q" d="M1.0 2.0"/>\n</svg>');
   assert.equal(r.same, true);

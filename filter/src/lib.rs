@@ -181,3 +181,14 @@ fn run(input: &[u8], params: &Value) -> Result<Output, String> {
 }
 
 vc_plugin!(MANIFEST, run);
+
+#[cfg(test)]
+mod tests {
+    use super::MANIFEST;
+
+    #[test]
+    fn the_manifest_version_is_the_workspace_version() {
+        let m: serde_json::Value = serde_json::from_str(MANIFEST).unwrap();
+        assert_eq!(m["version"], cartographer_core::VERSION);
+    }
+}

@@ -1,4 +1,4 @@
-use cartographer_core::builder::{build_text, set_crossing_text, set_cross_section_text, set_embankment_text, set_hub_text, set_junction_text, set_transition_text, set_water_text, set_wet_text};
+use cartographer_core::builder::{build_text, set_settings_text, set_crossing_text, set_cross_section_text, set_embankment_text, set_hub_text, set_junction_text, set_transition_text, set_water_text, set_wet_text};
 use serde_json::{Value, json};
 
 const TWO: &str = "lane back | lane fwd";
@@ -106,5 +106,40 @@ fn a_big_build_gets_a_note_naming_the_point_count() {
     };
     assert!(!notes(1199).iter().any(|n| n.contains("points")), "no note below the limit");
     let big = notes(1300);
-    assert!(big.iter().any(|n| n.contains("1300") && n.contains("split")), "{big:?}");
+    assert!(big.iter().any(|n| n.contains("1300") && n.contains("split") && n.contains("2,000")), "{big:?}");
+}
+
+#[test]
+fn a_build_and_the_commands_write_the_schema_even_when_the_document_had_none() {
+    let d = data(json!({}));
+    assert!(d.get("schema").is_none());
+    for out in [parsed(build_text(&road(), &params(d.clone()))), parsed(set_cross_section_text(&road(), &params(d.clone())))] {
+        assert_eq!(out["documentData"]["schema"], 1);
+    }
+}
+
+#[test]
+fn keys_nested_in_segments_survive_the_commands() {
+    let d = json!({"schema": 1, "segments": {"a": {"cross_section": TWO, "future": 5}, "odd": {"material": "x"}}});
+    let p = {
+        let mut p = params(d);
+        p["description"] = json!(r#"{"height": 2, "slope": 2}"#);
+        p
+    };
+    let results = [parsed(build_text(&road(), &p)), parsed(set_cross_section_text(&road(), &p)), parsed(set_embankment_text(&road(), &p))];
+    for out in results {
+        assert_eq!(out["documentData"]["segments"]["a"]["future"], 5);
+        assert_eq!(out["documentData"]["segments"]["odd"]["material"], "x");
+        assert_eq!(out["documentData"]["segments"]["a"]["cross_section"], TWO);
+    }
+}
+
+#[test]
+fn a_bad_stored_setting_does_not_block_build_and_a_settings_command_repairs_it() {
+    let d = data(json!({"schema": 1, "settings": {"style": "neon"}}));
+    assert!(build_text(&road(), &params(d.clone())).is_ok(), "Build does not use settings");
+    let mut p = params(d);
+    p["description"] = json!(r#"{"style": "hand-drawn"}"#);
+    let out = parsed(set_settings_text(&road(), &p));
+    assert_eq!(out["documentData"]["settings"]["style"], "hand-drawn");
 }

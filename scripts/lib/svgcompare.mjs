@@ -5,13 +5,15 @@ const round = (n) => {
   return Object.is(v, -0) ? "0" : String(v);
 };
 
-/** The SVG as a normalised string: no XML header, comments or document title, no `id` or `data-*` attributes, numbers rounded, whitespace between tags dropped. */
+/** The SVG as a normalised string: no XML header, comments or document title, no `data-*` attributes and no `id` that is not an object name (`gen.*`, `road.*`, `water.*`, `junction.*`), numbers rounded, whitespace between tags dropped. */
 export function normalizeSvg(text) {
   return text
     .replace(/<\?xml[\s\S]*?\?>/g, "")
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<title>[\s\S]*?<\/title>/g, "") // the document's name differs per session
-    .replace(/\s(?:id|data-[\w-]+)="[^"]*"/g, "")
+    .replace(/\sdata-[\w-]+="[^"]*"/g, "")
+    // An object's name is its id and is compared; other ids are per-session counters.
+    .replace(/\sid="([^"]*)"/g, (whole, id) => (/^(gen|road|water|junction)(\.|$)/.test(id) ? whole : ""))
     .replace(/-?\d+\.\d+/g, round)
     .replace(/\s+/g, " ")
     .replace(/>\s+</g, "><")

@@ -78,7 +78,16 @@ impl Spec {
     pub fn to_value(&self) -> Value {
         let mut v = self.raw.clone();
         v["version"] = json!(1);
-        v["segments"] = Value::Object(self.segments.iter().map(|(id, (t, a))| (id.clone(), json!({"cross_section": t, "anchor": anchor_name(a)}))).collect());
+        v["schema"] = json!(crate::storage::SCHEMA);
+        // Merge into the stored entries: keys this version does not know (and whole entries it skipped) stay as they were.
+        let mut segments = v["segments"].as_object().cloned().unwrap_or_default();
+        for (id, (t, a)) in &self.segments {
+            let mut entry = segments.get(id).and_then(Value::as_object).cloned().unwrap_or_default();
+            entry.insert("cross_section".into(), json!(t));
+            entry.insert("anchor".into(), json!(anchor_name(a)));
+            segments.insert(id.clone(), Value::Object(entry));
+        }
+        v["segments"] = Value::Object(segments);
         v
     }
 

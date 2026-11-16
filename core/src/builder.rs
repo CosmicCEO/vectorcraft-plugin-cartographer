@@ -16,13 +16,13 @@ use serde_json::{Value, json};
 
 pub const GEN_PREFIX: &str = "gen.";
 
-/// Above this many input points a build gets a note: VectorCraft refuses a build of about 1,500 or more points (spike S1).
+/// Above this many input points a build gets a note: VectorCraft refused a 2,000-point road and built a 1,500-point one (spike S1).
 const NEAR_LIMIT_POINTS: usize = 1_200;
 
 /// The stored descriptions of the document, after checking the record is one this version may read (a newer schema is refused).
 fn load_spec(params: &Value) -> Result<Spec, String> {
     let data = &params["_context"]["documentData"];
-    Doc::from_document_data(data)?;
+    Doc::check_schema(data)?;
     Ok(Spec::from_document_data(data))
 }
 /// The drawn line of a road or junction: bright and bold (metres of stroke), so it can be seen and clicked among the generated shapes.
@@ -40,7 +40,7 @@ pub fn settings_summary(s: &Settings) -> String {
 /// Command "Set Settings": changes the document settings named in `description` (a JSON object; keys left out keep their value), keeps every
 /// selected object, and writes the record back. A record saved by a newer Cartographer is refused.
 pub fn set_settings_text(input: &Value, params: &Value) -> Result<String, String> {
-    let mut doc = Doc::from_document_data(&params["_context"]["documentData"])?;
+    let mut doc = Doc::from_document_data_lenient(&params["_context"]["documentData"])?;
     let patch: Value = match params["description"].as_str().map(str::trim).filter(|t| !t.is_empty()) {
         Some(raw) => serde_json::from_str(raw).map_err(|e| format!("the settings description is not valid JSON: {e}"))?,
         None => json!({}),
@@ -75,7 +75,7 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     let mut notes: Vec<String> = Vec::new();
     let points: usize = items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)).map(|i| i.subs.iter().map(Vec::len).sum::<usize>()).sum();
     if points > NEAR_LIMIT_POINTS {
-        notes.push(format!("this build has {points} points; VectorCraft refuses a build of about 1,500 or more points, so split long roads"));
+        notes.push(format!("this build has {points} points; VectorCraft refuses a build of about 2,000 or more points, so split long roads"));
     }
     for it in items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)) {
         let Some(id) = it.id else { continue };

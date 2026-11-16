@@ -25,3 +25,10 @@ fn a_bad_command_is_a_plain_error() {
     assert_eq!(code, 1);
     assert!(out.contains("\"ok\":false"), "{out}");
 }
+
+#[test]
+fn version_is_the_workspace_version() {
+    let (out, code) = run(&["version"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("\"version\":\"0.2.0\""), "{out}");
+}
