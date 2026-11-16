@@ -42,7 +42,7 @@ test("markup in a name is passed through as plain data, for the page's textConte
 test("the page is served with a policy that forbids inline script", async () => {
   const { base } = await start();
   const policy = (await fetch(`${base}/`)).headers.get("content-security-policy") ?? "";
-  for (const part of ["script-src 'self'", "object-src 'none'", "base-uri 'none'"]) assert.ok(policy.includes(part), `${part} in ${policy}`);
+  for (const part of ["script-src 'self'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) assert.ok(policy.includes(part), `${part} in ${policy}`);
 });
 
 test("an unknown action is a 404 and an inherited key is not an action", async () => {

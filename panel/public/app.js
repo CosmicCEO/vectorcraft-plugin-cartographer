@@ -388,7 +388,7 @@ function showSettings(s) {
   const sc = s.settings;
   $("swait").hidden = !!sc || !$("settingsCard").open;
   $("sproblem").hidden = !sc?.problem;
-  $("sproblem").textContent = sc?.problem ? `Stored settings cannot be read (${sc.problem}); showing the defaults. Draw to replace them.` : "";
+  $("sproblem").textContent = sc?.problem ?? "";
   if (sc) {
     const fields = sc.card.fields;
     const keys = fields.map((f) => f.key).join(",");

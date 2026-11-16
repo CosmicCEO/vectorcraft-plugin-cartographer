@@ -67,7 +67,7 @@ test("a choice is previewed, then Draw stores it", async () => {
   assert.equal(panel.snapshot().settingsPending.settings.style, "hand-drawn");
   assert.deepEqual(steps(vc), [], "nothing is applied until Draw");
   await panel.drawSettings();
-  assert.deepEqual(steps(vc), ["select.all", SET_SETTINGS]);
+  assert.deepEqual(steps(vc), ["select.all", SET_SETTINGS, "select.set"], "the selection is put back");
   assert.equal(vc.doc.spec.settings.style, "hand-drawn");
   const s = panel.snapshot();
   assert.equal(s.settingsPending, null);
@@ -166,4 +166,25 @@ test("switching documents drops a settings proposal and reads the new document's
   const s = panel.snapshot();
   assert.equal(s.settingsPending, null);
   assert.equal(s.settings.values.seed, 2);
+});
+
+test("Draw sends only the keys that were changed, so another document's other settings are never overwritten", async () => {
+  const { vc, panel } = await setup({ paths: [{ id: 5, name: "" }], selection: [5], spec: { schema: 1, settings: { style: "high-contrast", seed: 4 } } });
+  await panel.editSettings({ target_print_scale: "1:2000" });
+  await panel.drawSettings();
+  const call = vc.doc.calls.find((c) => c.command === SET_SETTINGS);
+  assert.deepEqual(JSON.parse(call.params.params.description), { target_print_scale: "1:2000" });
+  assert.equal(vc.doc.spec.settings.style, "high-contrast");
+  assert.equal(vc.doc.spec.settings.seed, 4);
+});
+
+test("a settings proposal is dropped when the stored settings changed under it (another document with the same title, or an undo)", async () => {
+  const { vc, panel } = await setup({ paths: [{ id: 5, name: "" }], selection: [5], spec: { schema: 1, settings: { style: "high-contrast", seed: 4 } } });
+  await panel.editSettings({ seed: 9 });
+  assert.ok(panel.snapshot().settingsPending);
+  vc.doc.spec = { schema: 1, settings: { style: "black-white", seed: 4 } };
+  vc.doc.revision++;
+  await panel.tick();
+  assert.equal(panel.snapshot().settingsPending, null);
+  assert.equal(panel.snapshot().settings.values.style, "black-white");
 });

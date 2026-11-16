@@ -68,7 +68,17 @@ export class Panel extends EventEmitter {
     if (JSON.stringify(this.snapshot()) !== before) this.emit("change", this.snapshot());
   }
 
+  /** Reads the document again; a failure the page cannot show otherwise (the helper crashed) becomes its error line, and the next poll tries again. */
   async #refresh(force) {
+    try {
+      await this.#refreshInner(force);
+    } catch (e) {
+      this.last = { revision: null, selection: "", title: null };
+      this.#set({ connected: this.control.connected, error: e.message });
+    }
+  }
+
+  async #refreshInner(force) {
     let s;
     try {
       s = await inspectState(this.control);
@@ -85,6 +95,7 @@ export class Panel extends EventEmitter {
     if (!changed) return this.#set({ connected: true, error: null });
     const selectionChanged = key !== this.last.selection;
     this.last = { revision: s.revision, selection: key, title: s.title };
+    if (switched) this.spec = null; // the old document's build notes must not show in the new one
 
     let sel = (await nodes(this.control, s.selection)).map((n) => ({ id: n.id, name: n.name ?? "", kind: n.kind, anchors: n.anchors, ...classify(n) }));
     // Clicking anywhere on a built road selects one of its generated shapes. For the panel that means "this road": swap each shape for the
@@ -185,8 +196,12 @@ export class Panel extends EventEmitter {
     // A proposal belongs to what was selected when it was made.
     const keep = this.state.pending && !selectionChanged && !switched;
     // The document settings card: read only while it is open, and only when the document or its revision changed.
-    const settings = this.settingsOpen && (force || settingsStale) ? await this.#readSettings() : this.state.settings;
-    this.#set({ connected: true, error: null, doc: { title: s.title, revision: s.revision }, notes: this.spec?.notes ?? [], selection: sel, target, road, junction, crossing, hub, water, wet, embank, settings, settingsPending: switched ? null : this.state.settingsPending, pending: keep ? this.state.pending : null, message: keep ? this.state.message : null });
+    const reread = this.settingsOpen && (force || settingsStale);
+    const settings = reread ? await this.#readSettings() : this.state.settings;
+    // A settings proposal is dropped when the stored settings are no longer the ones it was made from (another document, an undo).
+    let settingsPending = switched ? null : this.state.settingsPending;
+    if (reread && settingsPending && JSON.stringify(settings?.values) !== JSON.stringify(settingsPending.base)) settingsPending = null;
+    this.#set({ connected: true, error: null, doc: { title: s.title, revision: s.revision }, notes: this.spec?.notes ?? [], selection: sel, target, road, junction, crossing, hub, water, wet, embank, settings, settingsPending, pending: keep ? this.state.pending : null, message: keep ? this.state.message : null });
   }
 
   /** Words to a proposed cross-section (not applied until Draw). */
@@ -472,12 +487,12 @@ export class Panel extends EventEmitter {
       let parsed = await parseSettings(JSON.stringify(stored));
       let problem = null;
       if (!parsed.ok) {
-        problem = parsed.error;
+        problem = `Stored settings cannot be read (${parsed.error}); showing the defaults. Draw to replace them.`;
         parsed = await parseSettings("{}");
       }
       return { values: parsed.settings, summary: parsed.summary, card: cardModel(this.schema, parsed.settings), problem };
-    } catch {
-      return null;
+    } catch (e) {
+      return { values: {}, summary: "", card: { fields: [] }, problem: `The settings could not be read: ${e.message}` };
     }
   }
 
@@ -503,7 +518,8 @@ export class Panel extends EventEmitter {
       const base = this.state.settingsPending?.settings ?? this.state.settings?.values;
       if (!base) return this.#set({ message: "Open or create a document in VectorCraft first." });
       const r = await parseSettings(JSON.stringify({ ...base, ...patch }));
-      this.#set(r.ok ? { settingsPending: { settings: r.settings, summary: r.summary }, message: null } : { message: r.error });
+      // `base` is what the proposal was made from; Draw sends only what differs from it.
+      this.#set(r.ok ? { settingsPending: { settings: r.settings, summary: r.summary, base: this.state.settingsPending?.base ?? base }, message: null } : { message: r.error });
     });
   }
 
@@ -516,11 +532,15 @@ export class Panel extends EventEmitter {
     return this.#serial(async () => {
       const pending = this.state.settingsPending;
       if (!pending) return this.#set({ message: "Nothing to change." });
+      const changed = Object.fromEntries(Object.entries(pending.settings).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(pending.base?.[k])));
+      if (!Object.keys(changed).length) return this.#set({ settingsPending: null, message: "Nothing to change." });
+      const selected = this.state.selection.map((n) => n.id);
       this.#set({ busy: "drawing", message: null });
       let message = "Drawn.";
       try {
         await this.control.run("select.all");
-        await this.control.run(SET_SETTINGS, { params: { description: JSON.stringify(pending.settings) } });
+        await this.control.run(SET_SETTINGS, { params: { description: JSON.stringify(changed) } });
+        if (selected.length) await this.control.run("select.set", { ids: selected }); // the user's selection comes back
         this.#set({ settingsPending: null });
       } catch (e) {
         message = `Could not draw: ${e.message}`;

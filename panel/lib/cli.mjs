@@ -15,7 +15,11 @@ export function cliPath() {
 export function runCli(args) {
   return new Promise((done, fail) => {
     execFile(cliPath(), args, { timeout: 10_000 }, (err, stdout) => {
-      if (err && !stdout) return fail(err);
+      if (err && !stdout) {
+        // The helper did not answer at all (crashed, killed, or could not start): say so in plain words.
+        const why = err.killed ? "it took longer than 10 seconds" : typeof err.code === "number" ? `exit code ${err.code}` : (err.code ?? err.message);
+        return fail(new Error(`cartographer-cli could not run (${why}); run node scripts/check.mjs`));
+      }
       try {
         done(JSON.parse(stdout));
       } catch {

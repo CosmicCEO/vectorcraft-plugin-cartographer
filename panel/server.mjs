@@ -93,7 +93,7 @@ export function createServer({ panel, port }) {
         if (!/^[\w.-]+$/.test(file) || !TYPES[extname(file)]) return json(res, 404, { error: "not found" });
         const body = await readFile(resolve(PUBLIC, file));
         // Only forbids inline script and plug-ins; styles are left alone because the page sets them from script.
-        res.writeHead(200, { "content-type": TYPES[extname(file)], "cache-control": "no-store", "content-security-policy": "script-src 'self'; object-src 'none'; base-uri 'none'" });
+        res.writeHead(200, { "content-type": TYPES[extname(file)], "cache-control": "no-store", "content-security-policy": "script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" });
         return res.end(body);
       }
       json(res, 405, { error: "method not allowed" });
@@ -110,6 +110,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   };
   const port = Number(arg("port", 8789));
   const providers = loadProviders();
+  for (const w of providers.warnings ?? []) console.warn(`warning: ${w}`);
   if (arg("agent")) providers.default = arg("agent");
   const panel = new Panel({ control: new Control({ port: Number(arg("control", 7979)) }), providers });
   createServer({ panel, port }).listen(port, "127.0.0.1", () => {

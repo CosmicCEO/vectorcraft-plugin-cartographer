@@ -9,13 +9,34 @@ import { embankmentSystemPrompt, featureUserPrompt, waterSystemPrompt, wetSystem
 
 const here = import.meta.dirname;
 
-/** The built-in providers.json, with the user's own (CARTOGRAPHER_PROVIDERS or ~/.config/vectorcraft-cartographer/providers.json) on top. */
+/**
+ * The built-in providers.json, with the user's own (CARTOGRAPHER_PROVIDERS or ~/.config/vectorcraft-cartographer/providers.json) on top.
+ * Returns `{default, providers, warnings}`. A user file that cannot be read, or an entry that cannot work (a `cli` without a command, an `http` without
+ * a base_url), is left out with a warning; the built-in agents always stay.
+ */
 export function loadProviders(extraPath) {
   const base = JSON.parse(readFileSync(resolve(here, "../providers.json"), "utf8"));
+  const warnings = [];
   const mine = extraPath ?? process.env.CARTOGRAPHER_PROVIDERS ?? resolve(homedir(), ".config/vectorcraft-cartographer/providers.json");
-  if (!existsSync(mine)) return base;
-  const extra = JSON.parse(readFileSync(mine, "utf8"));
-  return { default: extra.default ?? base.default, providers: { ...base.providers, ...extra.providers } };
+  if (!existsSync(mine)) return { ...base, warnings };
+  let extra;
+  try {
+    extra = JSON.parse(readFileSync(mine, "utf8"));
+  } catch (e) {
+    return { ...base, warnings: [`${mine} cannot be read (${e.message}); ignored`] };
+  }
+  const object = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+  if (!object(extra) || (extra.providers !== undefined && !object(extra.providers))) return { ...base, warnings: [`${mine} is not a providers file (an object with "providers"); ignored`] };
+  const good = {};
+  for (const [id, cfg] of Object.entries(extra.providers ?? {})) {
+    if (!object(cfg)) warnings.push(`provider ${id} is not an object; left out`);
+    else if (cfg.kind === "cli" && typeof cfg.command !== "string") warnings.push(`provider ${id}: a cli provider needs a command; left out`);
+    else if (cfg.kind === "http" && typeof cfg.base_url !== "string") warnings.push(`provider ${id}: an http provider needs a base_url; left out`);
+    else good[id] = cfg;
+  }
+  const providers = { ...base.providers, ...good };
+  if (extra.default !== undefined && !providers[extra.default]) warnings.push(`default agent "${extra.default}" is not a known provider; using ${base.default}`);
+  return { default: providers[extra.default] ? extra.default : base.default, providers, warnings };
 }
 
 function run(command, args, { input, cwd, timeoutMs = 90_000 } = {}) {
