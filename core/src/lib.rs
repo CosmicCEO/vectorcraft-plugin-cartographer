@@ -9,6 +9,7 @@ pub mod materials;
 pub mod offset;
 pub mod output;
 pub mod schema;
+pub mod standards;
 pub mod storage;
 pub mod units;
 pub mod vcdoc;

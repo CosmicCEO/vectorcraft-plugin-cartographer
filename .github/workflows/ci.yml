@@ -40,3 +40,9 @@ jobs:
 
       - name: Install check
         run: node scripts/check.mjs --ci
+
+      - name: Standards database is valid and its document is up to date
+        run: |
+          node scripts/standards.mjs check
+          node scripts/standards.mjs md
+          git diff --exit-code docs/STANDARDS.md
