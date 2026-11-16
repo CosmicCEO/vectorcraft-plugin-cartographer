@@ -27,3 +27,10 @@ test("compareSvg reports a different element count when one is a prefix of the o
   assert.equal(r.same, false);
   assert.match(r.summary, /different element count: 1 elements against 2/);
 });
+
+test("the document title is a per-session name, not geometry", () => {
+  const a = '<svg><title>Untitled-2</title><path d="M1 2"/></svg>';
+  const b = '<svg><title>Untitled-3</title><path d="M1 2"/></svg>';
+  assert.equal(compareSvg(a, b).same, true);
+  assert.equal(compareSvg('<svg><title>x</title><path d="M1 2"/></svg>', '<svg><title>x</title><path d="M1 3"/></svg>').same, false, "a real geometry difference still shows");
+});
