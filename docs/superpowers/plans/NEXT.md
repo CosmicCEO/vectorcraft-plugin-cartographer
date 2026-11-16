@@ -1,13 +1,16 @@
-# Next: Plan 3, the panel port (and what follows)
+# Next: Plan 4, Track Layer and the rail kind
 
-Written at the end of Plan 2 (the road core port, 0.2.0). Plan 3 ports Road Builder's companion panel so the road commands have their cards again.
+Written at the end of Plan 3 (the panel port, 0.3.0). Plan 4 ports Track Layer (`CosmicCEO/vectorcraft-plugin-tracklayer`, private; there is no local copy yet: `gh repo clone CosmicCEO/vectorcraft-plugin-tracklayer`) and is where the design's "kinds" arrive.
 
-**Scope of Plan 3** (spec section 10, Phase 2, second half): `classify` and the shape-to-line mapping for roads, junctions, crossings, hubs, water and wet crossings; layers (one per feature, water under roads, crossings above, the panel shows and unlocks its layers for a build); the road card with the element bar and edits, the lane-change card, and the junction, intersection, hub, water, embankment and crossing cards, built from schemas served by `cartographer-cli` as the settings card already is; the agent providers (Claude, a command, an OpenAI-style endpoint, Apple Intelligence on macOS only), prompts, `changes`; and the Road Builder panel tests (`providers.test.mjs` 17, `panel.test.mjs` 40, `server.test.mjs` 5) with their numbers unchanged.
+**Scope** (spec section 10, Phase 3, and section 6): the rail kind (`rail.<id>` lines: parallel tracks, turnouts from the NMRA table, crossovers, yards, ties and the tie budget, joints and branches, connectors, the joining of lines) with Track Layer's Rust tests (about 50 in `core/tests`) ported with their numbers unchanged; rail dimensions in real metres (1:160 model millimetres become ground metres: N gauge 1.44 m) with a conversion checked once against Track Layer's tests; the kinds registry and the generic `set_feature` command now that there are two kinds; the road and rail cards built from schemas served by `cartographer-cli` (the settings card already is one); Track Layer's panel pieces; and the standards-based library.
+
+**Decide first, with the owner:** which Track Layer commands keep their ids (`set_tracks`, `set_yard`, `set_joint`) and which fold into `set_feature`; whether the road cards become schema-built in this plan or the next.
 
 **Facts to carry over**
-- The panel talks to the plug-in only through command ids that already exist (`set_cross_section`, `set_junction`, `set_crossing`, `set_hub`, `set_transition`, `set_water`, `set_embankment`, `set_wet`, `set_settings`) and the CLI's `parse`, `edit`, `diff` and `parse-*` commands; the fake VectorCraft in `panel/test` needs handlers for each.
-- Decisions from the owner: one width per river line (joined lines conform); no simulation facts export.
-- Spike results: filters cannot create text; one build is refused at about 2,000 points (a note appears above 1,200); SVG export drops plug-in data (PDF and the native file keep it); no Linux headless CLI.
-- Plan 2 left these open: the new plug-in is cheaper than Road Builder (`docs/PARITY.md`), so its real point limit should be re-measured with `scripts/spikes/s1-limit.mjs` (that script still names Road Builder's plug-in), and `water.rs` still decides closed shapes by coordinates, not by `Item.closed`; adopt the flag when a test for a loop road is added.
+- Parity method: ported tests keep their numbers; a render comparison against Track Layer's own plug-in (`scripts/parity.mjs` works for any pair of plug-ins with a scenario file) and the fuel check (`scripts/fuel-parity.mjs`) are the gates.
+- The panel is ported (Plan 3): `Panel`, layers and cards need a `rail` branch, not a rewrite. Rail layers and ordering (roadbed, ties, rails; `Out::layer`) already exist in the shared `Out`.
+- Host limits: a build is refused at about 2,000 input points (a note above 1,200); Track Layer's tie budget (`MAX_TIES` 9,000) is a fuel measure, re-measure with `tools/fuel`.
+- Decisions from the owner: one width per river line; no simulation facts export; the panel against a real VectorCraft is the owner's check (`docs/PANEL-CHECK.md`).
+- Open from earlier plans: the new plug-in's real point limit is not re-measured; `water.rs` decides closed shapes by coordinates, not `Item.closed`.
 
-**After Plan 3:** Plan 4 Track Layer and the rail kind (the registry and `set_feature` arrive here); Plan 5 styles and the target print scale; Plan 6 the legacy `.pmap` importer and exporter, `add_junction`, the migration command, release 1.0 and the deprecation of the old repos.
+**After Plan 4:** Plan 5 styles and the target print scale; Plan 6 the legacy `.pmap` importer and exporter, `add_junction`, the migration command, release 1.0 and the deprecation of the old repos.

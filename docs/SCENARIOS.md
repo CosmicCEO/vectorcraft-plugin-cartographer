@@ -1,6 +1,6 @@
 # Intersection scenarios
 
-> Carried over from Road Builder. In Cartographer 0.2.0 the plug-in commands are the same (Describe Road, Make Intersection, Add or Drop a Lane, Describe Water, Put Road on Fill, Road Meets Water and the others, in VectorCraft's command menu), but the panel cards this document mentions are not ported yet: that is Plan 3.
+> Carried over from Road Builder. The plug-in commands are the same (Describe Road, Make Intersection, Add or Drop a Lane, Describe Water, Put Road on Fill, Road Meets Water and the others, in VectorCraft's command menu), and the panel cards this document mentions are in the companion panel (0.3.0).
 
 What the plug-in can build where roads meet, what is planned, and the rules each one follows. Update this file in the same commit that
 changes a scenario. Everything is in metres; `r` is the kerb radius, `cw` the crosswalk depth (3 m), `gap` the space between box and crosswalk (1 m).
