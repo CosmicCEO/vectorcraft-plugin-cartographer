@@ -82,3 +82,16 @@ test("VectorCraft not running is reported plainly", async () => {
   await panel.tick();
   assert.match(panel.snapshot().error, /VectorCraft is not answering on port 1/);
 });
+
+test("switching documents drops a proposal and reads the new document", async () => {
+  const { vc, panel } = await setup();
+  await panel.editSettings({ seed: 9 });
+  assert.equal(panel.snapshot().pending.settings.seed, 9);
+  vc.doc.title = "Other.vectorcraft";
+  vc.doc.spec = { schema: 1, settings: { seed: 2 } };
+  await panel.tick();
+  const s = panel.snapshot();
+  assert.equal(s.pending, null);
+  assert.equal(s.settings.values.seed, 2);
+  assert.equal(s.doc.title, "Other.vectorcraft");
+});

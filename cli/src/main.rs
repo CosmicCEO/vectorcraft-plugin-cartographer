@@ -19,6 +19,9 @@ fn run(args: &[String]) -> Value {
                 Ok(v) => v,
                 Err(e) => return fail(format!("not valid JSON: {e}")),
             };
+            if let Err(e) = Settings::check_keys(&value) {
+                return fail(e);
+            }
             match Settings::from_json(&value) {
                 Ok(s) => json!({"ok": true, "settings": s.to_json(), "summary": settings_summary(&s)}),
                 Err(e) => fail(e),

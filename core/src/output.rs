@@ -8,6 +8,11 @@ use std::fmt::Write;
 /// How many ties one output may write one by one by default (Track Layer's `ties::MAX_TIES`); the rail module sets its own with `limit_ties`.
 const DEFAULT_MAX_TIES: usize = 9_000;
 
+/// A stroke needs a finite width above zero; VectorCraft would draw nothing, or refuse it.
+fn visible_width(width: f64) -> bool {
+    width.is_finite() && width > 0.0
+}
+
 pub struct Out {
     /// New objects (they are listed first, so VectorCraft puts them just below the objects that are kept: the lines you drew stay on top).
     texts: [String; 3],
@@ -90,6 +95,9 @@ impl Out {
 
     /// Keep an existing line and give it a bold, bright stroke of the given colour and width (so it is easy to see and to click).
     pub fn keep_styled(&mut self, id: i64, rgb: [f64; 3], width: f64) {
+        if !visible_width(width) {
+            return self.keep(id);
+        }
         self.sep_kept();
         let _ = write!(self.kept, "{{\"id\":{id},\"strokes\":[{{\"paint\":");
         let mut paint = String::new();
@@ -123,8 +131,15 @@ impl Out {
         let usable: Vec<Vec<P>> = subs
             .iter()
             .filter(|s| s.len() >= min)
-            .map(|s| s.iter().map(|&w| map(w)).collect::<Vec<P>>())
-            .filter(|m| m.iter().all(|p| p[0].is_finite() && p[1].is_finite()))
+            .map(|s| {
+                let mut m: Vec<P> = s.iter().map(|&w| map(w)).collect();
+                // A closed ring that repeats its first point (how a drawn shape is read) is one point shorter: the repeat would be a zero-length side.
+                if closed && m.len() > 2 && m.first() == m.last() {
+                    m.pop();
+                }
+                m
+            })
+            .filter(|m| m.len() >= min && m.iter().all(|p| p[0].is_finite() && p[1].is_finite()) && (closed || m.iter().any(|p| *p != m[0])))
             .collect();
         if usable.is_empty() {
             return false;
@@ -170,6 +185,9 @@ impl Out {
 
     /// A new stroked path; `map` converts each point to a document point.
     pub fn path(&mut self, name: &str, subs: &[Vec<P>], map: impl Fn(P) -> P, rgb: [f64; 3], width: f64, closed: bool) {
+        if !visible_width(width) {
+            return;
+        }
         if !self.open_object(name, subs, &map, closed, false) {
             return;
         }
@@ -183,21 +201,25 @@ impl Out {
     /// A new stroked object made of many two-point segments (ties), written straight out with no allocation per segment.
     pub fn segments(&mut self, name: &str, segs: impl Iterator<Item = [P; 2]>, map: impl Fn(P) -> P, rgb: [f64; 3], width: f64) {
         let mut segs = segs.peekable();
-        if segs.peek().is_none() {
+        if segs.peek().is_none() || !visible_width(width) {
             return; // VectorCraft refuses an object with no points
         }
+        let (mark, was_first) = (self.texts[self.layer].len(), self.firsts[self.layer]);
         self.sep();
         self.texts[self.layer].push_str("{\"name\":");
         self.texts[self.layer].push_str(&json_string(name));
         self.texts[self.layer].push_str(",\"path\":{\"subpaths\":[");
         let mut first = true;
         for [a, b] in segs {
+            let (a, b) = (map(a), map(b));
+            if ![a[0], a[1], b[0], b[1]].iter().all(|c| c.is_finite()) {
+                continue; // a non-finite point would be written as 0 and draw a line to the origin
+            }
             if !first {
                 self.texts[self.layer].push(',');
             }
             first = false;
             self.texts[self.layer].push_str("{\"anchors\":[{\"p\":[");
-            let (a, b) = (map(a), map(b));
             num(&mut self.texts[self.layer], a[0]);
             self.texts[self.layer].push(',');
             num(&mut self.texts[self.layer], a[1]);
@@ -206,6 +228,12 @@ impl Out {
             self.texts[self.layer].push(',');
             num(&mut self.texts[self.layer], b[1]);
             self.texts[self.layer].push_str("]}],\"closed\":false}");
+        }
+        if first {
+            // Every segment was skipped: take the half-written object back.
+            self.texts[self.layer].truncate(mark);
+            self.firsts[self.layer] = was_first;
+            return;
         }
         self.texts[self.layer].push_str("]},\"strokes\":[{\"paint\":");
         self.paint(rgb);
@@ -238,6 +266,9 @@ impl Out {
     /// Like `path`, but the points are thinned and joined with Bezier handles, so a curve is a curve and not a run of chords. A sharp corner
     /// (a turn of more than `CORNER_DEG` at one point) stays sharp.
     pub fn curve(&mut self, name: &str, subs: &[Vec<P>], map: impl Fn(P) -> P, rgb: [f64; 3], width: f64) {
+        if !visible_width(width) {
+            return;
+        }
         if !self.open_object(name, subs, &map, false, true) {
             return;
         }

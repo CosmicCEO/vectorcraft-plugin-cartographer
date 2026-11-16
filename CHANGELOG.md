@@ -7,5 +7,5 @@
 - The material library schema with twelve seed materials, all unverified.
 - Command Set Settings (target print scale, style, seed, north) and the native `cartographer-cli` (`version`, `parse-settings`, `schema settings`).
 - A companion panel with a settings card built from a schema, on port 8789.
-- Portable Node scripts (check, build, install, package, control-port client) and CI on Ubuntu and macOS.
+- Portable Node scripts (check, build, install, package, start VectorCraft, control-port client) and CI on Ubuntu and macOS.
 - Spike results for S1 to S4 in `docs/spikes/`.

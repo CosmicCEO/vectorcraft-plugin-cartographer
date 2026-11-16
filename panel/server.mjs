@@ -5,6 +5,7 @@
 //   Start VectorCraft with its control port (see docs/GETTING-STARTED.md; loopback only), then:
 //   node panel/server.mjs [--control 7979] [--port 8789]
 //   and open http://127.0.0.1:8789
+import "../scripts/lib/require-node.mjs";
 import { createServer as httpServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
@@ -46,8 +47,8 @@ export function createServer({ panel, port }) {
 
   return httpServer(async (req, res) => {
     if (!hosts.has(req.headers.host ?? "")) return json(res, 403, { error: "unexpected Host header" });
-    const url = new URL(req.url, `http://${req.headers.host}`);
     try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
       if (req.method === "GET" && url.pathname === "/events") {
         res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
         const send = (s) => res.write(`data: ${JSON.stringify(s)}\n\n`);

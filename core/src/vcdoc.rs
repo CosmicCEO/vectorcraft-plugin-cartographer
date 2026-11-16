@@ -5,6 +5,8 @@ use serde_json::{Value, json};
 
 /// A named path read from VectorCraft: every subpath flattened to points (document points, y down).
 pub struct Item {
+    /// Whether the first subpath is a closed shape (the document's own flag, not "the last point equals the first").
+    pub closed: bool,
     pub id: Option<i64>,
     pub name: String,
     pub subs: Vec<Vec<P>>,
@@ -43,7 +45,8 @@ fn flatten(subpath: &Value) -> Vec<P> {
         out.push(p);
     }
     // A closed subpath ends back where it began (its closing curve too), which is how a shape is told from an open line.
-    if subpath["closed"].as_bool() == Some(true) && anchors.len() >= 3 {
+    let curved = anchors.iter().any(|a| !a["out"].is_null() || !a["in"].is_null());
+    if subpath["closed"].as_bool() == Some(true) && (anchors.len() >= 3 || (anchors.len() == 2 && curved)) {
         if let (Some(last), Some(first)) = (anchors.last(), anchors.first()) {
             if let (Some(a), Some(b)) = (pt(&last["p"]), pt(&first["p"])) {
                 let (out_h, in_h) = (pt(&last["out"]), pt(&first["in"]));
@@ -64,6 +67,11 @@ pub fn subpaths_of(path: &Value) -> Vec<Vec<P>> {
     path["subpaths"].as_array().map(|a| a.iter().map(flatten).filter(|s| !s.is_empty()).collect()).unwrap_or_default()
 }
 
+/// Whether the path's first subpath is marked closed.
+fn first_closed(path: &Value) -> bool {
+    path["subpaths"].as_array().and_then(|a| a.first()).is_some_and(|s| s["closed"].as_bool() == Some(true))
+}
+
 /// Items from a filter's `{"objects": [...]}` input (paths and compound paths).
 pub fn items_from_filter_input(input: &Value) -> Vec<Item> {
     input["objects"]
@@ -71,6 +79,7 @@ pub fn items_from_filter_input(input: &Value) -> Vec<Item> {
         .map(|objs| {
             objs.iter()
                 .map(|o| Item {
+                    closed: first_closed(&o["path"]),
                     id: o["id"].as_i64(),
                     name: o["name"].as_str().unwrap_or("").to_string(),
                     subs: subpaths_of(&o["path"]),
@@ -86,6 +95,7 @@ pub fn items_from_native(doc: &Value) -> Result<Vec<Item>, String> {
     fn walk(node: &Value, out: &mut Vec<Item>) {
         if node["kind"]["type"] == "path" {
             out.push(Item {
+                closed: first_closed(&node["kind"]["path"]),
                 id: node["id"].as_i64(),
                 name: node["name"].as_str().unwrap_or("").to_string(),
                 subs: subpaths_of(&node["kind"]["path"]),

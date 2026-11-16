@@ -10,7 +10,7 @@ export class Panel extends EventEmitter {
     super();
     this.control = control;
     this.state = { connected: false, error: null, doc: null, settings: null, pending: null, busy: null, message: null };
-    this.last = { revision: null };
+    this.last = { revision: null, title: null };
     this.schema = null;
     this.queue = Promise.resolve();
     this.timer = null;
@@ -53,11 +53,14 @@ export class Panel extends EventEmitter {
       s = await inspectState(this.control);
     } catch (e) {
       const noDoc = /no (active )?document/i.test(e.message);
-      this.last = { revision: null };
+      this.last = { revision: null, title: null };
       return this.#set({ connected: !noDoc && this.control.connected, error: noDoc ? "Open or create a document in VectorCraft." : e.message, doc: null, settings: null, pending: null });
     }
-    if (!force && s.revision === this.last.revision && this.state.settings) return this.#set({ connected: true, error: null });
-    this.last = { revision: s.revision };
+    // A different document (its title changed) is read again and drops a proposal made for the old one.
+    const switched = s.title !== this.last.title;
+    if (!force && !switched && s.revision === this.last.revision && this.state.settings) return this.#set({ connected: true, error: null });
+    this.last = { revision: s.revision, title: s.title };
+    if (switched) this.#set({ pending: null });
     try {
       this.schema ??= await schema("settings");
       const stored = (await readData(this.control)).settings ?? {};

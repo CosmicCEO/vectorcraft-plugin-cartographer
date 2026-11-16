@@ -4,7 +4,7 @@ import net from "node:net";
 import { PLUGIN_ID, SET_SETTINGS } from "../lib/doc.mjs";
 
 export async function fakeVectorCraft({ paths = [], selection = [], spec = {}, hasDocument = true } = {}) {
-  const doc = { paths: paths.map((p) => ({ kind: "Path", ...p })), selection: [...selection], spec: structuredClone(spec), revision: 1, calls: [] };
+  const doc = { paths: paths.map((p) => ({ kind: "Path", ...p })), selection: [...selection], spec: structuredClone(spec), revision: 1, title: "Untitled", calls: [] };
   const reply = (socket, id, result) => socket.write(`${JSON.stringify({ id, ok: true, result })}\n`);
   const fail = (socket, id, error) => socket.write(`${JSON.stringify({ id, ok: false, error })}\n`);
 
@@ -20,7 +20,7 @@ export async function fakeVectorCraft({ paths = [], selection = [], spec = {}, h
         if (method === "document.inspect") {
           if (params.ids) return reply(socket, id, { nodes: doc.paths.filter((p) => params.ids.includes(p.id)) });
           if (params.kind) return reply(socket, id, { nodes: doc.paths });
-          return reply(socket, id, { revision: doc.revision, fileInfoTitle: "Untitled", selection: doc.selection, layers: [] });
+          return reply(socket, id, { revision: doc.revision, fileInfoTitle: doc.title, selection: doc.selection, layers: [] });
         }
         if (method !== "engine.execute") return fail(socket, id, `unknown method ${method}`);
         const { command, params: p = {} } = params;

@@ -2,6 +2,11 @@
 
 const NODE_MIN = 22;
 
+/** The fix line for every required check that fails (the optional ones are left out). */
+export function problems(probe) {
+  return checks(probe).filter((c) => !c.ok && !c.optional).map((c) => c.fix);
+}
+
 /** `probe`: {nodeVersion, hasRustup, hasWasmTarget, hasCli, controlReachable}. Returns [{name, ok, fix?, optional?}]. */
 export function checks(probe) {
   const major = Number(/^v?(\d+)\./.exec(probe.nodeVersion ?? "")?.[1]);

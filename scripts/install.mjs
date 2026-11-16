@@ -1,4 +1,5 @@
 // Installs the built plug-in into a running VectorCraft through its control port (no system plug-in folder is used).   node scripts/install.mjs
+import "./lib/require-node.mjs";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { call } from "./lib/control.mjs";

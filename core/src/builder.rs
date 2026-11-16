@@ -18,9 +18,11 @@ pub fn set_settings_text(input: &Value, params: &Value) -> Result<String, String
         Some(raw) => serde_json::from_str(raw).map_err(|e| format!("the settings description is not valid JSON: {e}"))?,
         None => json!({}),
     };
+    Settings::check_keys(&patch)?;
     let mut merged = doc.settings.to_json();
     match (merged.as_object_mut(), patch.as_object()) {
-        (Some(m), Some(p)) => m.extend(p.iter().map(|(k, v)| (k.clone(), v.clone()))),
+        // A null means "leave this one as it is".
+        (Some(m), Some(p)) => m.extend(p.iter().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone()))),
         _ => return Err("the settings description must be a JSON object".into()),
     }
     doc.settings = Settings::from_json(&merged)?;

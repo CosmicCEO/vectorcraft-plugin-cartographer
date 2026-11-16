@@ -6,7 +6,7 @@ export function call(method, params = {}, port = Number(process.env.VECTORCRAFT_
   return new Promise((done, fail) => {
     const socket = net.connect(port, "127.0.0.1");
     let buffer = "";
-    socket.on("error", (e) => fail(new Error(`cannot reach VectorCraft on port ${port}: ${e.message}`)));
+    socket.on("error", (e) => fail(new Error(`cannot reach VectorCraft on port ${port}: ${e.message}. Start it with its control port: node scripts/start-vectorcraft.mjs (see docs/GETTING-STARTED.md).`)));
     socket.on("connect", () => socket.write(`${JSON.stringify({ id: 1, method, params })}\n`));
     socket.on("data", (chunk) => {
       buffer += chunk;

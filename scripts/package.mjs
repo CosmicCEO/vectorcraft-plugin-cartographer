@@ -1,4 +1,5 @@
 // Builds and packs a release: dist/cartographer-<version>-<system>-<chip>.tar.gz and dist/SHA256SUMS.   node scripts/package.mjs <version>
+import "./lib/require-node.mjs";
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";

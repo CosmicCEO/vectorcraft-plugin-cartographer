@@ -20,8 +20,11 @@ This builds the plug-in (`target/wasm32-unknown-unknown/release/cartographer_fil
 
 The installer and the panel talk to a running VectorCraft over a local control port (loopback only, no password: open it only while you use it).
 
-- **macOS:** `open -a VectorCraft --args --control 7979`
-- **Linux:** run the AppImage (or the installed program) with `--control 7979`. Set `VECTORCRAFT_APP` to its path if it is not on your `PATH`. Whether the Linux build accepts `--control` is not yet confirmed: the manual checklist in [the Linux spike](spikes/S2-linux.md) tests it.
+```
+node scripts/start-vectorcraft.mjs
+```
+
+The port is fixed only when VectorCraft starts: if it is already running, quit it first. The script runs `open -a VectorCraft --args --control 7979` on macOS. On Linux it runs the program named in `VECTORCRAFT_APP` (the AppImage path), or `vectorcraft` from your `PATH`, with `--control 7979`; it says what to set if it finds neither. Whether the Linux build accepts `--control` is not yet confirmed: the manual checklist in [the Linux spike](spikes/S2-linux.md) tests it.
 
 To use another port, set `VECTORCRAFT_CONTROL_PORT` for the scripts and pass `--control <port>` to the panel.
 

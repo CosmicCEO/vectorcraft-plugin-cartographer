@@ -67,3 +67,19 @@ fn bad_settings_are_plain_errors() {
     assert!(Settings::from_json(&json!({"target_print_scale": "1:0"})).unwrap_err().contains("1:N"));
     assert!(Doc::from_document_data(&json!({"settings": 5})).is_err());
 }
+
+#[test]
+fn a_schema_that_is_not_a_whole_number_is_refused() {
+    for bad in [json!({"schema": 2.5}), json!({"schema": "2"}), json!({"schema": -1}), json!({"schema": true})] {
+        let e = Doc::from_document_data(&bad).err().unwrap_or_else(|| panic!("{bad} was accepted"));
+        assert!(e.contains("schema"), "{e}");
+    }
+}
+
+#[test]
+fn unknown_keys_inside_settings_survive() {
+    let doc = Doc::from_document_data(&json!({"schema": 1, "settings": {"seed": 3, "sheet": {"size": "A0"}}})).unwrap();
+    let v = doc.to_value();
+    assert_eq!(v["settings"]["sheet"], json!({"size": "A0"}));
+    assert_eq!(v["settings"]["seed"], 3);
+}

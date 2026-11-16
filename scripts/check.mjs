@@ -1,16 +1,16 @@
 // Checks this machine can build and run Cartographer; prints `ok:` or `fix:` lines. Exit 1 if a required check fails.
 //   node scripts/check.mjs [--ci]      (--ci skips the VectorCraft checks)
-import { spawnSync } from "node:child_process";
+import "./lib/require-node.mjs";
 import { existsSync } from "node:fs";
 import net from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { checks } from "./lib/checks.mjs";
 import { rustEnv } from "./lib/env.mjs";
+import { probeRust } from "./lib/probe.mjs";
 
 const ci = process.argv.includes("--ci");
 const env = rustEnv(process.platform, process.env, existsSync);
-const ok = (cmd, args) => spawnSync(cmd, args, { env, encoding: "utf8" });
 const cliPath = process.env.VECTORCRAFT_CLI ?? join(homedir(), ".local/share/vectorcraft-cli/vectorcraft-cli-0.24.1-macos-universal/vectorcraft-cli");
 const reachable = (port) =>
   new Promise((done) => {
@@ -22,8 +22,7 @@ const reachable = (port) =>
 
 const probe = {
   nodeVersion: process.version,
-  hasRustup: ok("cargo", ["+stable", "--version"]).status === 0,
-  hasWasmTarget: (ok("rustup", ["target", "list", "--installed", "--toolchain", "stable"]).stdout ?? "").includes("wasm32-unknown-unknown"),
+  ...probeRust(env),
   hasCli: existsSync(cliPath),
   controlReachable: ci ? false : await reachable(Number(process.env.VECTORCRAFT_CONTROL_PORT ?? 7979)),
 };

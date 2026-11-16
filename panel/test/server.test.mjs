@@ -74,3 +74,15 @@ test("the live feed starts with the current state", async () => {
   assert.match(chunk, /^data: \{/);
   assert.match(chunk, /"settings"/);
 });
+
+test("a malformed address cannot crash the server", async () => {
+  const { port } = await start();
+  const status = (path) => new Promise((ok, fail) => {
+    const r = request({ host: "127.0.0.1", port, path, headers: { host: `127.0.0.1:${port}` } }, (res) => { res.resume(); ok(res.statusCode); });
+    r.on("error", fail);
+    r.end();
+  });
+  const bad = await status("//[");
+  assert.ok(bad >= 400 && bad < 500, `got ${bad}`);
+  assert.equal(await status("/state"), 200, "the server is still alive");
+});

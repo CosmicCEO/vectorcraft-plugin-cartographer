@@ -1,5 +1,6 @@
 // Calls a running VectorCraft's control port and prints the result.
 //   node scripts/vc.mjs <method> [json-params]     e.g.  node scripts/vc.mjs engine.execute '{"command":"select.all"}'
+import "./lib/require-node.mjs";
 import { call } from "./lib/control.mjs";
 
 const [method, raw] = process.argv.slice(2);

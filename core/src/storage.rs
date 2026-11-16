@@ -54,7 +54,19 @@ impl Default for Settings {
     }
 }
 
+const SETTING_KEYS: [&str; 4] = ["target_print_scale", "style", "seed", "north_deg"];
+
 impl Settings {
+    /// For a command or a proposal: a key that is not a setting is an error naming the settings (a misspelt key would otherwise change nothing).
+    pub fn check_keys(v: &Value) -> Result<(), String> {
+        if let Some(map) = v.as_object() {
+            if let Some(bad) = map.keys().find(|k| !SETTING_KEYS.contains(&k.as_str())) {
+                return Err(format!("unknown setting \"{bad}\"; the settings are {}", SETTING_KEYS.join(", ")));
+            }
+        }
+        Ok(())
+    }
+
     /// Reads settings from JSON; keys that are missing keep their defaults, a key that is present must be valid.
     pub fn from_json(v: &Value) -> Result<Settings, String> {
         let mut s = Settings::default();
@@ -65,10 +77,10 @@ impl Settings {
             return Err("settings must be an object".into());
         }
         if let Some(t) = v.get("target_print_scale").filter(|t| !t.is_null()) {
-            s.target_print_scale = TargetScale::parse(t.as_str().unwrap_or(""))?;
+            s.target_print_scale = TargetScale::parse(t.as_str().ok_or("target_print_scale must be text: true or 1:N")?)?;
         }
         if let Some(t) = v.get("style").filter(|t| !t.is_null()) {
-            s.style = Style::parse(t.as_str().unwrap_or(""))?;
+            s.style = Style::parse(t.as_str().ok_or("style must be text")?)?;
         }
         if let Some(t) = v.get("seed").filter(|t| !t.is_null()) {
             s.seed = t.as_u64().and_then(|n| u32::try_from(n).ok()).ok_or("seed must be a whole number from 0 to 4294967295")?;
@@ -97,7 +109,10 @@ fn migrate(v: &Value) -> Result<Map<String, Value>, String> {
         Value::Object(m) => m.clone(),
         _ => return Err("the document's plug-in data is not an object".into()),
     };
-    let found = raw.get("schema").and_then(Value::as_u64).unwrap_or(0);
+    let found = match raw.get("schema") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_u64().ok_or("the document's schema must be a whole number; this data cannot be read safely")?,
+    };
     if found > u64::from(SCHEMA) {
         return Err(format!("this document was saved by a newer Cartographer (schema {found}); update the plug-in before changing it"));
     }
@@ -115,7 +130,12 @@ impl Doc {
     pub fn to_value(&self) -> Value {
         let mut m = self.raw.clone();
         m.insert("schema".into(), json!(SCHEMA));
-        m.insert("settings".into(), self.settings.to_json());
+        // Settings keys this version does not know (a later version's, same schema) stay as they were.
+        let mut settings = m.get("settings").and_then(Value::as_object).cloned().unwrap_or_default();
+        if let Some(known) = self.settings.to_json().as_object() {
+            settings.extend(known.iter().map(|(k, v)| (k.clone(), v.clone())));
+        }
+        m.insert("settings".into(), Value::Object(settings));
         Value::Object(m)
     }
 }

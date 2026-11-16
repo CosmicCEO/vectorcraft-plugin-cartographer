@@ -78,3 +78,30 @@ fn schema_lists_four_fields_with_four_styles() {
     assert_eq!(options, vec!["black-white", "hand-drawn", "high-contrast", "medium-contrast"]);
     assert_eq!(schema["kind"], "settings");
 }
+
+#[test]
+fn a_misspelt_key_is_refused_and_names_the_known_ones() {
+    let e = run(r#"{"stlye":"hand-drawn"}"#, json!({})).unwrap_err();
+    assert!(e.contains("stlye") && e.contains("style") && e.contains("seed"), "{e}");
+    assert!(Settings::check_keys(&json!({"stlye": 1})).unwrap_err().contains("stlye"));
+    assert!(Settings::check_keys(&json!({"style": "x", "seed": 1})).is_ok());
+}
+
+#[test]
+fn null_keeps_the_stored_value() {
+    let out = run(r#"{"style":null,"seed":5}"#, json!({"schema": 1, "settings": {"style": "high-contrast"}})).unwrap();
+    assert_eq!(out["documentData"]["settings"]["style"], "high-contrast");
+    assert_eq!(out["documentData"]["settings"]["seed"], 5);
+}
+
+#[test]
+fn a_scale_that_is_not_text_says_so() {
+    let e = Settings::from_json(&json!({"target_print_scale": true})).unwrap_err();
+    assert!(e.contains("text"), "{e}");
+}
+
+#[test]
+fn unknown_settings_keys_survive_a_command() {
+    let out = run(r#"{"seed":2}"#, json!({"schema": 1, "settings": {"sheet": {"size": "A0"}}})).unwrap();
+    assert_eq!(out["documentData"]["settings"]["sheet"], json!({"size": "A0"}));
+}
