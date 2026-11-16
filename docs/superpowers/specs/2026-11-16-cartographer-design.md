@@ -173,7 +173,7 @@ Phase 0, spikes (each answers one question before it can hurt a design):
 - S1 fuel of the generic engine against a Road Builder two-lane road and a Track Layer yard.
 - S2 does `vectorcraft-cli` exist for Linux, and can renders run headless in CI.
 - S3 what survives Save, Save As, SVG, PDF and print: plug-in data, object names, spine direction.
-- S4 can a filter output real text objects, or only paths (decides the labels release).
+- S4 can a filter output real text objects, or only paths (decides the labels release). Result (2026-11-16, `docs/spikes/S4-text.md`): only paths. A filter cannot create text, so the labels release uses either outlined glyph paths from a bundled font or real text objects created by the panel through VectorCraft's own commands.
 
 Phase 1: workspace, `core` (moved from the two repos, de-duplicated), versioned storage, library schema, portable scripts, CI on both OSs.
 Phase 2: port Road Builder (roads, lane changes, junction, intersections, scenarios, hub, gore, water, embankment, wet crossings) onto the band engine; port its Rust and panel tests with their numbers unchanged.
