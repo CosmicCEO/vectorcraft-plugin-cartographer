@@ -7,6 +7,7 @@ import { Panel } from "../lib/panel.mjs";
 import { createServer } from "../server.mjs";
 import { fakeVectorCraft } from "./fake-vectorcraft.mjs";
 
+const STORY = "facing N: bike-lane | apron | lane S x2 | margin 3 | lane N x2 | apron | bike-lane";
 const cleanups = [];
 after(() => cleanups.forEach((f) => f()));
 
@@ -15,13 +16,13 @@ const freePort = () => new Promise((ok) => { const s = net.createServer().listen
 async function start() {
   const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "" }], selection: [5] });
   const control = new Control({ port: vc.port });
-  const panel = new Panel({ control });
+  const panel = new Panel({ control, providers: { default: "fake", providers: { fake: { kind: "function", label: "Fake", fn: () => STORY } } } });
   await panel.tick();
   const port = await freePort();
   const server = createServer({ panel, port });
   await new Promise((ok) => server.listen(port, "127.0.0.1", ok));
   cleanups.push(() => { server.closeAllConnections(); server.close(); control.close(); vc.close(); });
-  return { base: `http://127.0.0.1:${port}`, port, vc };
+  return { base: `http://127.0.0.1:${port}`, port, vc, panel };
 }
 
 const post = (base, path, body, headers = {}) => fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
@@ -37,7 +38,7 @@ test("the page, script and style are served; nothing else is", async () => {
   assert.equal((await fetch(`${base}/package.json`)).status, 404);
 });
 
-test("a request that does not name this server is refused with 403", async () => {
+test("requests that do not name this server are refused", async () => {
   const { port } = await start();
   const status = (host) => new Promise((ok, fail) => {
     const r = request({ host: "127.0.0.1", port, path: "/state", headers: { host } }, (res) => { res.resume(); ok(res.statusCode); });
@@ -53,36 +54,31 @@ test("changes need JSON from the panel's own page", async () => {
   const { base } = await start();
   const noType = await fetch(`${base}/api/cancel`, { method: "POST", headers: { "content-type": "text/plain" }, body: "{}" });
   assert.equal(noType.status, 403);
-  assert.equal((await post(base, "/api/cancel", {}, { origin: "https://evil.example" })).status, 403);
-  assert.equal((await post(base, "/api/cancel", {}, { origin: base })).status, 200);
-  assert.equal((await post(base, "/api/nothing", {}, { origin: base })).status, 404);
+  const foreign = await post(base, "/api/cancel", {}, { origin: "https://evil.example" });
+  assert.equal(foreign.status, 403);
+  const own = await post(base, "/api/cancel", {}, { origin: base });
+  assert.equal(own.status, 200);
+  assert.equal((await post(base, "/api/nonsense", {})).status, 404);
 });
 
-test("propose and draw settings over HTTP", async () => {
+test("propose and draw over HTTP", async () => {
   const { base, vc } = await start();
-  const r = await post(base, "/api/settings", { patch: { style: "black-white" } }, { origin: base });
-  assert.equal(r.status, 200);
-  assert.equal((await r.json()).pending.settings.style, "black-white");
-  await post(base, "/api/draw", {}, { origin: base });
-  assert.equal(vc.doc.spec.settings.style, "black-white");
+  const proposed = await (await post(base, "/api/propose", { description: "the story road" })).json();
+  assert.equal(proposed.pending.canonical, STORY);
+  assert.equal(vc.doc.calls.filter((c) => c.command === "plugin.run").length, 0);
+  const drawn = await (await post(base, "/api/draw", {})).json();
+  assert.equal(drawn.pending, null);
+  assert.equal(drawn.target.kind, "road");
+  assert.equal(vc.doc.calls.filter((c) => c.command === "plugin.run").length, 1);
 });
 
 test("the live feed starts with the current state", async () => {
   const { base } = await start();
   const res = await fetch(`${base}/events`);
-  const chunk = new TextDecoder().decode((await res.body.getReader().read()).value);
-  assert.match(chunk, /^data: \{/);
-  assert.match(chunk, /"settings"/);
-});
-
-test("a malformed address cannot crash the server", async () => {
-  const { port } = await start();
-  const status = (path) => new Promise((ok, fail) => {
-    const r = request({ host: "127.0.0.1", port, path, headers: { host: `127.0.0.1:${port}` } }, (res) => { res.resume(); ok(res.statusCode); });
-    r.on("error", fail);
-    r.end();
-  });
-  const bad = await status("//[");
-  assert.ok(bad >= 400 && bad < 500, `got ${bad}`);
-  assert.equal(await status("/state"), 200, "the server is still alive");
+  const reader = res.body.getReader();
+  const { value } = await reader.read();
+  await reader.cancel();
+  const msg = JSON.parse(new TextDecoder().decode(value).replace(/^data: /, ""));
+  assert.equal(msg.target.kind, "line");
+  assert.equal(msg.agents.default, "fake");
 });

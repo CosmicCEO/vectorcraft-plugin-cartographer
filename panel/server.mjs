@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// The companion panel: a small local web page beside VectorCraft that shows the document settings as a card built from a schema,
-// previews a change, and draws it. Zero dependencies.
+// The companion panel: a small local web page beside VectorCraft that follows your selection, shows the road's elements,
+// takes a description in words, and draws it. Zero dependencies.
 //
 //   Start VectorCraft with its control port (see docs/GETTING-STARTED.md; loopback only), then:
-//   node panel/server.mjs [--control 7979] [--port 8789]
-//   and open http://127.0.0.1:8789
+//   node panel/server.mjs [--control 7979] [--port 8789] [--agent claude]
+//   then open http://127.0.0.1:8789
 import "../scripts/lib/require-node.mjs";
 import { createServer as httpServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -12,6 +12,7 @@ import { extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Control } from "./lib/control.mjs";
 import { Panel } from "./lib/panel.mjs";
+import { loadProviders } from "./lib/providers.mjs";
 
 const PUBLIC = resolve(import.meta.dirname, "public");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
@@ -40,9 +41,29 @@ export function createServer({ panel, port }) {
     });
 
   const actions = {
-    settings: (b) => panel.editSettings(b.patch ?? {}),
-    draw: () => panel.draw(),
+    propose: (b) => panel.propose(String(b.description ?? "").slice(0, 2000), b.agent),
+    edit: (b) => panel.edit(b.op),
+    text: (b) => panel.setText(String(b.text ?? "").slice(0, 1000)),
+    draw: (b) => panel.draw({ scope: b.scope }),
     cancel: () => panel.cancel(),
+    selectline: () => panel.selectLine(),
+    mode: (b) => panel.setMode(String(b.mode)),
+    match: () => panel.match(),
+    junction: (b) => panel.editJunction(b.patch ?? {}),
+    crossing: (b) => panel.editCrossing(b.patch ?? {}),
+    hub: (b) => panel.editHub(b.patch ?? {}),
+    transition: (b) => panel.editTransition(b.patch ?? {}),
+    removetransition: (b) => panel.removeTransition(Number(b.index)),
+    water: (b) => panel.editWater(b.patch ?? {}),
+    wet: (b) => panel.editWet(b.patch ?? {}),
+    embank: (b) => panel.editEmbank(b.patch ?? {}),
+    removeembank: (b) => panel.removeEmbank(Number(b.index)),
+    agent: (b) => panel.setAgent(String(b.id)),
+    opensettings: () => panel.openSettings(),
+    closesettings: () => panel.closeSettings(),
+    settings: (b) => panel.editSettings(b.patch ?? {}),
+    drawsettings: () => panel.drawSettings(),
+    cancelsettings: () => panel.cancelSettings(),
   };
 
   return httpServer(async (req, res) => {
@@ -61,7 +82,8 @@ export function createServer({ panel, port }) {
       if (req.method === "POST" && url.pathname.startsWith("/api/")) {
         const origin = req.headers.origin;
         if ((origin && !hosts.has(new URL(origin).host)) || !String(req.headers["content-type"] ?? "").startsWith("application/json")) return json(res, 403, { error: "requests must come from the panel page" });
-        const action = actions[url.pathname.slice(5)];
+        const name = url.pathname.slice(5);
+        const action = Object.hasOwn(actions, name) ? actions[name] : null;
         if (!action) return json(res, 404, { error: "unknown action" });
         await action(await readBody(req));
         return json(res, 200, panel.snapshot());
@@ -70,7 +92,8 @@ export function createServer({ panel, port }) {
         const file = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
         if (!/^[\w.-]+$/.test(file) || !TYPES[extname(file)]) return json(res, 404, { error: "not found" });
         const body = await readFile(resolve(PUBLIC, file));
-        res.writeHead(200, { "content-type": TYPES[extname(file)], "cache-control": "no-store" });
+        // Only forbids inline script and plug-ins; styles are left alone because the page sets them from script.
+        res.writeHead(200, { "content-type": TYPES[extname(file)], "cache-control": "no-store", "content-security-policy": "script-src 'self'; object-src 'none'; base-uri 'none'" });
         return res.end(body);
       }
       json(res, 405, { error: "method not allowed" });
@@ -86,9 +109,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     return i > 0 ? process.argv[i + 1] : fallback;
   };
   const port = Number(arg("port", 8789));
-  const panel = new Panel({ control: new Control({ port: Number(arg("control", 7979)) }) });
+  const providers = loadProviders();
+  if (arg("agent")) providers.default = arg("agent");
+  const panel = new Panel({ control: new Control({ port: Number(arg("control", 7979)) }), providers });
   createServer({ panel, port }).listen(port, "127.0.0.1", () => {
-    console.log(`Cartographer panel: http://127.0.0.1:${port}   (VectorCraft control port ${arg("control", 7979)})`);
+    console.log(`Cartographer panel: http://127.0.0.1:${port}   (VectorCraft control port ${arg("control", 7979)}, agent ${providers.default})`);
     panel.start();
   });
 }
