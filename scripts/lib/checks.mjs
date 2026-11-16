@@ -7,8 +7,17 @@ export function problems(probe) {
   return checks(probe).filter((c) => !c.ok && !c.optional).map((c) => c.fix);
 }
 
-/** `probe`: {nodeVersion, hasRustup, hasWasmTarget, hasCli, controlReachable}. Returns [{name, ok, fix?, optional?}]. */
+/** `probe`: {nodeVersion, hasRustup, hasWasmTarget, hasCli, controlReachable, appleHelper?}. Returns [{name, ok, fix?, optional?}]. */
 export function checks(probe) {
+  const list = baseChecks(probe);
+  // Only on a Mac that looked for it: the optional Apple Intelligence helper.
+  if (probe.appleHelper !== undefined) {
+    list.push({ name: "Apple Intelligence helper (optional, macOS)", ok: !!probe.appleHelper, optional: true, ...(probe.appleHelper ? {} : { fix: "Optional. Run node scripts/build.mjs on a Mac with the Xcode command line tools." }) });
+  }
+  return list;
+}
+
+function baseChecks(probe) {
   const major = Number(/^v?(\d+)\./.exec(probe.nodeVersion ?? "")?.[1]);
   return [
     { name: `Node ${NODE_MIN} or newer`, ok: major >= NODE_MIN, ...(major >= NODE_MIN ? {} : { fix: `Install Node ${NODE_MIN} or newer (https://nodejs.org); you have ${probe.nodeVersion}.` }) },

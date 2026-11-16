@@ -3,6 +3,7 @@ import "./lib/require-node.mjs";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { appleHelperPlan } from "./lib/applefm.mjs";
 import { problems } from "./lib/checks.mjs";
 import { rustEnv } from "./lib/env.mjs";
 import { probeRust } from "./lib/probe.mjs";
@@ -25,4 +26,15 @@ for (const [cmd, args] of steps) {
     process.exit(1);
   }
   if (r.status !== 0) process.exit(r.status ?? 1);
+}
+
+// The optional Apple Intelligence helper for the panel (macOS with swiftc only); never an error.
+const swiftc = spawnSync("swiftc", ["--version"], { env, encoding: "utf8" }).status === 0;
+const helper = appleHelperPlan(process.platform, swiftc);
+if (helper) {
+  const [cmd, ...args] = helper.build;
+  const r = spawnSync(cmd, args, { cwd: root, env, stdio: "inherit" });
+  if (r.status !== 0) console.error("note: the Apple Intelligence helper did not build (optional); the panel works without it.");
+} else if (process.platform === "darwin") {
+  console.log("note: swiftc not found; the Apple Intelligence helper was not built (optional).");
 }
