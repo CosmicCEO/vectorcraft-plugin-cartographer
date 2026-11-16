@@ -1,0 +1,106 @@
+{
+ "version": 1,
+ "note": "Seed materials that prove the schema. Widths are metres of ground, min_print_width is millimetres on paper. Every entry is unverified: the standards-based library is a later plan.",
+ "materials": [
+  {
+   "id": "seawall",
+   "role": "structure",
+   "default_width": 3,
+   "min_print_width": 0.3,
+   "class": "structure.seawall",
+   "status": "unverified",
+   "height": 2
+  },
+  {
+   "id": "pavement",
+   "role": "surface",
+   "default_width": 4,
+   "min_print_width": 0.3,
+   "class": "paved.asphalt",
+   "status": "unverified"
+  },
+  {
+   "id": "sand",
+   "role": "surface",
+   "default_width": 20,
+   "min_print_width": 0.25,
+   "class": "earth.sand",
+   "status": "unverified"
+  },
+  {
+   "id": "dune",
+   "role": "bank",
+   "default_width": 15,
+   "min_print_width": 0.25,
+   "class": "earth.dune",
+   "status": "unverified",
+   "height": 4
+  },
+  {
+   "id": "grass",
+   "role": "vegetation",
+   "default_width": 10,
+   "min_print_width": 0.25,
+   "class": "veg.grass",
+   "status": "unverified"
+  },
+  {
+   "id": "ballast",
+   "role": "surface",
+   "default_width": 3.6,
+   "min_print_width": 0.25,
+   "class": "rail.ballast",
+   "status": "unverified"
+  },
+  {
+   "id": "track",
+   "role": "structure",
+   "default_width": 1.435,
+   "min_print_width": 0.2,
+   "class": "rail.track",
+   "status": "unverified"
+  },
+  {
+   "id": "bank",
+   "role": "bank",
+   "default_width": 3,
+   "min_print_width": 0.25,
+   "class": "earth.bank",
+   "status": "unverified",
+   "height": 1.5
+  },
+  {
+   "id": "riprap",
+   "role": "bank",
+   "default_width": 3,
+   "min_print_width": 0.25,
+   "class": "earth.riprap",
+   "status": "unverified",
+   "height": 1
+  },
+  {
+   "id": "mud",
+   "role": "surface",
+   "default_width": 5,
+   "min_print_width": 0.25,
+   "class": "water.mud",
+   "status": "unverified"
+  },
+  {
+   "id": "marsh",
+   "role": "vegetation",
+   "default_width": 20,
+   "min_print_width": 0.25,
+   "class": "veg.marsh",
+   "status": "unverified"
+  },
+  {
+   "id": "forest-floor",
+   "role": "vegetation",
+   "default_width": 30,
+   "min_print_width": 0.25,
+   "class": "veg.forest",
+   "status": "unverified"
+  }
+ ]
+}

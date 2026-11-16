@@ -2,6 +2,7 @@
 
 pub mod abi;
 pub mod geom;
+pub mod materials;
 pub mod offset;
 pub mod output;
 pub mod storage;
