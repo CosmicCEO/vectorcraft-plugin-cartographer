@@ -125,3 +125,18 @@ fn a_big_track_build_gets_the_point_note() {
     let notes: Vec<&str> = out["documentData"]["notes"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
     assert!(notes.iter().any(|n| n.contains("1300") && n.contains("split")), "{notes:?}");
 }
+
+#[test]
+fn a_track_only_build_keeps_the_road_data_and_the_custom_library() {
+    let data = json!({
+        "schema": 1,
+        "segments": {"a": {"cross_section": TWO, "anchor": "left", "extra": 1}},
+        "library": {"elements": {"mine": {"width": 2.0}}},
+    });
+    let out = parsed(build_text(&json!({"objects": [track(1, "track.b")]}), &params(data, "")));
+    let kept = &out["documentData"];
+    assert_eq!(kept["segments"]["a"]["cross_section"], TWO);
+    assert_eq!(kept["segments"]["a"]["extra"], 1);
+    assert_eq!(kept["library"]["elements"]["mine"]["width"], 2.0);
+    assert!(names(&out).iter().any(|n| n.starts_with("gen.track.")), "{:?}", names(&out));
+}

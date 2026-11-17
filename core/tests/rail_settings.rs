@@ -20,7 +20,7 @@ fn a_bad_stored_description_is_an_error_not_a_panic() {
 }
 
 #[test]
-fn build_into_writes_five_decimals_and_restores_three() {
+fn build_into_writes_four_decimals_and_restores_three() {
     let items = items_from_filter_input(&track_input());
     let mut out = Out::new();
     let data = json!({"tracks": {"a": {"tracks": 1}}});
@@ -33,4 +33,12 @@ fn build_into_writes_five_decimals_and_restores_three() {
     let rail_part = &text[..text.find("gen.road.after").unwrap()];
     let long = rail_part.split(|c: char| !(c.is_ascii_digit() || c == '.')).any(|n| n.split('.').nth(1).is_some_and(|f| f.len() > 3));
     assert!(long, "the track objects use more than 3 decimals somewhere");
+}
+
+#[test]
+fn the_track_highlight_is_the_same_size_in_model_terms() {
+    // Track Layer drew it 0.75 points wide when 1 mm of model was 72/25.4 points; at 0.16 points per mm it is the same 0.26 mm of model.
+    let (_, width) = rail_builder::spine_style();
+    let model_mm = width / cartographer_core::rail_standards::PT_PER_MM;
+    assert!((model_mm - 0.75 / (72.0 / 25.4)).abs() < 1e-6, "{model_mm} mm of model");
 }

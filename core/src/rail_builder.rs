@@ -15,7 +15,8 @@ use serde_json::{Map, Value, json};
 pub const GEN_PREFIX: &str = "gen.";
 /// The line you drew stays on top of what is built from it, drawn bright so it is easy to find and click (stroke width in points).
 const SPINE: [f64; 3] = [0.85, 0.1, 0.1];
-const SPINE_WIDTH: f64 = 0.75;
+/// 0.75 points when 1 mm of model was 72/25.4 points (Track Layer): the same 0.26 mm of model at any scale.
+const SPINE_WIDTH_MM: f64 = 0.75 / (72.0 / 25.4);
 
 /// `track.<id>` -> `<id>`.
 pub fn track_id(name: &str) -> Option<String> {
@@ -56,7 +57,7 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     for it in items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)) {
         let Some(iid) = it.id else { continue };
         if track_id(&it.name).is_some() {
-            out.keep_styled(iid, SPINE, SPINE_WIDTH);
+            out.keep_styled(iid, SPINE, SPINE_WIDTH_MM * PT_PER_MM);
         } else {
             out.keep(iid);
         }
@@ -66,14 +67,14 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     Ok(out.finish_with(Some(&Value::Object(data))))
 }
 
-/// The drawn tracks' output settings: rail dimensions are model millimetres at 0.16 points each, so numbers are written with 5 decimals and curve
-/// thinning is 0.00677 points (0.04 mm of model).
-const RAIL_DECIMALS: u8 = 5;
+/// The drawn tracks' output settings: rail dimensions are model millimetres at 0.16 points each, so numbers are written with 4 decimals (0.0006 mm of
+/// model; 5 decimals cost 3% more fuel and change nothing that can be seen) and curve thinning is 0.00677 points (0.04 mm of model).
+const RAIL_DECIMALS: u8 = 4;
 const RAIL_THINNING: f64 = 0.00677;
 
 /// The highlight colour and stroke width of a `track.*` line (the line you drew stays on top of what is built from it).
 pub fn spine_style() -> ([f64; 3], f64) {
-    (SPINE, SPINE_WIDTH)
+    (SPINE, SPINE_WIDTH_MM * PT_PER_MM)
 }
 
 /// Builds every `track.*` line in `items` into `out` (rails, ties, roadbed, joints, branches) and returns what the build had to say. `data` is the

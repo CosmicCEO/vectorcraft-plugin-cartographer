@@ -26,6 +26,13 @@ fn load_spec(params: &Value) -> Result<Spec, String> {
     Doc::check_schema(data)?;
     Ok(Spec::from_document_data(data))
 }
+
+/// `load_spec` without the element library, for a build that draws no road.
+fn load_spec_without_library(params: &Value) -> Result<Spec, String> {
+    let data = &params["_context"]["documentData"];
+    Doc::check_schema(data)?;
+    Ok(Spec::without_library(data))
+}
 /// The drawn line of a road or junction: bright and bold (metres of stroke), so it can be seen and clicked among the generated shapes.
 const SPINE_ROAD: [f64; 3] = [0.85, 0.1, 0.1];
 const SPINE_JUNCTION: [f64; 3] = [0.1, 0.35, 0.9];
@@ -66,8 +73,8 @@ pub fn set_settings_text(input: &Value, params: &Value) -> Result<String, String
 /// Filter output text: every source object kept by id, the old `gen.*` paths dropped, fresh `gen.*` paths added.
 pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
-    let spec = load_spec(params)?;
     let has_road = items.iter().any(|i| segment_id(&i.name).is_some() || junction_id(&i.name).is_some() || water::water_id(&i.name).is_some());
+    let spec = if has_road { load_spec(params)? } else { load_spec_without_library(params)? };
     let has_track = items.iter().any(|i| rail_builder::track_id(&i.name).is_some());
     if !has_road && !has_track {
         return Err("Nothing to build. Draw a line and name it road.<id> or track.<id> (or a water line), then Select All so it is included.".into());

@@ -370,8 +370,10 @@ pub fn num_with(out: &mut String, x: f64, decimals: u8) {
 
 /// The general writer: any number of decimals up to 6 and values beyond 32 bits.
 fn num_wide(out: &mut String, x: f64, d: u32) {
-    let scale = 10f64.powi(d as i32);
-    let unit = 10u64.pow(d);
+    // Tables, not `powi`/`pow`: those are loops, and this runs for every number of a rail build.
+    const SCALE: [f64; 7] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0, 100_000.0, 1_000_000.0];
+    const UNIT: [u64; 7] = [1, 10, 100, 1_000, 10_000, 100_000, 1_000_000];
+    let (scale, unit) = (SCALE[d as usize], UNIT[d as usize]);
     let v = (x * scale + if x < 0.0 { -0.5 } else { 0.5 }) as i64;
     let mut n = v.unsigned_abs();
     let mut buf = [0u8; 28];
