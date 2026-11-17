@@ -26,11 +26,11 @@ The same three inputs from the S1 spike go through both filters under `tools/fue
 
 | Input | Road Builder | Cartographer | Ratio |
 |---|---|---|---|
-| 600 m two-lane road | 984,433 | 960,286 | 0.975 |
-| Road, 10 m creek and bridge | 1,941,285 | 1,668,173 | 0.859 |
-| Winding road, 2,001 points | 129,424,996 | 71,461,393 | 0.552 |
+| 600 m two-lane road | 984,433 | 1,005,022 | 1.021 |
+| Road, 10 m creek and bridge | 1,941,285 | 1,741,542 | 0.897 |
+| Winding road, 2,001 points | 129,424,996 | 72,323,953 | 0.559 |
 
-Cartographer is cheaper than Road Builder because Plan 1's merged framework uses `Len2` (a plain square root) instead of `f64::hypot`, which is a slow software routine in WebAssembly. The near-limit note still triggers at 1,200 points; the real build limit of the new plug-in has not been re-measured (`scripts/spikes/s1-limit.mjs` measures it), so the threshold is deliberately the old, safe one.
+On a long road Cartographer is cheaper than Road Builder because Plan 1's merged framework uses `Len2` (a plain square root) instead of `f64::hypot`, which is a slow software routine in WebAssembly. The near-limit note still triggers at 1,200 points; the real build limit of the new plug-in has not been re-measured (`scripts/spikes/s1-limit.mjs` measures it), so the threshold is deliberately the old, safe one.
 
 ## What was changed to reach parity
 
@@ -46,3 +46,5 @@ All were judged harmless by the reviewer; they are listed so none is a surprise.
 - `Out` leaves out what VectorCraft would refuse: subpaths with fewer than 2 points (3 for a shape), non-finite points, an open line whose points are all the same, strokes whose width is zero, negative or not finite.
 - `num` clamps beyond about 4.29 million and rounds by a cast, not `round()`; `Len2` replaces `hypot`: last-bit differences only.
 - The command "Add Junction" and the legacy centreline model are not ported (Plan 6); a command id the filter does not know runs Build, as before.
+
+Since 0.4.0 (the track kind is linked into the same plug-in) the smallest road build costs about 4% more than before (45,000 fuel, 0.2% of the 21 M budget) and is 1.021 times Road Builder's: the road code is laid out differently once the rail code is in the module, and nothing in the build does rail work when there is no track. The gate is at most 1.05 times Road Builder's, not "equal or lower".
