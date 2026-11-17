@@ -1,0 +1,26 @@
+{
+ "note": "An engine terminal: one lead, six spurs each side, No. 5 turnouts, spurs end in the yard. 'A single track enters a terminal with six stub tracks left and six right, number 5 turnouts.'",
+ "lines": [
+  {
+   "id": "t",
+   "command": "set_yard",
+   "points": [
+    [
+     20,
+     300
+    ],
+    [
+     1900,
+     300
+    ]
+   ],
+   "spec": {
+    "mains": 1,
+    "left": 6,
+    "right": 6,
+    "frog": 5,
+    "ends": "stub"
+   }
+  }
+ ]
+}

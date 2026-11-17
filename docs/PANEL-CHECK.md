@@ -8,7 +8,7 @@ Write what you saw next to each step (`ok` or what went wrong) and send it back.
 
 1. `node scripts/check.mjs` ends with no `fix:` line.
 2. `node scripts/build.mjs`, then `node scripts/start-vectorcraft.mjs`. On Linux, set `VECTORCRAFT_APP` to the AppImage first if the script says it cannot find VectorCraft. If VectorCraft was already running, quit it first: the control port is set only at start.
-3. In VectorCraft create a new document, then `node scripts/install.mjs`. Expected: `installed Cartographer 0.3.0`.
+3. In VectorCraft create a new document, then `node scripts/install.mjs`. Expected: `installed Cartographer 0.4.0`.
 4. `node panel/server.mjs` and open http://127.0.0.1:8789 next to VectorCraft. Expected: a green dot in the header and the line "Nothing selected".
 
 ## Cards
@@ -19,6 +19,16 @@ Write what you saw next to each step (`ok` or what went wrong) and send it back.
 8. Draw a second road across the first, select both. Expected: an intersection card; choose Lighted intersection and Draw. Expected: a paved box, crosswalks and signals.
 9. Draw a closed shape, choose **Water** for a plain line, make it a lake; draw a road across it, select the road and the lake, choose Bridge. Expected: a bridge with piers, wing walls and guardrails.
 10. Hide or lock the road layers in VectorCraft and press Draw again on any card. Expected: the road is rebuilt, and your hiding and locking are put back afterwards.
+
+## Railway track
+
+A. Draw a line at least 400 document points long (about 2.5 m of model, enough for a small yard) and select it. In the mode box choose **Railway track (N scale)**. Expected: the panel shows a track card (tracks, spacing, roadbed, ties) and the Draw button says "Draw this".
+B. Type "double track" and press Propose. Expected: "Proposed: 2 tracks, ..." with a list of what changes; Draw builds rails, ties and roadbed in a layer called "track t1" with a spine and a drawing part.
+C. Change Tracks to 3 in the card. Expected: a proposal; nothing in VectorCraft changes until Draw. Enter 99. Expected: a plain message about 1 to 12, and no change.
+D. Type "a yard with 4 spurs on the left and 2 on the right, merging back". Expected: a yard proposal that says how much line it needs; if the line is too short Draw shows the plug-in's refusal in the panel.
+E. Draw a second line that crosses the first, select both lines (they must both be tracks: select the second and describe it as track too). Expected: the joint card says "cross, ... mm along a ... at ... degrees". Choose a join or a branch for lines that meet end to end or in a T. Expected: the card says what it found; Draw builds the crossing, branch or join.
+F. Select a road line and a track line together (a road line is named `road.<id>`). Expected: the panel says that is not supported yet and offers nothing to draw.
+G. Hide the "track t1 spine" layer and press Draw. Expected: the track is rebuilt and the spine is hidden again afterwards.
 
 ## Settings card
 

@@ -1,0 +1,106 @@
+{
+ "note": "An oval of double track from three curves, each drawn a few millimetres off at its start so the joins have something to fix. Joints: a-b, b-c, c-a, all 'join'.",
+ "lines": [
+  {
+   "id": "a",
+   "points": [
+    {
+     "x": 504,
+     "y": 135,
+     "out": [
+      796.52,
+      135
+     ]
+    },
+    {
+     "x": 829.09,
+     "y": 710,
+     "in": [
+      975.35,
+      456.67
+     ]
+    }
+   ],
+   "spec": {
+    "tracks": 2
+   }
+  },
+  {
+   "id": "b",
+   "points": [
+    {
+     "x": 824.09,
+     "y": 714,
+     "out": [
+      677.83,
+      967.33
+     ]
+    },
+    {
+     "x": 170.91,
+     "y": 710,
+     "in": [
+      317.17,
+      963.33
+     ]
+    }
+   ],
+   "spec": {
+    "tracks": 2
+   }
+  },
+  {
+   "id": "c",
+   "points": [
+    {
+     "x": 173.91,
+     "y": 716,
+     "out": [
+      27.65,
+      462.67
+     ]
+    },
+    {
+     "x": 500,
+     "y": 140,
+     "in": [
+      207.48,
+      140
+     ]
+    }
+   ],
+   "spec": {
+    "tracks": 2
+   }
+  }
+ ],
+ "joints": [
+  {
+   "lines": [
+    "a",
+    "b"
+   ],
+   "spec": {
+    "kind": "join"
+   }
+  },
+  {
+   "lines": [
+    "b",
+    "c"
+   ],
+   "spec": {
+    "kind": "join"
+   }
+  },
+  {
+   "lines": [
+    "c",
+    "a"
+   ],
+   "spec": {
+    "kind": "join"
+   }
+  }
+ ]
+}

@@ -29,6 +29,15 @@ The owner is not a developer: keep chat answers short and plain; write documents
 - A headless session (`vectorcraft-cli mcp`) can only read and write inside its root and cannot install a heavy-budget plug-in. There is no Linux headless CLI (spike S2).
 - Panel: the settings card keeps its own state (`settings`, `settingsPending`) and its own actions, apart from `pending`, and is read from a saved copy only while it is open (a plain selection must make no calls to VectorCraft). A changed document title drops every proposal. The CLI exits 1 when `ok` is false: read its JSON from stdout whatever the exit code. Document and agent text reach the page only through `textContent` or form values (no HTML sinks; `panel/test/page.test.mjs` checks). Never run the panel's tests or scripts against the owner's open document.
 
+## Rail (the `track` kind, ported from Track Layer)
+- Rail code works in model millimetres at true 1:160 inside and converts at the edge with `PT_PER_MM = 0.16` (`rail_standards.rs`). Rail output settings (4 decimals, thinning 0.00677 points) are set around rail writes only (`rail_builder::build_into`) and put back; a road written next keeps 3 decimals and 0.12.
+- Output objects are stacked in three groups, roadbed then ties then rails (`output::Layer`): call `out.layer(..)` before writing. Stroke dashes are ignored, so ties are separate segments, never dashed; the tie budget (`MAX_TIES`) is a fuel measure.
+- Fuel: each number written costs hundreds of instructions; `hypot` and `round` are slow. Searching is dear: score candidate branches from numbers, build points only for the winner. A build with no road must not read the road library (`Spec::without_library`). Measure with `tools/fuel`; the rail inputs are in `scripts/spikes/fuel-inputs.mjs`.
+- A drawn Bezier arrives as a polyline: yards use the bisector normal at each vertex. Shapes in one object that overlap must wind the same way (`winding` in `yard.rs`). VectorCraft refuses an object with no anchor points.
+- Track Layer collapsed a smooth closed ring that repeats its first point to a point (its curve thinner); `Out` here drops the repeat. The rail parity gate skips exactly those rings and says how many (`skipCollapsedRings`).
+- Two standards files, one tool: `library/standards.json` (road) and `library/standards-rail.json` (NMRA; values from the NMRA PDFs only, never from memory); `node scripts/standards.mjs check`.
+- Panel: a plain line is a road until the mode card says track; `panel/lib/kinds.mjs` says what names a line and its layer; cards for tracks, yards and joints come from `schema tracks|yard|joint` (`cardModel`); a road line and a track line selected together are not supported yet.
+
 ## Build, test, run
 - Rust: `cargo +stable test --release --workspace`; WebAssembly: `cargo +stable build --release --target wasm32-unknown-unknown --workspace`. On macOS with Homebrew, put rustup first on `PATH` (`/opt/homebrew/opt/rustup/bin`); `scripts/build.mjs` does this.
 - Node: `node --test panel/test/*.test.mjs scripts/test/*.test.mjs` (panel tests need `cargo build --release -p cartographer-cli` first).

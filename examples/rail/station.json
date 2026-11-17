@@ -1,0 +1,132 @@
+{
+ "note": "A junction station on a curved double track. M: two mains with a crossover in the middle and a passing siding on the right for the first 900 mm. X: a single track crossing M at about 68 degrees. B: a branch line leaving M on the left. N: the double track continuing, drawn a few millimetres off at its start and joined to M. Everything is described in words: 'double track with a crossover in the middle and a siding on the right; a line crosses it; a siding off it with a turnout; it continues'.",
+ "lines": [
+  {
+   "id": "m",
+   "command": "set_yard",
+   "points": [
+    {
+     "x": 60,
+     "y": 520,
+     "out": [
+      760,
+      520
+     ]
+    },
+    {
+     "x": 1900,
+     "y": 260,
+     "in": [
+      1200,
+      260
+     ]
+    }
+   ],
+   "spec": {
+    "mains": 2,
+    "right": 1,
+    "length": 900,
+    "crossovers": [
+     {
+      "from": 1,
+      "to": 2
+     }
+    ]
+   }
+  },
+  {
+   "id": "x",
+   "points": [
+    {
+     "x": 1105.98,
+     "y": 608.1
+    },
+    {
+     "x": 1194.02,
+     "y": 95.6
+    }
+   ],
+   "spec": {
+    "tracks": 1
+   }
+  },
+  {
+   "id": "b",
+   "points": [
+    {
+     "x": 1500,
+     "y": 288,
+     "out": [
+      1630.87,
+      238.27
+     ]
+    },
+    {
+     "x": 2020.63,
+     "y": -10.23,
+     "in": [
+      1886.32,
+      93.98
+     ]
+    }
+   ],
+   "spec": {
+    "tracks": 1
+   }
+  },
+  {
+   "id": "n",
+   "points": [
+    {
+     "x": 1904,
+     "y": 263,
+     "out": [
+      2250,
+      263
+     ]
+    },
+    {
+     "x": 2520,
+     "y": 560,
+     "in": [
+      2400,
+      430
+     ]
+    }
+   ],
+   "spec": {
+    "tracks": 2
+   }
+  }
+ ],
+ "joints": [
+  {
+   "lines": [
+    "m",
+    "x"
+   ],
+   "spec": {
+    "kind": "crossing",
+    "main": "m"
+   }
+  },
+  {
+   "lines": [
+    "m",
+    "b"
+   ],
+   "spec": {
+    "kind": "branch"
+   }
+  },
+  {
+   "lines": [
+    "m",
+    "n"
+   ],
+   "spec": {
+    "kind": "join"
+   }
+  }
+ ]
+}
