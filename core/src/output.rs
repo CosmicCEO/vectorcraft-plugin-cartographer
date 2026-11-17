@@ -13,6 +13,11 @@ fn visible_width(width: f64) -> bool {
     width.is_finite() && width > 0.0
 }
 
+/// The decimals `Out` writes unless a kind asks for more (see `Out::precision`).
+pub const DEFAULT_DECIMALS: u8 = 3;
+/// The curve thinning tolerance, in document points, unless a kind asks for less (see `Out::thinning`).
+pub const DEFAULT_THINNING: f64 = 0.12;
+
 pub struct Out {
     /// New objects (they are listed first, so VectorCraft puts them just below the objects that are kept: the lines you drew stay on top).
     texts: [String; 3],
@@ -58,7 +63,7 @@ impl Out {
     }
 
     pub fn new() -> Out {
-        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, ties_left: DEFAULT_MAX_TIES, decimals: 3, thin_tol: THIN }
+        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, ties_left: DEFAULT_MAX_TIES, decimals: DEFAULT_DECIMALS, thin_tol: THIN }
     }
 
     /// Puts the objects written from now on on the given stack.
@@ -446,7 +451,7 @@ fn num3(out: &mut String, v: i64) {
 /// A turn bigger than this at one point is a corner, not part of a curve.
 pub const CORNER_DEG: f64 = 30.0;
 /// Points closer than this (document points) to the line between their kept neighbours are dropped before the curve is fitted.
-const THIN: f64 = 0.12;
+const THIN: f64 = DEFAULT_THINNING;
 
 fn thin(pts: &[P], tol: f64) -> Vec<P> {
     if pts.len() < 3 {
