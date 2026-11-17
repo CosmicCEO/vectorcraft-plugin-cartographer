@@ -7,10 +7,10 @@ use serde_json::Value;
 const MANIFEST: &str = r#"{
   "id": "com.cosmicceo.cartographer.build",
   "name": "Cartographer",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "kind": "filter",
   "author": "CosmicCEO",
-  "description": "Draws maps from lines and shapes plus a description: a line named road.<id> becomes the road described by its cross-section; roads cross in intersections; water, embankments, bridges and culverts. Select All first, so everything is included.",
+  "description": "Draws maps from lines and shapes plus a description: a line named road.<id> becomes the road described by its cross-section; roads cross in intersections; water, embankments, bridges and culverts. Select All first, so everything is included. Lines named track.<id> become N-scale model railroad track (rails, ties, roadbed, turnouts, yards, crossings and joins).",
   "params": {},
   "commands": [
     {
@@ -159,6 +159,59 @@ const MANIFEST: &str = r#"{
           "help": "treatment: bridge (deck_height above the water in m, abutment m beyond the banks), culvert (count, size in m, shape pipe or box, fill_height, slope) or causeway (fill_height, slope). Select one line of the road and one water line."
         }
       }
+    },
+    {
+      "id": "set_tracks",
+      "label": "Describe Track",
+      "params": {
+        "description": {
+          "type": "string",
+          "default": "{\"tracks\": 1}",
+          "maxLength": 1000,
+          "label": "Track (JSON)",
+          "help": "tracks: 1 to 12 parallel tracks; spacing: between centres, a number of mm or text like 25mm, 1in, 13ft (prototype feet), or an era (old-time, classic, modern); ballast and ties: true or false. Example: {\"tracks\": 2, \"spacing\": \"14ft\"}"
+        },
+        "segment": {
+          "type": "string",
+          "default": "",
+          "maxLength": 16,
+          "label": "Track id",
+          "help": "Leave empty to use the selected line (a plain line becomes a new track)."
+        }
+      }
+    },
+    {
+      "id": "set_yard",
+      "label": "Describe Yard",
+      "params": {
+        "description": {
+          "type": "string",
+          "default": "{\"mains\": 2, \"left\": 4, \"right\": 2, \"ends\": \"merge\"}",
+          "maxLength": 1000,
+          "label": "Yard (JSON)",
+          "help": "mains: 1 to 4 through tracks along the line; left and right: spurs on each side (as seen from the line's start to its end), 0 to 16; ends: merge (spurs join the mains again at the far end) or stub; frog: turnout number, a whole number 4 to 20 as in NMRA RP-12.35 (default 6); spacing: between track centres, a length or an era (old-time, classic, modern; default classic, 13ft); at and length: where the yard starts and how long it is (default the whole line); crossovers: a list like [{\"from\": 1, \"to\": 2, \"at\": \"1m\"}] between neighbouring mains (numbered from the left; leave out at for the middle); ballast, ties: true or false."
+        },
+        "segment": {
+          "type": "string",
+          "default": "",
+          "maxLength": 16,
+          "label": "Track id",
+          "help": "Leave empty to use the selected line (a plain line becomes a new track)."
+        }
+      }
+    },
+    {
+      "id": "set_joint",
+      "label": "Join Two Lines",
+      "params": {
+        "description": {
+          "type": "string",
+          "default": "{\"kind\": \"crossing\"}",
+          "maxLength": 1000,
+          "label": "Joint (JSON)",
+          "help": "kind: crossing (two tracks cross), branch (one line leaves the other with a turnout) or join (two lines continue into each other end to end); main (crossing): the id of the line whose track runs through (default: the wider one); frog (branch): turnout number 4 to 20 (default: the one that fits best). Select one line of each of the two tracks that meet."
+        }
+      }
     }
   ]
 }"#;
@@ -175,6 +228,9 @@ fn run(input: &[u8], params: &Value) -> Result<Output, String> {
         Some("set_water") => builder::set_water_text(&input, params),
         Some("set_embankment") => builder::set_embankment_text(&input, params),
         Some("set_wet") => builder::set_wet_text(&input, params),
+        Some("set_tracks") => builder::set_tracks_text(&input, params),
+        Some("set_yard") => builder::set_yard_text(&input, params),
+        Some("set_joint") => builder::set_joint_text(&input, params),
         _ => builder::build_text(&input, params),
     }
     .map(Output::Raw)

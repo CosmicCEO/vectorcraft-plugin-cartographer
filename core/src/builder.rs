@@ -6,6 +6,7 @@ use crate::embank;
 use crate::hub::{self, HubSpec};
 use crate::junction::{self, JunctionSpec, junction_id};
 use crate::output::Out;
+use crate::rail_builder;
 use crate::roads::{self, Spec, anchor_from, segment_id};
 use crate::storage::{Doc, Settings};
 use crate::transition;
@@ -67,8 +68,9 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
     let spec = load_spec(params)?;
     let has_road = items.iter().any(|i| segment_id(&i.name).is_some() || junction_id(&i.name).is_some() || water::water_id(&i.name).is_some());
-    if !has_road {
-        return Err("Nothing to build. Draw a line and name it road.<id> (or a water line), then Select All so it is included.".into());
+    let has_track = items.iter().any(|i| rail_builder::track_id(&i.name).is_some());
+    if !has_road && !has_track {
+        return Err("Nothing to build. Draw a line and name it road.<id> or track.<id> (or a water line), then Select All so it is included.".into());
     }
 
     let mut out = Out::new();
@@ -86,6 +88,9 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
             out.keep_styled(id, SPINE_JUNCTION, SPINE_WIDTH);
         } else if water::water_id(&it.name).is_some() {
             out.keep_outline(id, SPINE_WATER, SPINE_WIDTH);
+        } else if rail_builder::track_id(&it.name).is_some() {
+            let (rgb, width) = rail_builder::spine_style();
+            out.keep_styled(id, rgb, width);
         } else {
             out.keep(id);
         }
@@ -100,6 +105,10 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
         let artboard = params["_context"]["artboard"].as_array().filter(|a| a.len() == 4).and_then(|a| Some([a[0].as_f64()?, a[1].as_f64()?, a[2].as_f64()?, a[3].as_f64()?]));
         notes.extend(water::build(&items, &spec, artboard, &mut out));
         notes.extend(wet::build(&items, &spec, &mut out)); // a road meeting water is drawn over both
+    }
+    if has_track {
+        // Tracks are built after the roads, so their ties and rails lie above the roads' paving; a stored description that cannot be read fails the build.
+        notes.extend(rail_builder::build_into(&items, &params["_context"]["documentData"], &mut out)?);
     }
     // What the build had to say is kept with the document so the panel can show it; the rest of the stored data is carried over unchanged.
     let mut spec = spec;
@@ -120,7 +129,7 @@ fn is_junction_name(name: &str) -> bool {
 
 /// Names that already mean something else, so a plain line must not be mistaken for them.
 fn is_reserved_name(name: &str) -> bool {
-    name == "centerline" || ["gen.", "profile.", "flag.", "arrow."].iter().any(|p| name.starts_with(p)) || is_junction_name(name) || junction_id(name).is_some()
+    name == "centerline" || ["gen.", "profile.", "flag.", "arrow."].iter().any(|p| name.starts_with(p)) || is_junction_name(name) || junction_id(name).is_some() || water::water_id(name).is_some() || rail_builder::track_id(name).is_some()
 }
 
 /// Command "Set Cross-section": stores the road's cross-section (see `crosssection`) in the document's plug-in data. Applies to the
@@ -429,4 +438,22 @@ pub fn set_wet_text(input: &Value, params: &Value) -> Result<String, String> {
         }
     }
     Ok(out.finish_with(Some(&spec.to_value())))
+}
+
+/// Command "Set Tracks" (Describe Track): see `rail_builder::set_tracks_text`; a record from a newer schema is refused first.
+pub fn set_tracks_text(input: &Value, params: &Value) -> Result<String, String> {
+    Doc::check_schema(&params["_context"]["documentData"])?;
+    rail_builder::set_tracks_text(input, params)
+}
+
+/// Command "Set Yard" (Describe Yard): see `rail_builder::set_yard_text`; a record from a newer schema is refused first.
+pub fn set_yard_text(input: &Value, params: &Value) -> Result<String, String> {
+    Doc::check_schema(&params["_context"]["documentData"])?;
+    rail_builder::set_yard_text(input, params)
+}
+
+/// Command "Set Joint" (Join Two Lines): see `rail_builder::set_joint_text`; a record from a newer schema is refused first.
+pub fn set_joint_text(input: &Value, params: &Value) -> Result<String, String> {
+    Doc::check_schema(&params["_context"]["documentData"])?;
+    rail_builder::set_joint_text(input, params)
 }

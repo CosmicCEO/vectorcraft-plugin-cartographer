@@ -32,7 +32,9 @@ fn to_doc(p: P) -> P {
 
 /// What the plug-in keeps with the document (an object; everything it does not know is carried over).
 fn data_of(params: &Value) -> Map<String, Value> {
-    params["_context"]["documentData"].as_object().cloned().unwrap_or_default()
+    let mut data = params["_context"]["documentData"].as_object().cloned().unwrap_or_default();
+    data.insert("schema".into(), json!(crate::storage::SCHEMA));
+    data
 }
 
 fn spec_for(data: &Map<String, Value>, id: &str) -> Result<TrackSpec, String> {
@@ -262,7 +264,7 @@ pub fn build(input: &Value, params: &Value) -> Result<Value, String> {
 
 /// Names that already mean something else, so a plain line must not be mistaken for them.
 fn is_reserved_name(name: &str) -> bool {
-    name.starts_with(GEN_PREFIX) || track_id(name).is_some()
+    name.starts_with(GEN_PREFIX) || track_id(name).is_some() || crate::roads::segment_id(name).is_some() || crate::junction::junction_id(name).is_some() || crate::water::water_id(name).is_some()
 }
 
 fn clean_id(t: &str) -> String {

@@ -30,5 +30,32 @@ fn a_bad_command_is_a_plain_error() {
 fn version_is_the_workspace_version() {
     let (out, code) = run(&["version"]);
     assert_eq!(code, 0);
-    assert!(out.contains("\"version\":\"0.3.0\""), "{out}");
+    assert!(out.contains("\"version\":\"0.4.0\""), "{out}");
+}
+
+#[test]
+fn parse_tracks_prints_the_summary() {
+    let (out, code) = run(&["parse-tracks", r#"{"tracks": 2}"#]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("\"ok\":true") && out.contains("\"summary\""), "{out}");
+}
+
+#[test]
+fn parse_yard_rejects_a_bad_field() {
+    let (out, code) = run(&["parse-yard", r#"{"mains": 99}"#]);
+    assert_eq!(code, 1, "{out}");
+    assert!(out.contains("\"ok\":false"), "{out}");
+}
+
+#[test]
+fn find_joint_runs_and_says_when_lines_do_not_meet() {
+    let a = r#"{"subpaths":[{"anchors":[{"p":[0,0]},{"p":[200,0]}]}]}"#;
+    let crossing = r#"{"subpaths":[{"anchors":[{"p":[100,-50]},{"p":[100,50]}]}]}"#;
+    let (out, code) = run(&["find-joint", a, crossing, "a", "b"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("\"kind\""), "{out}");
+    let far = r#"{"subpaths":[{"anchors":[{"p":[0,500]},{"p":[200,500]}]}]}"#;
+    let (out, code) = run(&["find-joint", a, far, "a", "b"]);
+    assert_eq!(code, 1, "{out}");
+    assert!(out.contains("do not meet"), "{out}");
 }

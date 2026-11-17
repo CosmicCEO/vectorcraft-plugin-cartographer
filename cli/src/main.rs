@@ -10,9 +10,14 @@
 use cartographer_core::builder::settings_summary;
 use cartographer_core::crosssection::{Item, Parsed, format, parse};
 use cartographer_core::junction::{Control, JunctionSpec};
+use cartographer_core::joint::{self, JointSpec};
 use cartographer_core::library::Library;
+use cartographer_core::rail_builder::to_mm;
 use cartographer_core::schema::settings_schema;
 use cartographer_core::storage::Settings;
+use cartographer_core::tracks::TrackSpec;
+use cartographer_core::vcdoc::subpaths_of;
+use cartographer_core::yard::YardSpec;
 use serde_json::{Value, json};
 
 fn describe(p: &Parsed, lib: &Library) -> Value {
@@ -104,6 +109,30 @@ fn fail(msg: impl Into<String>) -> Value {
 
 fn index(args: &[String], at: usize, what: &str) -> Result<usize, String> {
     args.get(at).and_then(|a| a.parse::<usize>().ok()).ok_or_else(|| format!("{what}: give a whole number (items are numbered from 0)"))
+}
+
+/// `<command> '<json>'`: checks a track, yard or joint description with `check`.
+fn spec_reply(args: &[String], name: &str, check: impl Fn(&Value) -> Result<Value, String>) -> Value {
+    let Some(text) = args.get(1) else { return fail(format!("usage: {name} '<json>'")) };
+    match serde_json::from_str::<Value>(text) {
+        Ok(v) => check(&v).unwrap_or_else(fail),
+        Err(e) => fail(format!("not valid JSON: {e}")),
+    }
+}
+
+/// `find-joint '<path a>' '<path b>' [id a] [id b]`: how two lines (paths as VectorCraft stores them, document points) meet.
+fn find_joint(args: &[String]) -> Value {
+    let (Some(a), Some(b)) = (args.get(1), args.get(2)) else { return fail("give two paths: find-joint '<path a>' '<path b>' [id a] [id b]") };
+    let line = |raw: &str| serde_json::from_str::<Value>(raw).map(|v| subpaths_of(&v).into_iter().next().unwrap_or_default().into_iter().map(to_mm).collect::<Vec<_>>()).map_err(|e| format!("not valid JSON: {e}"));
+    let (pa, pb) = match (line(a), line(b)) {
+        (Ok(pa), Ok(pb)) => (pa, pb),
+        (Err(e), _) | (_, Err(e)) => return fail(e),
+    };
+    let (na, nb) = (args.get(3).map_or("a", String::as_str), args.get(4).map_or("b", String::as_str));
+    match joint::find(&pa, &pb) {
+        Some(f) => json!({"ok": true, "found": f.to_json(), "kind": f.kind(), "summary": f.describe(na, nb)}),
+        None => fail(format!("Lines {na} and {nb} do not meet (nowhere do they come within {:.0} mm of each other).", joint::TOLERANCE)),
+    }
 }
 
 fn run(args: &[String], lib: &Library) -> Value {
@@ -234,6 +263,10 @@ fn run(args: &[String], lib: &Library) -> Value {
             }
             _ => fail("usage: schema settings"),
         },
+        Some("parse-tracks") => spec_reply(args, "parse-tracks", |v| TrackSpec::from_json(v).map(|s| json!({"ok": true, "tracks": s.to_json(), "summary": s.summary()}))),
+        Some("parse-yard") => spec_reply(args, "parse-yard", |v| YardSpec::from_json(v).map(|s| json!({"ok": true, "yard": s.to_json(), "summary": s.summary(), "min_line_mm": (s.min_line() * 10.0).round() / 10.0}))),
+        Some("parse-joint") => spec_reply(args, "parse-joint", |v| JointSpec::from_json(v).map(|s| json!({"ok": true, "joint": s.to_json(), "summary": s.summary()}))),
+        Some("find-joint") => find_joint(args),
         Some("library") => {
             let els: Vec<Value> = lib
                 .names()
@@ -243,7 +276,7 @@ fn run(args: &[String], lib: &Library) -> Value {
                 .collect();
             json!({"ok": true, "elements": els})
         }
-        _ => fail("usage: cartographer-cli parse|edit|diff|parse-junction|parse-crossing|parse-hub|parse-transition|parse-water|parse-embankment|parse-wet|library|version|parse-settings|schema ..."),
+        _ => fail("usage: cartographer-cli parse|edit|diff|parse-junction|parse-crossing|parse-hub|parse-transition|parse-water|parse-embankment|parse-wet|parse-tracks|parse-yard|parse-joint|find-joint|library|version|parse-settings|schema ..."),
     }
 }
 
