@@ -45,4 +45,5 @@ jobs:
         run: |
           node scripts/standards.mjs check
           node scripts/standards.mjs md
-          git diff --exit-code docs/STANDARDS.md
+          node scripts/standards.mjs rs
+          git diff --exit-code docs/STANDARDS.md docs/STANDARDS-RAIL.md core/src/turnout_table.rs

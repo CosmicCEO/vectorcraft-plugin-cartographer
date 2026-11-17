@@ -4,6 +4,7 @@
 //   node scripts/standards.mjs md        (rewrite docs/STANDARDS.md)
 import "./lib/require-node.mjs";
 import { readFileSync, writeFileSync } from "node:fs";
+import * as rail from "./lib/standards-rail.mjs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -88,14 +89,21 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
   const cmd = process.argv[2];
   if (cmd === "check") {
     const bad = problems();
-    for (const b of bad) console.error(b);
-    console.log(bad.length ? `${bad.length} problem(s)` : `ok: ${db.entries.length} entries`);
-    process.exit(bad.length ? 1 : 0);
+    for (const b of bad) console.error(`road: ${b}`);
+    const badRail = rail.problems();
+    for (const b of badRail) console.error(`rail: ${b}`);
+    const total = bad.length + badRail.length;
+    console.log(total ? `${total} problem(s)` : `ok: ${db.entries.length} road entries, ${rail.entryCount()} rail entries`);
+    process.exit(total ? 1 : 0);
   } else if (cmd === "md") {
     writeFileSync(resolve(root, "docs/STANDARDS.md"), markdown());
-    console.log("wrote docs/STANDARDS.md");
+    writeFileSync(resolve(root, "docs/STANDARDS-RAIL.md"), rail.markdown());
+    console.log("wrote docs/STANDARDS.md and docs/STANDARDS-RAIL.md");
+  } else if (cmd === "rs") {
+    writeFileSync(resolve(root, "core/src/turnout_table.rs"), rail.rust());
+    console.log("wrote core/src/turnout_table.rs");
   } else {
-    console.error("usage: standards.mjs check | md");
+    console.error("usage: standards.mjs check | md | rs");
     process.exit(2);
   }
 }

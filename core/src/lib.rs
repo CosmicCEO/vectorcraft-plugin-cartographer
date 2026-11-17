@@ -12,6 +12,7 @@ pub mod library;
 pub mod materials;
 pub mod offset;
 pub mod output;
+pub mod rail_standards;
 pub mod roads;
 pub mod scenarios;
 pub mod schema;
