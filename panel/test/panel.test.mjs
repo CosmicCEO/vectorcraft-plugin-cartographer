@@ -1,97 +1,665 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { Control } from "../lib/control.mjs";
-import { SET_SETTINGS } from "../lib/doc.mjs";
+import { SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_JUNCTION, SET_TRANSITION, SET_WATER, SET_WET, PLUGIN_ID } from "../lib/doc.mjs";
 import { Panel } from "../lib/panel.mjs";
 import { fakeVectorCraft } from "./fake-vectorcraft.mjs";
+
+const STORY = "facing N: bike-lane | apron | lane S x2 | margin 3 | lane N x2 | apron | bike-lane";
+const agent = (text) => ({ default: "fake", providers: { fake: { kind: "function", label: "Fake", fn: () => text } } });
+
+// The commands the user's own steps made, without the layer tidying the panel does after a build.
+const steps = (vc) => vc.doc.calls.filter((c) => c.command !== "file.saveCopy" && !c.command.startsWith("layer.")).map((c) => c.command);
 
 const cleanups = [];
 after(() => cleanups.forEach((f) => f()));
 
-async function setup(options = { paths: [{ id: 5, name: "" }], selection: [5] }) {
-  const vc = await fakeVectorCraft(options);
+async function setup(vc, answer = STORY) {
   const control = new Control({ port: vc.port });
-  const panel = new Panel({ control });
-  cleanups.push(() => { control.close(); vc.close(); });
+  const panel = new Panel({ control, providers: agent(answer) });
+  const done = () => { control.close(); vc.close(); };
+  cleanups.push(done); // even when a test fails half way, nothing is left open
   await panel.tick();
-  return { vc, panel };
+  return { panel, control, done };
 }
 
-// The engine commands the user's steps made, without the saved copies the panel reads.
-const steps = (vc) => vc.doc.calls.filter((c) => c.command !== "file.saveCopy").map((c) => c.command);
+test("a plain selected line is offered for description", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "" }], selection: [5] });
+  const { panel, done } = await setup(vc);
+  assert.equal(panel.snapshot().target.kind, "line");
+  assert.equal(panel.snapshot().road, null);
+  done();
+});
 
-test("the settings card shows defaults when nothing is stored", async () => {
-  const { panel } = await setup();
+test("describe in words, then Draw: the right commands, in order, and the selection comes back", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "" }, { id: 9, name: "profile.sbEdge" }], selection: [5] });
+  const { panel, done } = await setup(vc);
+  await panel.propose("a road with a margin in the middle", "fake");
   const s = panel.snapshot();
-  assert.equal(s.error, null);
-  assert.equal(s.settings.card.fields.length, 4);
-  assert.equal(s.settings.values.style, "medium-contrast");
-  assert.equal(s.settings.values.target_print_scale, "true");
-  assert.match(s.settings.summary, /style medium-contrast, target print scale true/);
-});
+  assert.equal(s.pending.canonical, STORY);
+  assert.equal(s.pending.items.length, 9);
+  assert.equal(vc.doc.calls.length, 0, "nothing is applied until Draw");
 
-test("a bad scale is refused before it reaches VectorCraft", async () => {
-  const { vc, panel } = await setup();
-  await panel.editSettings({ target_print_scale: "1:0" });
-  assert.match(panel.snapshot().message, /1:N/);
-  assert.equal(panel.snapshot().pending, null);
-  assert.deepEqual(steps(vc), []);
-});
-
-test("a choice is previewed, then Draw stores it", async () => {
-  const { vc, panel } = await setup();
-  await panel.editSettings({ style: "hand-drawn" });
-  assert.equal(panel.snapshot().pending.settings.style, "hand-drawn");
-  assert.deepEqual(steps(vc), [], "nothing is applied until Draw");
   await panel.draw();
-  assert.deepEqual(steps(vc), ["select.all", SET_SETTINGS]);
-  assert.equal(vc.doc.spec.settings.style, "hand-drawn");
-  const s = panel.snapshot();
-  assert.equal(s.pending, null);
-  assert.equal(s.settings.values.style, "hand-drawn");
-  assert.equal(s.message, "Drawn.");
+  assert.deepEqual(steps(vc), ["select.set", SET_CROSS_SECTION, "select.all", "plugin.run", "select.set"]);
+  const names = vc.doc.layers.map((l) => l.name);
+  assert.ok(names.includes("road r1") && names.includes("road r1 spine") && names.includes("road r1 drawing"), `each road gets a layer with a spine and a drawing: ${names}`);
+  assert.deepEqual(vc.doc.paths.find((x) => x.id === 5).path, [vc.doc.layers.find((l) => l.name === "road r1 spine").id], "the line is on its spine layer");
+  assert.equal(vc.doc.calls.find((c) => c.command === SET_CROSS_SECTION).params.params.cross_section, STORY);
+  assert.deepEqual(vc.doc.calls.find((c) => c.command === "plugin.run").params, { id: PLUGIN_ID });
+  assert.deepEqual(vc.doc.selection, [5], "the user's selection is restored");
+  const after = panel.snapshot();
+  assert.equal(after.pending, null);
+  assert.equal(after.target.kind, "road");
+  assert.equal(after.road.text, STORY);
+  assert.equal(after.road.items.length, 9);
+  done();
 });
 
-test("Cancel drops a proposal and Draw with nothing proposed does nothing", async () => {
-  const { vc, panel } = await setup();
-  await panel.editSettings({ seed: 9 });
-  await panel.cancel();
+test("selecting a described road shows its elements; deleting one is previewed, then drawn for that piece only", async () => {
+  const spec = { segments: { r1: { cross_section: STORY, anchor: "auto" } } };
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.r1" }, { id: 3, name: "road.r1" }], selection: [3], spec });
+  const { panel, done } = await setup(vc);
+  let s = panel.snapshot();
+  assert.equal(s.road.segment, "r1");
+  assert.equal(s.road.items.length, 9);
+  assert.deepEqual(s.road.pieces, { selected: 1, total: 2 }, "the panel knows another piece shares this road");
+
+  await panel.edit(["delete", 0]);
+  s = panel.snapshot();
+  assert.equal(s.pending.canonical, "facing N: apron | lane S x2 | margin 3 | lane N x2 | apron | bike-lane");
+  assert.equal(vc.doc.spec.segments.r1.cross_section, STORY, "still not applied");
+
+  await panel.draw({ scope: "selected" });
+  const cmd = vc.doc.calls.find((c) => c.command === SET_CROSS_SECTION);
+  assert.equal(cmd.params.params.scope, "selected");
+  assert.equal(vc.doc.spec.segments.r1.cross_section, STORY, "the other piece keeps its description");
+  assert.match(vc.doc.spec.segments.r2.cross_section, /^facing N: apron/);
+  done();
+});
+
+test("an invalid answer from the agent never reaches VectorCraft", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "" }], selection: [5] });
+  const { panel, done } = await setup(vc, "warp-drive | lane");
+  await panel.propose("something odd", "fake");
   assert.equal(panel.snapshot().pending, null);
-  await panel.draw();
-  assert.deepEqual(steps(vc), []);
-  assert.match(panel.snapshot().message, /Nothing to change/);
+  assert.match(panel.snapshot().message, /could not produce a valid cross-section/);
+  assert.equal(vc.doc.calls.length, 0);
+  done();
 });
 
-test("stored settings are shown, and a second change keeps the first", async () => {
-  const { panel, vc } = await setup({ paths: [{ id: 5, name: "" }], selection: [5], spec: { schema: 1, settings: { style: "high-contrast", seed: 4 } } });
-  assert.equal(panel.snapshot().settings.values.style, "high-contrast");
-  await panel.editSettings({ target_print_scale: "1:2000" });
-  await panel.editSettings({ north_deg: 15 });
-  const p = panel.snapshot().pending.settings;
-  assert.deepEqual([p.style, p.target_print_scale, p.north_deg, p.seed], ["high-contrast", "1:2000", 15, 4]);
-  assert.deepEqual(steps(vc), []);
+test("changing the selection drops a proposal made for something else", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "" }, { id: 6, name: "" }], selection: [5] });
+  const { panel, done } = await setup(vc);
+  await panel.propose("anything", "fake");
+  assert.ok(panel.snapshot().pending);
+  vc.doc.selection = [6];
+  await panel.tick();
+  assert.equal(panel.snapshot().pending, null);
+  done();
 });
 
-test("no open document is reported plainly", async () => {
-  const { panel } = await setup({ hasDocument: false });
+test("with nothing sensible selected, it says so instead of acting", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "profile.sbEdge" }], selection: [5] });
+  const { panel, done } = await setup(vc);
+  await panel.propose("x", "fake");
+  assert.match(panel.snapshot().message, /Select one line/);
+  assert.equal(vc.doc.calls.length, 0);
+  done();
+});
+
+test("no open document is reported plainly; a missing VectorCraft too", async () => {
+  const vc = await fakeVectorCraft({ hasDocument: false });
+  const { panel, done } = await setup(vc);
   assert.match(panel.snapshot().error, /Open or create a document/);
+  done();
+  const gone = new Panel({ control: new Control({ port: 1 }), providers: agent(STORY) });
+  await gone.tick();
+  assert.match(gone.snapshot().error, /not answering on port 1/);
+  assert.equal(gone.snapshot().connected, false);
 });
 
-test("VectorCraft not running is reported plainly", async () => {
-  const panel = new Panel({ control: new Control({ port: 1 }) });
-  await panel.tick();
-  assert.match(panel.snapshot().error, /VectorCraft is not answering on port 1/);
+test("typing the shorthand directly is validated like an agent's answer", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "" }], selection: [5] });
+  const { panel, done } = await setup(vc);
+  await panel.setText("lane | trolley");
+  assert.match(panel.snapshot().message, /unknown element "trolley"/);
+  await panel.setText("squishy margin 3 | lane");
+  assert.equal(panel.snapshot().pending.canonical, "margin 3 | lane");
+  assert.match(panel.snapshot().message, /Read as/);
+  done();
 });
 
-test("switching documents drops a proposal and reads the new document", async () => {
-  const { vc, panel } = await setup();
-  await panel.editSettings({ seed: 9 });
-  assert.equal(panel.snapshot().pending.settings.seed, 9);
-  vc.doc.title = "Other.vectorcraft";
-  vc.doc.spec = { schema: 1, settings: { seed: 2 } };
-  await panel.tick();
+const FOUR_WAY = JSON.stringify({ legs: [{ side: "west", cross_section: "lane back | lane fwd", length: 40 }, { side: "east", cross_section: "lane back | lane fwd", length: 40 }], control: "signal", crosswalks: true, radius: 6 });
+
+test("a plain line can be a connection: describe the junction, then Draw", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 7, name: "" }], selection: [7] });
+  const { panel, done } = await setup(vc, `Sure: ${FOUR_WAY}`);
+  await panel.setMode("connection");
+  await panel.propose("This is a 4 way intersection. West and east are two lane rural roads. There are traffic lights and cross walks.", "fake");
+  const pending = panel.snapshot().pending;
+  assert.equal(pending.kind, "junction");
+  assert.match(pending.summary, /four-way junction, traffic signals, crosswalks/);
+  assert.equal(vc.doc.calls.length, 0, "nothing is applied until Draw");
+
+  await panel.draw();
+  const set = vc.doc.calls.find((c) => c.command === SET_JUNCTION);
+  assert.equal(JSON.parse(set.params.params.description).legs.length, 2);
+  assert.deepEqual(steps(vc), ["select.set", SET_JUNCTION, "select.all", "plugin.run", "select.set"]);
+  assert.deepEqual(vc.doc.selection, [7]);
+  const after = panel.snapshot();
+  assert.equal(after.target.kind, "junction");
+  assert.equal(after.junction.spec.control, "signal");
+  assert.match(after.junction.summary, /four-way junction/);
+  done();
+});
+
+test("Connect and match carries the road across with no side roads", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 7, name: "" }], selection: [7] });
+  const { panel, done } = await setup(vc);
+  await panel.setMode("connection");
+  await panel.match();
+  assert.match(panel.snapshot().pending.summary, /road carried across the gap/);
+  await panel.draw();
+  assert.deepEqual(JSON.parse(vc.doc.calls.find((c) => c.command === SET_JUNCTION).params.params.description).legs, []);
+  done();
+});
+
+test("a selected junction shows its description and its settings can be changed before drawing", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 7, name: "junction.j1" }], selection: [7], spec: { segments: {}, junctions: { j1: JSON.parse(FOUR_WAY) } } });
+  const { panel, done } = await setup(vc);
+  let s = panel.snapshot();
+  assert.equal(s.target.kind, "junction");
+  assert.equal(s.junction.spec.legs.length, 2);
+  await panel.editJunction({ control: "stop", crosswalks: false });
+  s = panel.snapshot();
+  assert.equal(s.pending.junction.control, "stop");
+  assert.match(s.pending.summary, /stop signs on the legs/);
+  await panel.editJunction({ removeLeg: 1 });
+  assert.match(panel.snapshot().pending.summary, /T-junction/, "removing a leg makes it a T-junction");
+  assert.equal(vc.doc.spec.junctions.j1.control, "signal", "still not applied");
+  done();
+});
+
+test("an agent's invalid junction never reaches VectorCraft", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 7, name: "" }], selection: [7] });
+  const { panel, done } = await setup(vc, '{"control": "roundabout"}');
+  await panel.setMode("connection");
+  await panel.propose("a roundabout", "fake");
+  assert.equal(panel.snapshot().pending, null);
+  assert.match(panel.snapshot().message, /could not produce a valid junction/);
+  assert.equal(vc.doc.calls.length, 0);
+  done();
+});
+
+test("clicking a generated shape of a road selects that road in the panel, and Select the line puts the line in the selection", async () => {
+  const spec = { segments: { r1: { cross_section: STORY, anchor: "auto" } } };
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.r1" }, { id: 3, name: "road.r1" }, { id: 40, name: "gen.road.r1.2.surface.4.margin" }, { id: 41, name: "gen.road.r1.2.line.3" }], selection: [40, 41], spec });
+  const { panel, done } = await setup(vc);
+  let s = panel.snapshot();
+  assert.equal(s.target.kind, "road");
+  assert.equal(s.target.segment, "r1");
+  assert.deepEqual(s.target.ids, [3], "piece 2 of road.r1 is the second line with that name");
+  assert.equal(s.road.items.length, 9);
+  assert.deepEqual(s.road.pieces, { selected: 1, total: 2 });
+  await panel.selectLine();
+  assert.deepEqual(vc.doc.selection, [3], "the line itself is now selected in VectorCraft");
+  assert.equal(panel.snapshot().target.kind, "road");
+  done();
+});
+
+test("clicking a generated shape of a junction selects the junction", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 7, name: "junction.j1" }, { id: 50, name: "gen.junction.j1.box" }], selection: [50], spec: { segments: {}, junctions: { j1: JSON.parse(FOUR_WAY) } } });
+  const { panel, done } = await setup(vc);
   const s = panel.snapshot();
-  assert.equal(s.pending, null);
-  assert.equal(s.settings.values.seed, 2);
-  assert.equal(s.doc.title, "Other.vectorcraft");
+  assert.equal(s.target.kind, "junction");
+  assert.deepEqual(s.target.ids, [7]);
+  assert.equal(s.junction.spec.legs.length, 2);
+  done();
+});
+
+const TWO_LANE = { cross_section: "lane back | lane fwd", anchor: "auto" };
+const roads2 = { segments: { a: TWO_LANE, b: TWO_LANE } };
+const SIGNAL = '{"treatment": "signal", "crosswalks": true, "radius": 6, "minor": null, "over": null, "diameter": 40}';
+
+test("selecting two different roads offers an intersection; a quick choice is previewed, then Draw makes it", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec: roads2 });
+  const { panel, done } = await setup(vc);
+  let s = panel.snapshot();
+  assert.equal(s.target.kind, "crossing");
+  assert.deepEqual(s.crossing.roads, ["a", "b"]);
+  assert.equal(s.crossing.described, false);
+  assert.equal(s.crossing.spec.treatment, "signal", "a lighted intersection with crosswalks is the starting suggestion");
+
+  await panel.editCrossing({ treatment: "2 way stop", minor: "b" });
+  s = panel.snapshot();
+  assert.equal(s.pending.kind, "crossing");
+  assert.equal(s.pending.crossing.treatment, "two-way-stop");
+  assert.match(s.pending.summary, /two-way stop, road b stops, crosswalks/);
+  assert.equal(steps(vc).length, 0, "nothing is applied until Draw");
+
+  await panel.draw();
+  assert.deepEqual(steps(vc), ["select.set", SET_CROSSING, "select.all", "plugin.run", "select.set"]);
+  assert.equal(vc.doc.spec.crossings.k1.treatment, "two-way-stop");
+  assert.deepEqual(vc.doc.selection, [2, 3], "the user's selection comes back");
+  s = panel.snapshot();
+  assert.equal(s.crossing.described, true);
+  assert.equal(s.crossing.id, "k1");
+  done();
+});
+
+test("an agent turns words into an intersection treatment", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec: roads2 });
+  const { panel, done } = await setup(vc, 'Here: {"treatment": "traffic circle", "crosswalks": true, "diameter": 50}');
+  await panel.propose("make it a roundabout about 50 metres across with crosswalks", "fake");
+  const p = panel.snapshot().pending;
+  assert.equal(p.kind, "crossing");
+  assert.equal(p.crossing.treatment, "roundabout");
+  assert.equal(p.crossing.diameter, 50);
+  assert.deepEqual(p.crossing.roads, ["a", "b"], "the program supplies the road ids");
+  done();
+});
+
+test("a cloverleaf is previewed with its changes and drawn", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec: roads2 });
+  const { panel, done } = await setup(vc);
+  await panel.editCrossing({ treatment: "cloverleaf", over: "b" });
+  const p = panel.snapshot().pending;
+  assert.match(p.summary, /cloverleaf interchange/);
+  assert.deepEqual(p.changes, ["a new intersection"], "nothing was stored yet");
+  await panel.draw();
+  assert.equal(vc.doc.spec.crossings.k1.treatment, "cloverleaf");
+  done();
+});
+
+test("clicking an intersection's drawing selects the two roads it joins", async () => {
+  const spec = { ...roads2, crossings: { k1: { roads: ["a", "b"], treatment: "signal", crosswalks: true, radius: 6 } } };
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }, { id: 40, name: "gen.crossing.k1.box" }], selection: [40], spec });
+  const { panel, done } = await setup(vc);
+  const s = panel.snapshot();
+  assert.equal(s.target.kind, "crossing");
+  assert.deepEqual(s.target.ids.sort(), [2, 3]);
+  assert.equal(s.crossing.described, true);
+  assert.equal(s.crossing.spec.treatment, "signal");
+  done();
+});
+
+test("a rebuild shows hidden and locked road layers for the build, then puts them back", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }], selection: [2], spec: { segments: { a: TWO_LANE } } });
+  vc.doc.layers.push({ id: 50, name: "road a", visible: true, locked: false, parent: null }, { id: 51, name: "road a spine", visible: false, locked: false, parent: 50 }, { id: 52, name: "road a drawing", visible: true, locked: true, parent: 50 });
+  const { panel, done } = await setup(vc);
+  await panel.draw();
+  const props = vc.doc.calls.filter((c) => c.command === "layer.setProps").map((c) => c.params);
+  const runAt = vc.doc.calls.findIndex((c) => c.command === "plugin.run");
+  const before = vc.doc.calls.slice(0, runAt).filter((c) => c.command === "layer.setProps").map((c) => c.params);
+  assert.deepEqual(before, [{ id: 51, visible: true, locked: false }, { id: 52, visible: true, locked: false }], "everything is shown and unlocked before the build");
+  assert.equal(props.length, 4);
+  assert.equal(vc.doc.layers.find((l) => l.id === 51).visible, false, "the spine is hidden again afterwards");
+  assert.equal(vc.doc.layers.find((l) => l.id === 52).locked, true, "the drawing is locked again afterwards");
+  assert.equal(vc.doc.layers.filter((l) => l.name === "road a").length, 1, "the existing road layer is reused, not duplicated");
+  done();
+});
+
+test("a short stub can be kept as a dead end or trimmed to a three-way", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec: roads2 });
+  const { panel, done } = await setup(vc);
+  assert.equal(panel.snapshot().crossing.spec.stub, "keep", "a dead end is the default");
+  await panel.editCrossing({ stub: "3-way" });
+  const p = panel.snapshot().pending;
+  assert.equal(p.crossing.stub, "trim");
+  assert.match(p.summary, /short stub is trimmed \(three-way\)/);
+  await panel.draw();
+  assert.equal(vc.doc.spec.crossings.k1.stub, "trim");
+  assert.equal(panel.snapshot().crossing.spec.stub, "trim", "it is remembered with the intersection");
+  done();
+});
+
+test("an agent can ask for a three-way by trimming the stub", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec: roads2 });
+  const { panel, done } = await setup(vc, '{"treatment": "signal", "crosswalks": true, "stub": "trim"}');
+  await panel.propose("lighted three-way, trim off the stub", "fake");
+  assert.equal(panel.snapshot().pending.crossing.stub, "trim");
+  done();
+});
+
+test("the new intersection types and the pocket and slip choices go through the panel", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec: roads2 });
+  const { panel, done } = await setup(vc);
+  await panel.editCrossing({ treatment: "level crossing", gates: false });
+  let p = panel.snapshot().pending;
+  assert.equal(p.crossing.treatment, "railroad");
+  assert.equal(p.crossing.gates, false);
+  assert.match(p.summary, /railroad crossing$/);
+  await panel.editCrossing({ treatment: "signal", pocket: "left", pocket_length: 60, slip: true });
+  p = panel.snapshot().pending;
+  assert.match(p.summary, /left turn pockets \(60 m\), right-turn slip lanes/);
+  assert.equal(p.crossing.radius, null, "the kerb radius stays automatic until it is set");
+  await panel.editCrossing({ treatment: "driveway" });
+  assert.match(panel.snapshot().pending.summary, /driveway/);
+  await panel.editCrossing({ treatment: "median-opening", opening: 24, main: "a" });
+  assert.match(panel.snapshot().pending.summary, /median opening, 24 m long/);
+  assert.equal(panel.snapshot().pending.crossing.main, "a");
+  await panel.editCrossing({ pocket: "sideways" });
+  assert.match(panel.snapshot().message, /pocket must be/);
+  await panel.draw();
+  assert.equal(vc.doc.spec.crossings.k1.treatment, "median-opening");
+  assert.equal(vc.doc.spec.crossings.k1.opening, 24);
+  done();
+});
+
+test("an agent can ask for turn pockets twice as long", async () => {
+  const spec = { ...roads2, crossings: { k1: { roads: ["a", "b"], treatment: "signal", crosswalks: true, pocket: "left", pocket_length: 30 } } };
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec });
+  const { panel, done } = await setup(vc, '{"treatment": "signal", "crosswalks": true, "pocket": "left", "pocket_length": 60}');
+  assert.equal(panel.snapshot().crossing.spec.pocket, "left");
+  await panel.propose("turn pocket probably twice as long", "fake");
+  assert.equal(panel.snapshot().pending.crossing.pocket_length, 60);
+  done();
+});
+
+const roads3 = { segments: { a: TWO_LANE, b: TWO_LANE, c: TWO_LANE } };
+const threeRoads = () => fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }, { id: 4, name: "road.c" }], selection: [2, 3, 4], spec: roads3 });
+
+test("selecting three roads offers a hub; a choice is previewed, then Draw makes it", async () => {
+  const vc = await threeRoads();
+  const { panel, done } = await setup(vc);
+  let s = panel.snapshot();
+  assert.equal(s.target.kind, "hub");
+  assert.deepEqual(s.hub.roads, ["a", "b", "c"]);
+  assert.equal(s.hub.described, false);
+  assert.equal(s.hub.spec.treatment, "signal");
+  await panel.editHub({ treatment: "all way stop", stub: "trim" });
+  s = panel.snapshot();
+  assert.equal(s.pending.kind, "hub");
+  assert.equal(s.pending.hub.treatment, "four-way-stop");
+  assert.match(s.pending.summary, /3 roads meet \(a, b, c\): all-way stop, crosswalks, short stubs trimmed/);
+  assert.equal(steps(vc).length, 0, "nothing is applied until Draw");
+  await panel.draw();
+  assert.deepEqual(steps(vc), ["select.set", SET_HUB, "select.all", "plugin.run", "select.set"]);
+  assert.equal(vc.doc.spec.hubs.h1.treatment, "four-way-stop");
+  assert.deepEqual(vc.doc.selection, [2, 3, 4]);
+  assert.equal(panel.snapshot().hub.described, true);
+  assert.equal(panel.snapshot().hub.id, "h1");
+  done();
+});
+
+test("an agent turns words into a hub, and a click on its drawing selects its roads", async () => {
+  const vc = await threeRoads();
+  const { panel, done } = await setup(vc, '{"treatment": "traffic lights", "crosswalks": true}');
+  await panel.propose("five way, lighted, crosswalks", "fake");
+  const p = panel.snapshot().pending;
+  assert.equal(p.kind, "hub");
+  assert.equal(p.hub.treatment, "signal");
+  assert.deepEqual(p.hub.roads, ["a", "b", "c"], "the program supplies the road ids");
+  done();
+  const spec = { ...roads3, hubs: { h1: { roads: ["a", "b", "c"], treatment: "signal", crosswalks: true } } };
+  const vc2 = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }, { id: 4, name: "road.c" }, { id: 40, name: "gen.hub.h1.core" }], selection: [40], spec });
+  const two = await setup(vc2);
+  const s = two.panel.snapshot();
+  assert.equal(s.target.kind, "hub");
+  assert.deepEqual(s.target.ids.sort(), [2, 3, 4]);
+  assert.equal(s.hub.described, true);
+  two.done();
+});
+
+test("a proposal lists what it changes, in plain words, against what is stored", async () => {
+  const spec = { ...roads2, crossings: { k1: { roads: ["a", "b"], treatment: "signal", crosswalks: true, pocket: "left", pocket_length: 30 } } };
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec });
+  const { panel, done } = await setup(vc);
+  await panel.editCrossing({ pocket_length: 60, treatment: "roundabout" });
+  const c = panel.snapshot().pending.changes;
+  assert.ok(c.includes("pocket length: 30 → 60") && c.includes("type: signal → roundabout"), `${c}`);
+  done();
+  const vc2 = await fakeVectorCraft({ paths: [{ id: 2, name: "road.r1" }], selection: [2], spec: { segments: { r1: { cross_section: "lane back | lane fwd", anchor: "auto" } } } });
+  const two = await setup(vc2);
+  await two.panel.setText("bike-lane | lane back | lane fwd x2");
+  const ch = two.panel.snapshot().pending.changes;
+  assert.ok(ch.some((x) => /added bike lane/.test(x)), `${ch}`);
+  two.done();
+});
+
+test("an agent that cannot answer hands over to its fallback; an optional agent that is not installed is hidden", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "" }], selection: [5] });
+  const control = new Control({ port: vc.port });
+  const providers = {
+    default: "small",
+    providers: {
+      small: { kind: "function", label: "Small", fallback: "big", fn: () => "nonsense-thing" },
+      big: { kind: "function", label: "Big", fn: () => "lane back | lane fwd" },
+      ghost: { kind: "cli", label: "Not installed", optional: true, command: "./target/no-such-agent" },
+    },
+  };
+  const panel = new Panel({ control, providers });
+  cleanups.push(() => { control.close(); vc.close(); });
+  await panel.tick();
+  assert.deepEqual(panel.snapshot().agents.list.map((a) => a.id), ["small", "big"], "the missing optional agent is not offered");
+  await panel.propose("two lane road", "small");
+  const s = panel.snapshot();
+  assert.equal(s.pending.canonical, "lane back | lane fwd");
+  assert.equal(s.pending.agent, "big");
+  assert.match(s.message, /Small could not give a valid answer, so Big answered/);
+});
+
+test("the notes the last build left with the document are shown", async () => {
+  const spec = { ...roads2, notes: ["intersection k1: no stub to trim: both roads run more than 25 m past the crossing"], crossings: { k1: { roads: ["a", "b"], treatment: "signal" } } };
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec });
+  const { panel, done } = await setup(vc);
+  assert.deepEqual(panel.snapshot().notes, ["intersection k1: no stub to trim: both roads run more than 25 m past the crossing"]);
+  done();
+});
+
+const oneRoad = (extra = {}) => fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.a" }], selection: [3], spec: { segments: { a: TWO_LANE }, ...extra } });
+
+test("a lane change on the selected line is previewed with what it does, then drawn", async () => {
+  const vc = await oneRoad();
+  const { panel, done } = await setup(vc);
+  assert.equal(panel.snapshot().road.piece, 2, "the second line of road a is selected");
+  assert.deepEqual(panel.snapshot().road.transitions, []);
+  panel.setMode("transition");
+  await panel.editTransition({ change: "add", side: "right", count: 2, at: 150 });
+  const p = panel.snapshot().pending;
+  assert.equal(p.kind, "transition");
+  assert.equal(p.after, "lane back | lane fwd x3", "two lanes added to the one lane with the line");
+  assert.match(p.summary, /adds 2 lanes on the right \(toward the edge\)/);
+  assert.equal(p.transition.piece, 2);
+  assert.equal(steps(vc).length, 0, "nothing is applied until Draw");
+  await panel.editTransition({ change: "drop", side: "left", count: 5 });
+  assert.match(panel.snapshot().message, /cannot drop the last lane/);
+  await panel.draw();
+  assert.deepEqual(steps(vc), ["select.set", SET_TRANSITION, "select.all", "plugin.run", "select.set"]);
+  assert.deepEqual(vc.doc.spec.transitions.a.map((e) => [e.piece, e.at, e.count]), [[2, 150, 2]]);
+  const s = panel.snapshot();
+  assert.equal(s.road.transitions.length, 1);
+  assert.match(s.road.transitions[0].summary, /adds 2 lanes/);
+  assert.equal(s.road.transitions[0].after, "lane back | lane fwd x3");
+  done();
+});
+
+test("a stored lane change can be removed, and one belongs to its own line", async () => {
+  const stored = [{ piece: 2, at: 150, change: "add", side: "right", count: 1 }, { piece: 1, at: 40, change: "add", side: "left", count: 1 }];
+  const vc = await oneRoad({ transitions: { a: stored } });
+  const { panel, done } = await setup(vc);
+  assert.equal(panel.snapshot().road.transitions.length, 1, "only the selected line's own lane change is listed");
+  await panel.removeTransition(0);
+  assert.deepEqual(vc.doc.spec.transitions.a.map((e) => e.piece), [1], "the other line's lane change is untouched");
+  assert.equal(panel.snapshot().road.transitions.length, 0);
+  done();
+});
+
+test("an agent turns words into a lane change; the gore is a choice on a ramp", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }], selection: [2], spec: { segments: { a: { cross_section: "lane back | lane fwd x2", anchor: "auto" } } } });
+  const { panel, done } = await setup(vc, 'Here: {"change": "merge", "side": "right", "count": 1, "at": 300, "speed": 55}');
+  panel.setMode("transition");
+  await panel.propose("the right lane ends after 300 metres", "fake");
+  const p = panel.snapshot().pending;
+  assert.equal(p.kind, "transition");
+  assert.equal(p.transition.change, "drop");
+  assert.equal(p.transition.at, 300);
+  assert.equal(p.transition.speed, 55);
+  assert.equal(p.after, "lane back | lane fwd");
+  done();
+  const vc2 = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "road.b" }], selection: [2, 3], spec: roads2 });
+  const two = await setup(vc2);
+  await two.panel.editCrossing({ treatment: "converge", gore: false });
+  assert.equal(two.panel.snapshot().pending.crossing.treatment, "on-ramp");
+  assert.equal(two.panel.snapshot().pending.crossing.gore, false);
+  two.done();
+});
+
+const water = (id, name) => ({ id, name });
+
+test("a plain line can be made water: choices are previewed, then Draw names it and builds it", async () => {
+  const vc = await fakeVectorCraft({ paths: [water(2, "")], selection: [2] });
+  const { panel, done } = await setup(vc);
+  panel.setMode("water");
+  await panel.tick(true);
+  let s = panel.snapshot();
+  assert.equal(s.target.kind, "line");
+  assert.equal(s.water.described, false);
+  assert.equal(s.water.spec.kind, "auto");
+  await panel.editWater({ kind: "flowing", width: 10, bank_left: 1.5, bank_right: 1.5, name: "Cedar Creek" });
+  s = panel.snapshot();
+  assert.equal(s.pending.kind, "water");
+  assert.match(s.pending.summary, /creek or river 10 m wide/);
+  assert.equal(steps(vc).length, 0, "nothing is applied until Draw");
+  await panel.draw();
+  assert.deepEqual(steps(vc), ["select.set", SET_WATER, "select.all", "plugin.run", "select.set"]);
+  assert.equal(vc.doc.paths[0].name, "water.w1");
+  assert.equal(vc.doc.spec.waters.w1.width, 10);
+  assert.equal(vc.doc.spec.waters.w1.name, "Cedar Creek");
+  s = panel.snapshot();
+  assert.equal(s.target.kind, "water");
+  assert.equal(s.water.described, true);
+  assert.equal(s.water.id, "w1");
+  done();
+});
+
+test("letting the shape decide sends no kind; a bad number is refused before it reaches VectorCraft", async () => {
+  const vc = await fakeVectorCraft({ paths: [water(2, "")], selection: [2] });
+  const { panel, done } = await setup(vc);
+  panel.setMode("water");
+  await panel.tick(true);
+  await panel.editWater({ kind: "auto", width: 12 });
+  await panel.draw();
+  assert.equal(vc.doc.spec.waters.w1.kind, undefined);
+  assert.equal(vc.doc.spec.waters.w1.width, 12);
+  await panel.editWater({ kind: "ocean-of-lava" });
+  assert.match(panel.snapshot().message, /kind must be still/);
+  done();
+});
+
+test("an agent turns words into water; clicking its drawing selects its line", async () => {
+  const vc = await fakeVectorCraft({ paths: [water(2, "")], selection: [2] });
+  const { panel, done } = await setup(vc, '{"kind": "shore", "side": "left", "bank_left": 2}');
+  panel.setMode("water");
+  await panel.tick(true);
+  await panel.propose("ocean to the left of the line", "fake");
+  const p = panel.snapshot().pending;
+  assert.equal(p.kind, "water");
+  assert.equal(p.water.kind, "shore");
+  assert.equal(p.water.side, "left");
+  done();
+  const vc2 = await fakeVectorCraft({ paths: [water(2, "water.c"), water(40, "gen.water.c.water")], selection: [40], spec: { segments: {}, waters: { c: { kind: "flowing", width: 6 } } } });
+  const two = await setup(vc2);
+  const s = two.panel.snapshot();
+  assert.equal(s.target.kind, "water");
+  assert.deepEqual(s.target.ids, [2]);
+  assert.equal(s.water.spec.width, 6);
+  two.done();
+});
+
+const roadAndWater = { segments: { a: { cross_section: "lane back | lane fwd", anchor: "auto" } }, waters: { c: { kind: "flowing", width: 10 } } };
+
+test("selecting a road line and a water line offers a crossing; Draw stores it once per pair", async () => {
+  const vc = await fakeVectorCraft({ paths: [water(2, "road.a"), water(3, "water.c")], selection: [2, 3], spec: roadAndWater });
+  const { panel, done } = await setup(vc);
+  let s = panel.snapshot();
+  assert.equal(s.target.kind, "wet");
+  assert.equal(s.wet.described, false);
+  assert.equal(s.wet.spec.treatment, "bridge");
+  await panel.editWet({ treatment: "culvert", count: 3, size: 1.5 });
+  s = panel.snapshot();
+  assert.match(s.pending.summary, /culvert of 3 pipes 1.5 m across/);
+  await panel.draw();
+  assert.deepEqual(steps(vc), ["select.set", SET_WET, "select.all", "plugin.run", "select.set"]);
+  assert.equal(vc.doc.spec.wets.x1.count, 3);
+  assert.equal(vc.doc.spec.wets.x1.road, "a");
+  assert.equal(vc.doc.spec.wets.x1.water, "c");
+  assert.equal(panel.snapshot().wet.described, true);
+  await panel.editWet({ treatment: "bridge", deck_height: 8 });
+  await panel.draw();
+  assert.equal(Object.keys(vc.doc.spec.wets).length, 1);
+  assert.equal(vc.doc.spec.wets.x1.treatment, "bridge");
+  done();
+});
+
+test("an agent turns words into a crossing, with the road and water supplied by the program", async () => {
+  const vc = await fakeVectorCraft({ paths: [water(2, "road.a"), water(3, "water.c")], selection: [2, 3], spec: roadAndWater });
+  const { panel, done } = await setup(vc, '{"treatment": "bridge", "deck_height": 8}');
+  await panel.propose("bridge with 8 m clearance", "fake");
+  const p = panel.snapshot().pending;
+  assert.equal(p.kind, "wet");
+  assert.equal(p.wet.deck_height, 8);
+  assert.equal(p.wet.road, "a");
+  assert.equal(p.wet.water, "c");
+  done();
+});
+
+test("a click on a crossing's drawing selects its road and water lines", async () => {
+  const spec = { ...roadAndWater, wets: { x1: { road: "a", water: "c", treatment: "bridge" } } };
+  const vc = await fakeVectorCraft({ paths: [water(2, "road.a"), water(3, "water.c"), water(40, "gen.wet.x1.deck.surface.0.lane")], selection: [40], spec });
+  const { panel, done } = await setup(vc);
+  const s = panel.snapshot();
+  assert.equal(s.target.kind, "wet");
+  assert.deepEqual(s.target.ids.sort(), [2, 3]);
+  assert.equal(s.wet.described, true);
+  done();
+});
+
+test("road on fill: a form on a line of a described road, previewed, drawn, listed and removed", async () => {
+  const vc = await fakeVectorCraft({ paths: [water(2, "road.a")], selection: [2], spec: { segments: { a: { cross_section: "lane back | lane fwd", anchor: "auto" } } } });
+  const { panel, done } = await setup(vc);
+  panel.setMode("fill");
+  await panel.tick(true);
+  assert.deepEqual(panel.snapshot().embank.list, []);
+  await panel.editEmbank({ height: 3, slope: 2, from: 100, to: 300 });
+  let s = panel.snapshot();
+  assert.equal(s.pending.kind, "embank");
+  assert.match(s.pending.summary, /road on fill 3 m high with 2:1 slopes from 100 m to 300 m/);
+  assert.equal(steps(vc).length, 0);
+  await panel.draw();
+  assert.deepEqual(steps(vc), ["select.set", SET_EMBANKMENT, "select.all", "plugin.run", "select.set"]);
+  assert.equal(vc.doc.spec.embankments.a[0].height, 3);
+  assert.equal(vc.doc.spec.embankments.a[0].piece, 1);
+  s = panel.snapshot();
+  assert.equal(s.embank.list.length, 1);
+  assert.match(s.embank.list[0].summary, /3 m high/);
+  await panel.removeEmbank(0);
+  assert.equal(vc.doc.spec.embankments.a.length, 0);
+  assert.equal(panel.snapshot().embank.list.length, 0);
+  done();
+});
+
+test("an agent turns words into an embankment", async () => {
+  const vc = await fakeVectorCraft({ paths: [water(2, "road.a")], selection: [2], spec: { segments: { a: { cross_section: "lane back | lane fwd", anchor: "auto" } } } });
+  const { panel, done } = await setup(vc, '{"height": 4, "slope": 3, "from": 200, "to": 450}');
+  panel.setMode("fill");
+  await panel.tick(true);
+  await panel.propose("4 m of fill between 200 and 450, 3:1", "fake");
+  const p = panel.snapshot().pending;
+  assert.equal(p.kind, "embank");
+  assert.equal(p.embank.height, 4);
+  assert.equal(p.embank.piece, 1);
+  done();
+});
+
+test("water layers sit under the road layers after a rebuild", async () => {
+  const spec = { ...roadAndWater };
+  const vc = await fakeVectorCraft({ paths: [water(2, "road.a"), water(3, "water.c"), water(40, "gen.water.c.water"), water(41, "gen.wet.x1.deck.surface.0.lane")], selection: [2], spec });
+  const { panel, done } = await setup(vc);
+  await panel.draw();
+  const names = vc.doc.layers.filter((l) => l.parent === null).map((l) => l.name);
+  assert.ok(names.indexOf("road a") >= 0 && names.indexOf("water c") > names.indexOf("road a"), `${names}`);
+  assert.ok(names.indexOf("wet x1") >= 0 && names.indexOf("wet x1") < names.indexOf("road a"), `${names}`);
+  done();
 });

@@ -24,6 +24,7 @@ const probe = {
   nodeVersion: process.version,
   ...probeRust(env),
   hasCli: existsSync(cliPath),
+  appleHelper: process.platform === "darwin" ? existsSync(join(import.meta.dirname, "../target/apple-fm-agent")) : undefined,
   controlReachable: ci ? false : await reachable(Number(process.env.VECTORCRAFT_CONTROL_PORT ?? 7979)),
 };
 let failed = false;

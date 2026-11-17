@@ -7,7 +7,7 @@ The owner is not a developer: keep chat answers short and plain; write documents
 ## Layout
 - `core/` shared Rust library: plug-in glue (`abi`), geometry, offsetting, output written as text, document reading, units, storage, the material library; the road network from Road Builder (`crosssection` and `library` are the band engine, `roads`, `transition`, `junction`, `crossing`, `scenarios`, `hub`, `water`, `embank`, `wet`, `standards`) and `builder` (the commands).
 - `filter/` the plug-in (WebAssembly): manifest and commands. `cli/` the native helper `cartographer-cli`: checks what an agent proposes and prints schemas for the panel.
-- `panel/` zero-dependency Node server and page (port 8789). `scripts/` portable Node scripts. `library/` JSON data. `tools/fuel/` measures a build's instruction cost (outside the workspace). `spikes/` throwaway experiments (outside the workspace); results are in `docs/spikes/`.
+- `panel/` zero-dependency Node server and page (port 8789): `lib/panel.mjs` (the Panel: follows the selection, proposes with an agent, draws), `lib/providers.mjs` and `prompt.mjs` (agents; every answer is checked by the CLI and sent back once with the exact error), `lib/layers.mjs` (one layer per feature: spine and drawing; water under roads, crossings above), `lib/doc.mjs`, `lib/cli.mjs`, `lib/cards.mjs` (cards built from schemas: the settings card), `public/` (the page), `apple-fm/` (optional Apple Intelligence helper). `scripts/` portable Node scripts. `library/` JSON data. `tools/fuel/` measures a build's instruction cost (outside the workspace). `spikes/` throwaway experiments (outside the workspace); results are in `docs/spikes/`.
 
 ## Rules
 - Edition 2024, `resolver = "3"`, the only dependency is `serde_json`. Node 22 or newer, zero dependencies. Scripts are Node, never shell: no `sed -i`, no `open -a` outside one OS branch.
@@ -27,6 +27,7 @@ The owner is not a developer: keep chat answers short and plain; write documents
 - Water lies below roads, intersections and crossings above (the panel's `organise` orders layers). Ring offsets depend on winding: test both. Lines that meet end to end share one cut at the bisector of their directions.
 - Parity first: ported tests keep their names and numbers; `node scripts/parity.mjs` must say all identical before a change to the road code is accepted.
 - A headless session (`vectorcraft-cli mcp`) can only read and write inside its root and cannot install a heavy-budget plug-in. There is no Linux headless CLI (spike S2).
+- Panel: the settings card keeps its own state (`settings`, `settingsPending`) and its own actions, apart from `pending`, and is read from a saved copy only while it is open (a plain selection must make no calls to VectorCraft). A changed document title drops every proposal. The CLI exits 1 when `ok` is false: read its JSON from stdout whatever the exit code. Document and agent text reach the page only through `textContent` or form values (no HTML sinks; `panel/test/page.test.mjs` checks). Never run the panel's tests or scripts against the owner's open document.
 
 ## Build, test, run
 - Rust: `cargo +stable test --release --workspace`; WebAssembly: `cargo +stable build --release --target wasm32-unknown-unknown --workspace`. On macOS with Homebrew, put rustup first on `PATH` (`/opt/homebrew/opt/rustup/bin`); `scripts/build.mjs` does this.

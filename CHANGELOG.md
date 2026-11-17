@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 Panel
+- Road Builder's companion panel ported: the road card with its element bar and edits, lane changes, junctions, intersections, hubs, water, embankments and crossings, the layers (one per feature, water under roads), and the agents (Claude, a command, an OpenAI-style endpoint, Apple Intelligence on a Mac). The 62 Road Builder panel tests pass unchanged.
+- The Document settings card (target print scale, style, seed, north) sits at the bottom of the page and is read only while it is open.
+- Switching to another document drops every proposal and reads the new one.
+- The panel sends a content-security-policy that forbids inline script, answers a malformed address or unknown action with an error instead of stopping, and shows document and agent text only as text.
+- `node scripts/build.mjs` also builds the optional Apple Intelligence helper on a Mac with Xcode tools; `docs/PANEL-CHECK.md` is the manual check against a real VectorCraft.
+
 ## 0.2.0 Road network core
 - Road Builder's road network ported: cross-sections and the element library, roads, lane changes, junctions, intersections and scenarios (stops, signal, roundabout, overpass, ramps and gores, railroad, cloverleaf), hubs, water (lakes, creeks and rivers that conform where lines meet, shores), embankments, bridges, culverts and causeways. 96 Road Builder tests ported with their numbers unchanged.
 - The standards database (59 entries) and its checker.

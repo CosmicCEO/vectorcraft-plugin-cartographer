@@ -42,7 +42,19 @@ This installs the plug-in into the running VectorCraft. It does not touch your o
 node panel/server.mjs
 ```
 
-Open http://127.0.0.1:8789 beside VectorCraft. The settings card shows the document's target print scale, style, random seed and north. Change a value to see a preview, then press **Draw this** to store it in the document (it is kept when you Save, Save As, or export to PDF; an SVG export keeps the shapes and names but not the plug-in data).
+Open http://127.0.0.1:8789 beside VectorCraft. Select a line or a road to see its cards. The **Document settings** card at the bottom shows the document's target print scale, style, random seed and north (open it to load them). Change a value to see a preview, then press **Draw this** to store it in the document (it is kept when you Save, Save As, or export to PDF; an SVG export keeps the shapes and names but not the plug-in data).
+
+## 6. Agents (describing things in words)
+
+The panel's description box sends your words to an agent, which answers with a description that the native helper checks before anything is drawn. The agents are listed in `panel/providers.json`:
+
+- **Claude** (needs the `claude` program installed and signed in) and **Claude (more careful)**.
+- **Apple Intelligence (on this Mac)**: built by `node scripts/build.mjs` when the Xcode command line tools (`swiftc`) are installed; it runs on the Mac and nothing leaves it. It is hidden where it is not built, and always on Linux.
+- Your own agents (a command, or an OpenAI-style endpoint): put a `providers.json` of the same shape in `~/.config/vectorcraft-cartographer/providers.json` (or name it in `CARTOGRAPHER_PROVIDERS`); its entries are added to the built-in ones.
+
+An agent that is not installed or not signed in gives a plain message in the panel; nothing else breaks.
+
+To check the panel against a real VectorCraft, follow [PANEL-CHECK.md](PANEL-CHECK.md).
 
 ## Troubleshooting
 
