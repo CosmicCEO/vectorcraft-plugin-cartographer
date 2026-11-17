@@ -84,11 +84,13 @@ function show(s) {
   else if (t.kind === "wet") ctx.append(el("strong", {}, `Road ${t.road} meets water ${t.water}`), el("p", { className: "muted" }, s.wet?.described ? "Change how the road crosses it, then Draw." : "Choose how the road crosses the water, then Draw."));
   else if (t.kind === "hub") ctx.append(el("strong", {}, `${t.roads.length} roads meet: ${t.roads.join(", ")}`), el("p", { className: "muted" }, s.hub?.described ? "They form an intersection. Change it below, then Draw." : "Choose what happens where they meet, then Draw."));
   else if (t.kind === "crossing") ctx.append(el("strong", {}, `Roads ${t.roads[0]} and ${t.roads[1]} cross`), el("p", { className: "muted" }, s.crossing?.described ? "They form an intersection. Change it below, then Draw." : "Choose what happens where they cross, then Draw."));
+  else if (t.kind === "track") ctx.append(el("strong", {}, `Track ${t.id}`), el("p", { className: "muted" }, s.track?.described ? "Railway track. Change it below, or describe the change in words." : "Not described yet: one track. Change it below or describe it in words."));
+  else if (t.kind === "joint") ctx.append(el("strong", {}, `Lines ${t.lines[0]} and ${t.lines[1]}`), el("p", { className: "muted" }, s.joint?.described ? "These two lines are joined. Change it below, or describe the change in words." : "Two track lines are selected: say how they meet."));
   else ctx.append(el("strong", {}, "Select one line or one road"), el("p", { className: "muted" }, "The selection holds something this panel does not describe."));
-  if (t && (t.kind === "road" || t.kind === "junction") && !s.busy) {
+  if (t && (t.kind === "road" || t.kind === "junction" || t.kind === "track") && !s.busy) {
     const b = el("button", { className: "plain", title: "Select the road's own line in VectorCraft, to move or reshape it" }, "Select the line");
     b.onclick = () => act("selectline");
-    ctx.append(el("div", { className: "row" }, b, el("span", { className: "muted" }, "Click anywhere on a road to select it here.")));
+    ctx.append(el("div", { className: "row" }, b, el("span", { className: "muted" }, `Click anywhere on a ${t.kind === "track" ? "track" : "road"} to select it here.`)));
   }
 
   // A plain line can be a road or a connection between two roads.
@@ -279,7 +281,7 @@ function show(s) {
   }
 
   $("road").hidden = !s.road || !!pj || !!cv || !!hv;
-  const pk = ["water", "wet", "embank"].includes(s.pending?.kind); // a proposed water feature, crossing or embankment
+  const pk = ["water", "wet", "embank", "tracks", "yard", "joint"].includes(s.pending?.kind); // a proposed water feature, crossing, embankment, track or joint
   if (s.road && !pj) drawItems($("items"), $("bar"), $("total"), s.road, !s.pending);
 
   const pt = s.pending?.kind === "transition" ? s.pending : null; // a proposed lane change
@@ -293,18 +295,42 @@ function show(s) {
     $("shorthand").value = pr.canonical;
   } else if (s.road && document.activeElement !== $("shorthand")) $("shorthand").value = s.road.text;
 
+  // Track, yard and joint cards (built from the CLI's schemas). A proposal is shown in the card and in "what changes".
+  const onTrack = s.track && (t?.kind === "track" || (t?.kind === "line" && s.mode === "track"));
+  $("trackCard").hidden = !onTrack;
+  if (onTrack) {
+    const pt2 = ["tracks", "yard"].includes(s.pending?.kind) ? s.pending : null;
+    const tr = pt2 ?? s.track;
+    $("tsummary").textContent = pt2 ? `Proposed: ${pt2.summary}` : s.track.described ? s.track.summary : "Not described yet: one track.";
+    const needs = tr.kind === "yard" && tr.min_line_mm ? `This yard needs at least ${(tr.min_line_mm / 1000).toFixed(2)} m of line.` : "";
+    $("tneeds").textContent = needs;
+    $("tneeds").hidden = !needs;
+    fillList("tchanges", pt2?.changes);
+    showCard("t", $("tfields"), s.track.card, pt2?.spec ?? null, (patch) => act("track", { patch }));
+    $("tcancel").hidden = !pt2;
+  }
+  $("jointCard").hidden = !(s.joint && t?.kind === "joint");
+  if (s.joint && t?.kind === "joint") {
+    const pj2 = s.pending?.kind === "joint" ? s.pending : null;
+    $("jfound").textContent = s.joint.found?.ok ? `From the drawing: ${s.joint.found.summary}` : s.joint.found?.error ?? "";
+    $("jsummary").textContent = pj2 ? `Proposed: ${pj2.summary}` : s.joint.described ? s.joint.summary : "Not described yet.";
+    fillList("jchanges", pj2?.changes);
+    showCard("j", $("jfields"), s.joint.card, pj2?.spec ?? null, (patch) => act("joint", { patch }));
+    $("jcancel2").hidden = !pj2;
+  }
+
   const scope = $("scope");
   const multi = s.road && !pj && s.road.pieces.total > s.road.pieces.selected;
   scope.hidden = !multi;
   if (multi) $("scope-all").textContent = `All ${s.road.pieces.total} pieces of this road`;
 
-  const wordsFor = t?.kind === "crossing" ? "Describe the intersection, or the change you want (lighted, stop signs, left turn pockets, driveway, ramp, railroad, roundabout …)" : t?.kind === "hub" ? "Describe the intersection, or the change you want (lighted, all-way stop, crosswalks …)" : t?.kind === "water" || (t?.kind === "line" && s.mode === "water") ? "Describe the water (a creek 6 m wide with steep banks, ocean on the right, a pond …)" : t?.kind === "wet" ? "Describe how the road crosses the water (bridge with 8 m clearance, three 1.5 m culverts, causeway …)" : t?.kind === "road" && s.mode === "fill" ? "Describe the embankment (4 m of fill between 200 and 450 m, 3:1 slopes …)" : null;
+  const wordsFor = t?.kind === "crossing" ? "Describe the intersection, or the change you want (lighted, stop signs, left turn pockets, driveway, ramp, railroad, roundabout …)" : t?.kind === "hub" ? "Describe the intersection, or the change you want (lighted, all-way stop, crosswalks …)" : t?.kind === "water" || (t?.kind === "line" && s.mode === "water") ? "Describe the water (a creek 6 m wide with steep banks, ocean on the right, a pond …)" : t?.kind === "joint" ? "Describe how these two lines meet (they cross; b is a siding off a; they join end to end)" : t?.kind === "track" || (t?.kind === "line" && s.mode === "track") ? "Describe the track (double track; a yard with 8 spurs on the left and 4 on the right, merging back; a crossover …)" : t?.kind === "wet" ? "Describe how the road crosses the water (bridge with 8 m clearance, three 1.5 m culverts, causeway …)" : t?.kind === "road" && s.mode === "fill" ? "Describe the embankment (4 m of fill between 200 and 450 m, 3:1 slopes …)" : null;
   const junctionish = t?.kind === "junction" || (t?.kind === "line" && s.mode === "connection");
   $("wordsLabel").textContent = (t?.kind === "road" && s.mode === "transition" ? "Describe the lane change (for example: the right lane ends after 300 m)" : null) ?? wordsFor ?? (junctionish ? "Describe the junction, or the change you want" : "Describe the road, or the change you want");
   const canAct = !!t && t.kind !== "other" && !s.busy;
   $("propose").disabled = !canAct || !$("words").value.trim();
   $("draw").disabled = !canAct;
-  $("draw").textContent = s.busy === "drawing" ? "Drawing…" : s.pending ? "Draw this" : (t?.kind === "crossing" && !s.crossing?.described) || (t?.kind === "hub" && !s.hub?.described) ? "Draw this intersection" : (t?.kind === "water" && !s.water?.described) || (t?.kind === "line" && s.mode === "water") || (t?.kind === "wet" && !s.wet?.described) ? "Draw this" : "Redraw";
+  $("draw").textContent = s.busy === "drawing" ? "Drawing…" : s.pending ? "Draw this" : (t?.kind === "crossing" && !s.crossing?.described) || (t?.kind === "hub" && !s.hub?.described) ? "Draw this intersection" : (t?.kind === "water" && !s.water?.described) || (t?.kind === "line" && s.mode === "water") || (t?.kind === "wet" && !s.wet?.described) || (t?.kind === "line" && s.mode === "track") || (t?.kind === "track" && !s.track?.described) || (t?.kind === "joint" && !s.joint?.described) ? "Draw this" : "Redraw";
   $("thinking").hidden = s.busy !== "thinking";
   const msg = $("message");
   msg.textContent = s.message ?? "";
@@ -318,6 +344,8 @@ $("words").onkeydown = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey
 $("draw").onclick = () => act("draw", { scope: document.querySelector("input[name=scope]:checked")?.value });
 $("cancel").onclick = () => act("cancel");
 $("jcancel").onclick = () => act("cancel");
+$("tcancel").onclick = () => act("cancel");
+$("jcancel2").onclick = () => act("cancel");
 $("ccancel").onclick = () => act("cancel");
 const cpatch = (patch) => act("crossing", { patch });
 $("ctreat").onchange = () => cpatch({ treatment: $("ctreat").value });
@@ -368,20 +396,38 @@ events.onerror = () => $("dot").classList.remove("on");
 
 // ---- Document settings: a card built from the CLI's schema, read only while it is open.
 let settingsBuilt = "";
-function settingControl(f) {
-  const send = (v) => act("settings", { patch: { [f.key]: v } });
+function fieldControl(f, send, id) {
   if (f.type === "choice") {
-    const s = el("select", { id: `f_${f.key}` }, ...f.options.map((o) => el("option", { value: o, textContent: o })));
+    const s = el("select", { id }, ...f.options.map((o) => el("option", { value: o, textContent: o })));
     s.onchange = () => send(s.value);
     return s;
   }
   const numeric = f.type === "integer" || f.type === "number";
-  const i = el("input", { id: `f_${f.key}`, type: numeric ? "number" : "text" });
+  const i = el("input", { id, type: numeric ? "number" : "text" });
   if (f.min !== undefined) i.min = String(f.min);
   if (f.max !== undefined) i.max = String(f.max);
   if (f.type === "integer") i.step = "1";
-  i.onchange = () => send(numeric ? Number(i.value) : i.value);
+  // An empty number is sent as null, which the panel leaves out of the description.
+  i.onchange = () => send(numeric ? (i.value === "" ? null : Number(i.value)) : i.value);
   return i;
+}
+const settingControl = (f) => fieldControl(f, (v) => act("settings", { patch: { [f.key]: v } }), `f_${f.key}`);
+
+// A card built from a schema's fields: made once per set of fields, then only the values are updated. `spec` is a proposal (its missing fields are empty),
+// or null to show the stored values from the card model.
+const cardBuilt = {};
+function showCard(prefix, container, card, spec, send) {
+  const keys = card.fields.map((f) => f.key).join(",");
+  if (cardBuilt[prefix] !== keys) {
+    cardBuilt[prefix] = keys;
+    container.replaceChildren(...card.fields.map((f) => el("div", { className: "field" }, el("label", { htmlFor: `${prefix}_${f.key}`, textContent: f.label }), fieldControl(f, (v) => send({ [f.key]: v }), `${prefix}_${f.key}`), el("p", { className: "help", textContent: f.help }))));
+  }
+  for (const f of card.fields) {
+    const c = $(`${prefix}_${f.key}`);
+    if (!c || document.activeElement === c) continue;
+    const v = spec ? spec[f.key] : f.value;
+    c.value = String(v === true ? "on" : v === false ? "off" : v ?? "");
+  }
 }
 
 function showSettings(s) {

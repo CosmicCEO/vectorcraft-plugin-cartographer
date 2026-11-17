@@ -1,9 +1,9 @@
 // A stand-in for VectorCraft's control port: just enough of the protocol for the panel, and it records every command it is sent.
 import { writeFileSync } from "node:fs";
 import net from "node:net";
-import { PLUGIN_ID, SET_SETTINGS, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_JUNCTION, SET_TRANSITION, SET_WATER, SET_WET } from "../lib/doc.mjs";
+import { PLUGIN_ID, SET_SETTINGS, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_JUNCTION, SET_TRANSITION, SET_WATER, SET_WET, SET_JOINT, SET_TRACKS, SET_YARD } from "../lib/doc.mjs";
 
-export async function fakeVectorCraft({ paths = [], selection = [], spec = { segments: {} }, hasDocument = true } = {}) {
+export async function fakeVectorCraft({ paths = [], selection = [], spec = { segments: {} }, hasDocument = true, rejectYard = null, rejectJoint = null } = {}) {
   const doc = { paths: paths.map((p) => ({ kind: "Path", ...p })), selection: [...selection], spec: structuredClone(spec), revision: 1, title: "Untitled", calls: [], layers: [{ id: 1000, name: "Layer 1", visible: true, locked: false, parent: null }], nextLayer: 1001 };
   const tree = (parent = null) => doc.layers.filter((l) => l.parent === parent).map((l) => ({ id: l.id, kind: "Layer", name: l.name, visible: l.visible, locked: l.locked, children: tree(l.id) }));
   const reply = (socket, id, result) => socket.write(`${JSON.stringify({ id, ok: true, result })}\n`);
@@ -116,8 +116,32 @@ export async function fakeVectorCraft({ paths = [], selection = [], spec = { seg
         } else if (command === SET_SETTINGS) {
           doc.spec = { ...doc.spec, schema: 1, settings: { ...(doc.spec.settings ?? {}), ...JSON.parse(p.params.description) } };
           doc.revision++;
+        } else if (command === SET_TRACKS || command === SET_YARD) {
+          if (command === SET_YARD && rejectYard) return fail(socket, id, rejectYard);
+          const [kind, other] = command === SET_YARD ? ["yards", "tracks"] : ["tracks", "yards"];
+          doc.spec[kind] ??= {};
+          doc.spec[other] ??= {};
+          for (const x of doc.paths.filter((q) => doc.selection.includes(q.id))) {
+            let tid = x.name.startsWith("track.") ? x.name.slice(6) : null;
+            if (!tid) {
+              tid = `t${Object.keys({ ...doc.spec.tracks, ...doc.spec.yards }).length + 1}`;
+              x.name = `track.${tid}`;
+            }
+            doc.spec[kind][tid] = JSON.parse(p.params.description);
+            delete doc.spec[other][tid];
+          }
+          doc.revision++;
+        } else if (command === SET_JOINT) {
+          if (rejectJoint) return fail(socket, id, rejectJoint);
+          const lines = doc.paths.filter((q) => doc.selection.includes(q.id) && q.name.startsWith("track.")).map((q) => q.name.slice(6));
+          doc.spec.joints ??= {};
+          const known = Object.entries(doc.spec.joints).find(([, j]) => lines.every((l) => j.lines.includes(l)))?.[0];
+          doc.spec.joints[known ?? `j${Object.keys(doc.spec.joints).length + 1}`] = { ...JSON.parse(p.params.description), lines };
+          doc.revision++;
         } else if (command === "file.saveCopy") {
-          const body = JSON.stringify({ document: { unknown: { pluginData: { [PLUGIN_ID]: doc.spec } } } });
+          // The saved copy holds every path that has a geometry (the panel reads line geometry from it) and the plug-in's data.
+          const nodes = doc.paths.filter((q) => q.geom).map((q) => ({ id: q.id, name: q.name, kind: { type: "path", path: q.geom } }));
+          const body = JSON.stringify({ document: { layers: [{ kind: { type: "layer", children: nodes } }], unknown: { pluginData: { [PLUGIN_ID]: doc.spec } } } });
           writeFileSync(p.path, `${body}\n\u0000VCBLOBS\u0000%PDF-1.7 binary preview`, "latin1");
           return reply(socket, id, { path: p.path });
         } else if (command === "plugin.run") doc.revision++;

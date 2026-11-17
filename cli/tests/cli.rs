@@ -59,3 +59,14 @@ fn find_joint_runs_and_says_when_lines_do_not_meet() {
     assert_eq!(code, 1, "{out}");
     assert!(out.contains("do not meet"), "{out}");
 }
+
+#[test]
+fn schema_prints_the_rail_cards() {
+    for (kind, first) in [("tracks", "tracks"), ("yard", "mains"), ("joint", "kind")] {
+        let (out, code) = run(&["schema", kind]);
+        assert_eq!(code, 0, "{out}");
+        assert!(out.contains("\"ok\":true") && out.contains(&format!("\"key\":\"{first}\"")), "{out}");
+    }
+    let (out, code) = run(&["schema", "nothing"]);
+    assert_eq!(code, 1, "{out}");
+}

@@ -31,8 +31,22 @@ export function runCli(args) {
 
 /** Checks document settings (JSON text). {ok, settings, summary} or {ok: false, error}. */
 export const parseSettings = (jsonText) => runCli(["parse-settings", jsonText]);
-/** The fields of a kind of description (for now "settings"): {ok, kind, fields}. */
+/** The fields of a kind of description ("settings", "tracks", "yard" or "joint"): {ok, kind, fields}. */
 export const schema = (kind) => runCli(["schema", kind]);
+
+/**
+ * Checks a description (an object without `kind`) of kind "tracks" or "yard".
+ * Returns {ok, kind, spec, summary, min_line_mm?} or {ok: false, error}.
+ */
+export async function parseSpec(kind, spec) {
+  if (kind !== "tracks" && kind !== "yard") return { ok: false, error: `unknown kind "${kind}": use "tracks" or "yard"` };
+  const r = await runCli([kind === "yard" ? "parse-yard" : "parse-tracks", JSON.stringify(spec)]);
+  return r.ok ? { ok: true, kind, spec: r[kind], summary: r.summary, ...(r.min_line_mm !== undefined ? { min_line_mm: r.min_line_mm } : {}) } : { ok: false, error: r.error };
+}
+/** Checks a joint description (JSON text). {ok, joint, summary} or {ok: false, error}. */
+export const parseJoint = (jsonText) => runCli(["parse-joint", jsonText]);
+/** How two track lines meet, from their paths as VectorCraft stores them. {ok, kind, found, summary} or {ok: false, error}. */
+export const findJoint = (pathA, pathB, idA, idB) => runCli(["find-joint", JSON.stringify(pathA), JSON.stringify(pathB), idA, idB]);
 
 export const parseCrossSection = (text) => runCli(["parse", text]);
 export const library = () => runCli(["library"]);

@@ -28,6 +28,7 @@
       <label><input type="radio" name="mode" value="road" checked> A road</label>
       <label><input type="radio" name="mode" value="connection"> A connection between two roads</label>
       <label><input type="radio" name="mode" value="water"> Water (lake, pond, river, creek, shore)</label>
+      <label><input type="radio" name="mode" value="track"> Railway track (N scale)</label>
     </fieldset>
     <div id="matchRow" class="row" hidden>
       <button id="match" class="plain">Connect and match: carry the road across</button>
@@ -240,6 +241,26 @@
       <p id="tsummary"></p>
       <ul id="tchanges" class="changes" hidden></ul>
       <div class="row"><button id="tdone" class="plain">Done</button></div>
+    </div>
+  </section>
+
+  <section id="trackCard" class="card" hidden>
+    <p id="tsummary" class="muted"></p>
+    <p id="tneeds" class="muted" hidden></p>
+    <ul id="tchanges" class="changes" hidden></ul>
+    <div id="tfields" class="fields"></div>
+    <div class="row">
+      <button id="tcancel" class="plain" hidden>Cancel</button>
+    </div>
+  </section>
+
+  <section id="jointCard" class="card" hidden>
+    <p id="jfound" class="muted"></p>
+    <p id="jsummary" class="muted"></p>
+    <ul id="jchanges" class="changes" hidden></ul>
+    <div id="jfields" class="fields"></div>
+    <div class="row">
+      <button id="jcancel2" class="plain" hidden>Cancel</button>
     </div>
   </section>
 
