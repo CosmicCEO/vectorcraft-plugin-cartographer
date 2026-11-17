@@ -21,7 +21,7 @@
 - The standards database (59 entries) and its checker.
 - Commands: Describe Road, Describe Junction, Make Intersection, Make Intersection of Three or More Roads, Add or Drop a Lane, Describe Water, Put Road on Fill, Road Meets Water; `cartographer-cli` gains parse, edit, diff and the parse-* checks.
 - Every command and Build refuse a document saved by a newer Cartographer; a build of more than 1,200 points gets a note.
-- Parity gate: identical SVG for 15 scenarios and build cost equal or lower than Road Builder's (`docs/PARITY.md`).
+- Parity gate: identical SVG for 15 scenarios and a build cost within 5% of Road Builder's (`docs/PARITY.md`).
 
 ## 0.1.0 Foundation
 - One Cargo workspace (`core`, `filter`, `cli`) with the framework merged from Road Builder and Track Layer: plug-in glue, geometry, offsetting, text output, document reading (closed shapes are told from open lines).

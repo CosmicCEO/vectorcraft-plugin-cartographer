@@ -140,3 +140,11 @@ fn a_track_only_build_keeps_the_road_data_and_the_custom_library() {
     assert_eq!(kept["library"]["elements"]["mine"]["width"], 2.0);
     assert!(names(&out).iter().any(|n| n.starts_with("gen.track.")), "{:?}", names(&out));
 }
+
+#[test]
+fn a_one_point_track_line_says_it_drew_nothing() {
+    let out = parsed(build_text(&json!({"objects": [line(1, "track.a", &[[10.0, 10.0]], false)]}), &params(json!({}), "")));
+    assert!(!names(&out).iter().any(|n| n.starts_with("gen.")), "{:?}", names(&out));
+    let notes: Vec<&str> = out["documentData"]["notes"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+    assert!(notes.iter().any(|n| n.contains("Track a") && n.contains("two points")), "{notes:?}");
+}

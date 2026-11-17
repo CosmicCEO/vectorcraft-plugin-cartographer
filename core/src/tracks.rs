@@ -133,6 +133,7 @@ pub fn min_radius(pts: &[P]) -> Option<f64> {
 pub fn build(id: &str, line: &[P], spec: &TrackSpec, out: &mut Out, to_doc: impl Fn(P) -> P + Copy, avoid: &[Band]) -> Vec<String> {
     let mut notes = Vec::new();
     if Poly::new(line.to_vec()).is_empty() {
+        notes.push(format!("Track {id}: the line has fewer than two points that differ, so nothing was drawn for it."));
         return notes;
     }
     let half_span = (spec.count as f64 - 1.0) / 2.0 * spec.spacing;

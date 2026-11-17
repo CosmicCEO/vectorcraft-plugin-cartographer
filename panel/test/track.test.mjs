@@ -338,3 +338,17 @@ test("a plain line in track mode is described as a track, not a road", async () 
   assert.equal(vc.doc.spec.tracks.t1.tracks, 2);
   done();
 });
+
+test("Draw on two lines with no stored joint stores what the card shows, a described joint is only rebuilt", async () => {
+  const vc = await fakeVectorCraft({ paths: CROSS, selection: [2, 3] });
+  const { panel, done } = await setup(vc);
+  assert.equal(panel.snapshot().joint.described, false);
+  await panel.draw();
+  assert.deepEqual(steps(vc), ["select.set", SET_JOINT, "select.all", "plugin.run", "select.set"]);
+  assert.deepEqual(vc.doc.spec.joints.j1, { kind: "crossing", lines: ["a", "b"] });
+  assert.equal(panel.snapshot().joint.described, true);
+  const before = vc.doc.calls.length;
+  await panel.draw();
+  assert.ok(!vc.doc.calls.slice(before).some((c) => c.command === SET_JOINT), "a stored joint is not sent again");
+  done();
+});

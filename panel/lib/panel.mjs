@@ -665,9 +665,11 @@ export class Panel extends EventEmitter {
             await this.control.run(chosen.kind === "yard" ? SET_YARD : SET_TRACKS, { params: { description: JSON.stringify(chosen.spec) } });
           }
         } else if (t.kind === "joint") {
-          if (pending?.kind === "joint") {
+          // A proposal, else (for two lines with no stored joint) what the card shows; a stored joint is only rebuilt.
+          const spec = pending?.kind === "joint" ? pending.spec : this.state.joint.described ? null : this.state.joint.spec;
+          if (spec) {
             await this.control.run("select.set", { ids: t.ids });
-            await this.control.run(SET_JOINT, { params: { description: JSON.stringify(pending.spec) } });
+            await this.control.run(SET_JOINT, { params: { description: JSON.stringify(spec) } });
           }
         } else if (this.#isWater(t)) {
           const spec = tidy(pending?.kind === "water" ? pending.water : this.state.water.spec);
