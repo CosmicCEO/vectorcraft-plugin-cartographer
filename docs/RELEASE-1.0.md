@@ -16,15 +16,15 @@ Nothing here has been tagged, released or pushed to the old repositories. Those 
 | Same drawing as Track Layer | 8 scenarios, identical when scaled (`docs/PARITY-RAIL.md`) |
 | Old documents carry over | `docs/MIGRATION.md`, live-checked against both real plug-ins |
 | Panel against a real VectorCraft | rail, styles and migration live checks passed on macOS; you report the Linux check and the agent steps of `docs/PANEL-CHECK.md` passed |
-| **README image render set, side by side** | **yours**: Road Builder's `docs/images/` (3 pictures) and Track Layer's `docs/img/` (14 pictures) next to Cartographer's: `docs/img/gallery-*.png` and `docs/img/rail-*.png` are Track Layer's set re-rendered or copied; render Road Builder's with `node scripts/parity.mjs <cli> <road_builder_dir> --png` (pictures in `target/parity/`) |
+| **README image render set, side by side** | **yours, not done**: Road Builder's `docs/images/` (3 pictures) and Track Layer's `docs/img/` (14 pictures) next to Cartographer's: `docs/img/gallery-*.png` and `docs/img/rail-*.png` are Track Layer's set re-rendered or copied; render Road Builder's with `node scripts/parity.mjs <cli> <road_builder_dir> --png` (pictures in `target/parity/`) |
 
-## To release (run these yourself)
+## To release
 
-1. Merge the pull requests in order: #6 (track kind), #7 (styles), the migration one. Each is a draft stacked on the previous; retarget to `main` after the one below merges.
-2. On `main`: `node scripts/check.mjs`, `cargo +stable test --release --workspace`, `node --test panel/test/*.test.mjs scripts/test/*.test.mjs`.
-3. Set the version to 1.0.0 (`Cargo.toml`, `filter/src/lib.rs`, the two version tests, `CHANGELOG.md`, README status) in a commit.
-4. `git tag v1.0.0 && git push origin v1.0.0`. The workflow `.github/workflows/release.yml` builds the package on macOS and Linux and publishes the release. **That workflow has never run**: if it fails, `node scripts/package.mjs 1.0.0` on each system builds the same packages by hand.
-5. Then the two old repositories (below).
+Done on 2026-11-18: the stacked pull requests are on `main` (#6, #9), the version is 1.0.0, CI is green on macOS and Linux, and the release workflow's packaging was tested with a manual run before tagging.
+
+1. `main` is at 1.0.0 and CI is green.
+2. Tag: `git tag v1.0.0 && git push origin v1.0.0`. The workflow (`.github/workflows/release.yml`) checks that the tag matches the version, builds and tests the package on macOS and Linux, and publishes the release. If it fails, `node scripts/package.mjs 1.0.0` on each system builds the same packages by hand.
+3. Then the two old repositories (below).
 
 ## Words for the two old repositories
 

@@ -1,13 +1,14 @@
 name: Release
 
 # Push a tag like v1.0.0 to build the package on macOS and Linux, run the tests and publish a GitHub release with both packages attached.
-# Nothing here runs unless someone pushes a tag. This workflow has not been run yet (see docs/RELEASE-1.0.md).
+# "Run workflow" (a manual run on any branch) does everything except the publish, to test the packaging before a tag is pushed.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   package:
@@ -20,6 +21,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: The tag matches the version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $version"; exit 1; }
       - name: Rust toolchain
         run: |
           rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
@@ -31,15 +37,20 @@ jobs:
           node --test panel/test/*.test.mjs scripts/test/*.test.mjs
           node scripts/standards.mjs check
       - name: Package
-        run: node scripts/package.mjs "${GITHUB_REF_NAME#v}"
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          node scripts/package.mjs "$version"
       - uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.os }}
           path: dist/*.tar.gz
 
   publish:
+    if: startsWith(github.ref, 'refs/tags/')
     needs: package
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
