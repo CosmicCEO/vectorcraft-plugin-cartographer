@@ -245,3 +245,84 @@ export function featureUserPrompt({ description, current, head }) {
   const h = head ? `${head}\n` : "";
   return current ? `${h}Current description:\n${JSON.stringify(current)}\n\nChange requested: ${description}` : `${h}Description: ${description}`;
 }
+
+// ---- tracks (N-scale model railroad), ported from Track Layer
+
+export function trackSystemPrompt() {
+  return `You turn a plain-language description of N-scale model railroad track into one JSON object. Reply with the JSON object only: no explanation, no code fence.
+
+The track is built along a line the user drew. There are two kinds, chosen with "kind":
+
+1. Parallel tracks side by side along the line:
+{"kind": "tracks", "tracks": 2, "spacing": "13ft", "ballast": true, "ties": true}
+- tracks: how many, 1 to 12. spacing: distance between track centres, as a number of millimetres or text such as "25mm", "1in" or "13ft" (13 ft is the usual; "ft" means real-world feet), or an era: "old-time" (12 ft), "classic" (13 ft, the default) or "modern" (14 ft).
+- ballast: false to leave out the roadbed; ties: false to leave out the ties.
+
+2. A yard: through tracks (mains) along the line, a ladder of turnouts off each side, spurs (sidings) side by side, and optionally a mirror-image ladder that brings the spurs back to the mains:
+{"kind": "yard", "mains": 2, "left": 8, "right": 4, "ends": "merge", "frog": 6, "spacing": "13ft", "at": 0, "length": 2400}
+- mains: through tracks along the drawn line, 1 to 4. left, right: spurs on that side, 0 to 16, as seen travelling from the start of the line to its end.
+- ends: "merge" when the spurs join the mains again at the far end ("merge back", "come back together", "loop back"); "stub" when the spurs end in the yard (the default).
+- frog: turnout number, a whole number from 4 to 20 (6 is typical; "No. 8 turnouts" is 8). spacing as above.
+- at and length: where the yard starts and how long it is, in millimetres or text such as "1m", "2ft". Leave them out to use the whole line.
+- crossovers: a list of crossovers between neighbouring mains, [{"from": 1, "to": 2, "at": "1m"}]. Mains are numbered 1, 2, 3 ... from the left as seen travelling along the line. "from" is the main where the crossover starts as the line is followed, "to" the main it reaches. Leave out "at" to put it in the middle. A crossover needs at least two mains.
+
+Leave out every field the description does not mention (never write null). If it mentions a yard, spurs, sidings, a ladder, turnouts, switches or crossovers use "yard" (with mains = the number of through tracks); otherwise "tracks". "Double track" is tracks: 2; "triple track" is 3.
+
+EXAMPLES
+Description: two mainlines enter a yard with 8 spurs to the left and four to the right, they merge back down to two at the end
+{"kind": "yard", "mains": 2, "left": 8, "right": 4, "ends": "merge"}
+
+Description: a single main with three sidings on the right, number 8 turnouts
+{"kind": "yard", "mains": 1, "right": 3, "frog": 8}
+
+Description: double track with a crossover in the middle and a siding on the right
+{"kind": "yard", "mains": 2, "right": 1, "crossovers": [{"from": 1, "to": 2}]}
+
+Description: double track with a crossover from the left track to the right track 40 cm along
+{"kind": "yard", "mains": 2, "crossovers": [{"from": 1, "to": 2, "at": "400mm"}]}
+
+Description: triple track, 28 mm apart, no roadbed
+{"kind": "tracks", "tracks": 3, "spacing": "28mm", "ballast": false}
+
+EDITING
+When a current description is given, apply the requested change and return the COMPLETE updated object, keeping everything not mentioned exactly as it was. "Add two more spurs on the left" adds two to the current left count.`;
+}
+
+export function trackUserPrompt({ description, current }) {
+  return current ? `Current description:\n${JSON.stringify({ kind: current.kind, ...current.spec })}\n\nChange requested: ${description}` : `Description: ${description}`;
+}
+
+export function jointSystemPrompt() {
+  return `You turn a plain-language description of how two railway lines meet into one JSON object. Reply with the JSON object only: no explanation, no code fence.
+
+{"kind": "crossing", "main": "a"}
+{"kind": "branch", "frog": 6}
+{"kind": "join"}
+- kind: "crossing" when the two tracks cross each other (a diamond). "branch" when one line is a siding, spur or turnout leaving the other. "join" when two lines continue into each other end to end.
+- main (crossing): the id of the line whose track runs through the crossing (the other line's ties stop at its edge). Leave it out unless the description says which is the main, which is more important, or which gives way. The two lines have the ids given in the request: "main" must be one of them. (A branch's main is worked out from the drawing: leave it out.)
+- frog (branch): the turnout number, a whole number from 4 to 20, if the description names one ("a number 8 turnout"). Leave it out otherwise: the program picks the one that fits.
+
+EXAMPLES
+Description: they cross
+{"kind": "crossing"}
+
+Description: line b crosses over the main line a, a is the main
+{"kind": "crossing", "main": "a"}
+
+Description: b is a siding off a
+{"kind": "branch"}
+
+Description: b leaves a with a number 8 turnout
+{"kind": "branch", "frog": 8}
+
+Description: the two lines continue into each other
+{"kind": "join"}
+
+EDITING
+When a current description is given, apply the requested change and return the COMPLETE updated object.`;
+}
+
+export function jointUserPrompt({ description, current, lines, found }) {
+  const head = `The two lines are "${lines[0]}" and "${lines[1]}".${found?.ok ? ` From the drawing: ${found.summary}.` : ""}`;
+  return current ? `${head}\nCurrent description:\n${JSON.stringify(current)}\n\nChange requested: ${description}` : `${head}\nDescription: ${description}`;
+}

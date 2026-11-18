@@ -5,8 +5,9 @@
 // A rebuild only sees objects that are visible and unlocked, so a hidden spine would make its road's drawing vanish. `unlockOurs`
 // shows and unlocks our layers for the build and hands back a function that puts them back as the user had them.
 import { junctionId, segmentId, waterId } from "./doc.mjs";
+import { KINDS } from "./kinds.mjs";
 
-const OURS = /^(road|junction|crossing|water|wet) \S+( spine| drawing)?$/;
+const OURS = /^(road|junction|crossing|water|wet|track) \S+( spine| drawing)?$/;
 
 /** Every layer in the document, flat: {id, name, visible, locked, top (is it a top-level layer), index (position, 0 = top)}. */
 async function layerRows(control) {
@@ -29,6 +30,8 @@ export function ownerOf(name = "") {
   if (junction) return { layer: `junction ${junction}`, part: "spine" };
   const water = waterId(name);
   if (water) return { layer: `water ${water}`, part: "spine" };
+  const track = KINDS.track.line(name);
+  if (track) return { layer: KINDS.track.layer(track), part: "spine" };
   let m = /^gen\.road\.([^.]+)\./.exec(name);
   if (m) return { layer: `road ${m[1]}`, part: "drawing" };
   m = /^gen\.water\.([^.]+)\./.exec(name);
@@ -39,6 +42,8 @@ export function ownerOf(name = "") {
   if (m) return { layer: `junction ${m[1]}`, part: "drawing" };
   m = /^gen\.crossing\.([^.]+)\./.exec(name);
   if (m) return { layer: `crossing ${m[1]}`, part: "drawing" };
+  m = /^gen\.track\.([^.]+)\./.exec(name);
+  if (m) return { layer: KINDS.track.layer(m[1]), part: "drawing" };
   return null;
 }
 

@@ -14,6 +14,14 @@ export const SET_TRANSITION = `plugin.${PLUGIN_ID}.set_transition`;
 export const SET_WATER = `plugin.${PLUGIN_ID}.set_water`;
 export const SET_EMBANKMENT = `plugin.${PLUGIN_ID}.set_embankment`;
 export const SET_WET = `plugin.${PLUGIN_ID}.set_wet`;
+export const SET_TRACKS = `plugin.${PLUGIN_ID}.set_tracks`;
+export const SET_YARD = `plugin.${PLUGIN_ID}.set_yard`;
+export const SET_JOINT = `plugin.${PLUGIN_ID}.set_joint`;
+
+/** The id of a track line (`track.a` is `a`), or null. Mirrors core/src/rail_builder.rs. */
+export function trackId(name = "") {
+  return name.startsWith("track.") && name.length > 6 ? name.slice(6) : null;
+}
 
 /** The id of a water line (`water.c` is `c`, plain `water` is `main`), or null. Mirrors core/src/water.rs. */
 export function waterId(name = "") {
@@ -50,6 +58,8 @@ export function shapeOwner(name = "") {
   if (m) return { role: "water-shape", segment: m[1] };
   m = /^gen\.wet\.([^.]+)\./.exec(name);
   if (m) return { role: "wet-shape", segment: m[1] };
+  m = /^gen\.track\.([^.]+)\./.exec(name);
+  if (m) return { role: "track-shape", track: m[1] };
   return null;
 }
 
@@ -64,6 +74,8 @@ export function classify(node) {
   if (junction) return { role: "junction", segment: junction };
   const water = isPath ? waterId(node.name) : null;
   if (water) return { role: "water", segment: water };
+  const track = isPath ? trackId(node.name) : null;
+  if (track) return { role: "track", track };
   const shape = isPath ? shapeOwner(node.name) : null;
   if (shape) return shape;
   if (isPath && !OWN.test(node.name ?? "")) return { role: "line", segment: null };
@@ -96,7 +108,22 @@ export function parseNativeFile(bytes) {
   return JSON.parse(text.slice(0, end));
 }
 
-/** The descriptions the plug-in keeps with the document: {segments: {id: {cross_section, anchor}}, ...}, read from a saved copy. */
+/** The path of every track line in a saved document: {id: {subpaths: [...]}} (document points, with Bezier handles). */
+export function trackLines(doc) {
+  const lines = {};
+  const walk = (node) => {
+    if (node?.kind?.type === "path") {
+      const id = trackId(node.name ?? "");
+      if (id && node.kind.path) lines[id] = node.kind.path;
+    }
+    for (const child of node?.kind?.children ?? []) walk(child);
+  };
+  for (const layer of doc.layers ?? []) walk(layer);
+  return lines;
+}
+
+/** The descriptions the plug-in keeps with the document: {segments, tracks, yards, joints, notes, ...} and `lines` (the geometry of each track
+ *  line, which the panel needs to say how two lines meet), read from a saved copy. */
 export async function readSpec(control) {
   const dir = mkdtempSync(join(tmpdir(), "cartographer-panel-"));
   const path = join(dir, "copy.vectorcraft");
@@ -111,7 +138,7 @@ export async function readSpec(control) {
       await new Promise((r) => setTimeout(r, 50));
     }
     const doc = parseNativeFile(readFileSync(path)).document ?? {};
-    return doc.unknown?.pluginData?.[PLUGIN_ID] ?? { segments: {} };
+    return { segments: {}, tracks: {}, yards: {}, joints: {}, ...(doc.unknown?.pluginData?.[PLUGIN_ID] ?? {}), lines: trackLines(doc) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

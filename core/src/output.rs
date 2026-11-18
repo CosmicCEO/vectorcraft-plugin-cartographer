@@ -13,6 +13,11 @@ fn visible_width(width: f64) -> bool {
     width.is_finite() && width > 0.0
 }
 
+/// The decimals `Out` writes unless a kind asks for more (see `Out::precision`).
+pub const DEFAULT_DECIMALS: u8 = 3;
+/// The curve thinning tolerance, in document points, unless a kind asks for less (see `Out::thinning`).
+pub const DEFAULT_THINNING: f64 = 0.12;
+
 pub struct Out {
     /// New objects (they are listed first, so VectorCraft puts them just below the objects that are kept: the lines you drew stay on top).
     texts: [String; 3],
@@ -24,6 +29,10 @@ pub struct Out {
     first_kept: bool,
     /// How many more ties this output may write one by one (see `ties::MAX_TIES`).
     ties_left: usize,
+    /// Decimals written for coordinates and widths (3 for roads; rail sets more, see `precision`).
+    decimals: u8,
+    /// Curve thinning tolerance in document points (see `thinning`).
+    thin_tol: f64,
 }
 
 /// The stack an object goes on: new objects are listed roadbed first, then ties, then rails, whatever order they were written in.
@@ -41,8 +50,20 @@ impl Default for Out {
 }
 
 impl Out {
+    /// Sets how many decimals the objects written from now on use for coordinates and widths (clamped to 3..=6; default 3). A kind whose dimensions are
+    /// small in document points (rail: 1 mm of model is 0.16 points) sets more around its own writes and puts it back afterwards.
+    pub fn precision(&mut self, decimals: u8) {
+        self.decimals = decimals.clamp(3, 6);
+    }
+
+    /// Sets the curve thinning tolerance (document points) for the objects written from now on: points closer than this to the line between their
+    /// kept neighbours are dropped before the curve is fitted. Default 0.12.
+    pub fn thinning(&mut self, tolerance: f64) {
+        self.thin_tol = if tolerance.is_finite() && tolerance > 0.0 { tolerance } else { THIN };
+    }
+
     pub fn new() -> Out {
-        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, ties_left: DEFAULT_MAX_TIES }
+        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, ties_left: DEFAULT_MAX_TIES, decimals: DEFAULT_DECIMALS, thin_tol: THIN }
     }
 
     /// Puts the objects written from now on on the given stack.
@@ -110,7 +131,7 @@ impl Out {
         paint.push_str("}}");
         self.kept.push_str(&paint);
         self.kept.push_str(",\"width\":");
-        num(&mut self.kept, width);
+        num_with(&mut self.kept, width, self.decimals);
         self.kept.push_str(",\"cap\":\"round\",\"join\":\"round\",\"miterLimit\":4}]}");
     }
 
@@ -155,16 +176,16 @@ impl Out {
             }
             self.texts[self.layer].push_str("{\"anchors\":[");
             if smooth {
-                write_curve(&mut self.texts[self.layer], mapped, closed);
+                write_curve(&mut self.texts[self.layer], mapped, closed, self.decimals, self.thin_tol);
             } else {
                 for (k, p) in mapped.iter().enumerate() {
                     if k > 0 {
                         self.texts[self.layer].push(',');
                     }
                     self.texts[self.layer].push_str("{\"p\":[");
-                    num(&mut self.texts[self.layer], p[0]);
+                    num_with(&mut self.texts[self.layer], p[0], self.decimals);
                     self.texts[self.layer].push(',');
-                    num(&mut self.texts[self.layer], p[1]);
+                    num_with(&mut self.texts[self.layer], p[1], self.decimals);
                     self.texts[self.layer].push_str("]}");
                 }
             }
@@ -195,7 +216,7 @@ impl Out {
         self.texts[self.layer].push_str(",\"strokes\":[{\"paint\":");
         self.paint(rgb);
         self.texts[self.layer].push_str(",\"width\":");
-        num(&mut self.texts[self.layer], width);
+        num_with(&mut self.texts[self.layer], width, self.decimals);
         self.texts[self.layer].push_str(",\"cap\":\"butt\",\"join\":\"miter\",\"miterLimit\":4}]}");
     }
 
@@ -221,13 +242,13 @@ impl Out {
             }
             first = false;
             self.texts[self.layer].push_str("{\"anchors\":[{\"p\":[");
-            num(&mut self.texts[self.layer], a[0]);
+            num_with(&mut self.texts[self.layer], a[0], self.decimals);
             self.texts[self.layer].push(',');
-            num(&mut self.texts[self.layer], a[1]);
+            num_with(&mut self.texts[self.layer], a[1], self.decimals);
             self.texts[self.layer].push_str("]},{\"p\":[");
-            num(&mut self.texts[self.layer], b[0]);
+            num_with(&mut self.texts[self.layer], b[0], self.decimals);
             self.texts[self.layer].push(',');
-            num(&mut self.texts[self.layer], b[1]);
+            num_with(&mut self.texts[self.layer], b[1], self.decimals);
             self.texts[self.layer].push_str("]}],\"closed\":false}");
         }
         if first {
@@ -239,7 +260,7 @@ impl Out {
         self.texts[self.layer].push_str("]},\"strokes\":[{\"paint\":");
         self.paint(rgb);
         self.texts[self.layer].push_str(",\"width\":");
-        num(&mut self.texts[self.layer], width);
+        num_with(&mut self.texts[self.layer], width, self.decimals);
         self.texts[self.layer].push_str(",\"cap\":\"butt\",\"join\":\"miter\",\"miterLimit\":4}]}");
     }
 
@@ -276,7 +297,7 @@ impl Out {
         self.texts[self.layer].push_str(",\"strokes\":[{\"paint\":");
         self.paint(rgb);
         self.texts[self.layer].push_str(",\"width\":");
-        num(&mut self.texts[self.layer], width);
+        num_with(&mut self.texts[self.layer], width, self.decimals);
         self.texts[self.layer].push_str(",\"cap\":\"butt\",\"join\":\"miter\",\"miterLimit\":4}]}");
     }
 
@@ -326,10 +347,74 @@ fn json_string(s: &str) -> String {
 
 /// A number to the nearest thousandth, trailing zeros dropped, written by hand (the formatting machinery and `f64::round` are slow under the
 /// plug-in's instruction budget and this runs for every coordinate). Values beyond about 4 million are clamped.
+#[inline(always)]
 pub fn num(out: &mut String, x: f64) {
-    // Round half away from zero with a truncating cast.
+    // The short path (3 decimals, a value that fits 32 bits): the instruction budget is tight and roads write millions of numbers.
     let v = (x * 1000.0 + if x < 0.0 { -0.5 } else { 0.5 }) as i64;
-    let mut n = v.unsigned_abs().min(u32::MAX as u64) as u32;
+    if v.unsigned_abs() <= u64::from(u32::MAX) {
+        num3(out, v);
+    } else {
+        num_wide(out, x, 3);
+    }
+}
+
+/// Writes `x` rounded half away from zero to `decimals` places (3 to 6), without trailing zeros. 3 is the short path of `num`.
+#[inline(always)]
+pub fn num_with(out: &mut String, x: f64, decimals: u8) {
+    if decimals <= 3 {
+        num(out, x);
+    } else {
+        num_wide(out, x, u32::from(decimals.min(6)));
+    }
+}
+
+/// The general writer: any number of decimals up to 6 and values beyond 32 bits.
+fn num_wide(out: &mut String, x: f64, d: u32) {
+    // Tables, not `powi`/`pow`: those are loops, and this runs for every number of a rail build.
+    const SCALE: [f64; 7] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0, 100_000.0, 1_000_000.0];
+    const UNIT: [u64; 7] = [1, 10, 100, 1_000, 10_000, 100_000, 1_000_000];
+    let (scale, unit) = (SCALE[d as usize], UNIT[d as usize]);
+    let v = (x * scale + if x < 0.0 { -0.5 } else { 0.5 }) as i64;
+    let mut n = v.unsigned_abs();
+    let mut buf = [0u8; 28];
+    let mut i = buf.len();
+    let mut frac = n % unit;
+    n /= unit;
+    if frac != 0 {
+        let mut digits = d;
+        while frac % 10 == 0 {
+            frac /= 10;
+            digits -= 1;
+        }
+        while digits > 0 {
+            i -= 1;
+            buf[i] = b'0' + (frac % 10) as u8;
+            frac /= 10;
+            digits -= 1;
+        }
+        i -= 1;
+        buf[i] = b'.';
+    }
+    loop {
+        i -= 1;
+        buf[i] = b'0' + (n % 10) as u8;
+        n /= 10;
+        if n == 0 {
+            break;
+        }
+    }
+    if v < 0 {
+        i -= 1;
+        buf[i] = b'-';
+    }
+    // SAFETY: the buffer holds only ASCII digits, '.' and '-'.
+    out.push_str(unsafe { std::str::from_utf8_unchecked(&buf[i..]) });
+}
+
+/// `v` thousandths written as a decimal number (32-bit arithmetic).
+#[inline(always)]
+fn num3(out: &mut String, v: i64) {
+    let mut n = v.unsigned_abs() as u32;
     let mut buf = [0u8; 16];
     let mut i = buf.len();
     let mut frac = n % 1000;
@@ -368,7 +453,7 @@ pub fn num(out: &mut String, x: f64) {
 /// A turn bigger than this at one point is a corner, not part of a curve.
 pub const CORNER_DEG: f64 = 30.0;
 /// Points closer than this (document points) to the line between their kept neighbours are dropped before the curve is fitted.
-const THIN: f64 = 0.12;
+const THIN: f64 = DEFAULT_THINNING;
 
 fn thin(pts: &[P], tol: f64) -> Vec<P> {
     if pts.len() < 3 {
@@ -399,8 +484,8 @@ fn thin(pts: &[P], tol: f64) -> Vec<P> {
 }
 
 /// Anchors with Bezier handles through `raw` (thinned first). Handles follow the Catmull-Rom tangent, a third of the way to each neighbour.
-fn write_curve(text: &mut String, raw: &[P], closed: bool) {
-    let pts = thin(raw, THIN);
+fn write_curve(text: &mut String, raw: &[P], closed: bool, decimals: u8, tol: f64) {
+    let pts = thin(raw, tol);
     let n = pts.len();
     let corner_cos = CORNER_DEG.to_radians().cos();
     let unit = |a: P, b: P| -> Option<P> {
@@ -414,9 +499,9 @@ fn write_curve(text: &mut String, raw: &[P], closed: bool) {
         text.push_str(",\"");
         text.push_str(key);
         text.push_str("\":[");
-        num(text, q[0]);
+        num_with(text, q[0], decimals);
         text.push(',');
-        num(text, q[1]);
+        num_with(text, q[1], decimals);
         let _ = p;
         text.push(']');
     };
@@ -426,9 +511,9 @@ fn write_curve(text: &mut String, raw: &[P], closed: bool) {
         }
         let p = pts[i];
         text.push_str("{\"p\":[");
-        num(text, p[0]);
+        num_with(text, p[0], decimals);
         text.push(',');
-        num(text, p[1]);
+        num_with(text, p[1], decimals);
         text.push(']');
         let (prev, next) = (at(i as isize - 1), at(i as isize + 1));
         let d_in = prev.and_then(|q| unit(q, p));

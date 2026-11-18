@@ -54,6 +54,11 @@ pub struct Library {
 }
 
 impl Library {
+    /// A library with no elements: for a build that has no road in it and so never looks one up.
+    pub fn empty() -> Library {
+        Library { elements: BTreeMap::new(), aliases: BTreeMap::new() }
+    }
+
     /// The library shipped with the plug-in.
     pub fn builtin() -> Library {
         let v: Value = serde_json::from_str(include_str!("../../library/elements.json")).expect("library/elements.json is valid JSON");

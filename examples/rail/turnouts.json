@@ -1,0 +1,153 @@
+{
+ "note": "Turnouts No. 4, 5, 6, 8 and 10 off one main, on alternating sides, each branch drawn at that frog's angle. Every one is the NMRA RP-12.35 shape for its number.",
+ "lines": [
+  {
+   "id": "main",
+   "points": [
+    [
+     40,
+     400
+    ],
+    [
+     1960,
+     400
+    ]
+   ],
+   "spec": {
+    "tracks": 1
+   }
+  },
+  {
+   "id": "n4",
+   "points": [
+    [
+     220,
+     400
+    ],
+    [
+     539.85,
+     318.77
+    ]
+   ],
+   "spec": {
+    "tracks": 1
+   }
+  },
+  {
+   "id": "n5",
+   "points": [
+    [
+     580,
+     400
+    ],
+    [
+     903.47,
+     465.35
+    ]
+   ],
+   "spec": {
+    "tracks": 1
+   }
+  },
+  {
+   "id": "n6",
+   "points": [
+    [
+     940,
+     400
+    ],
+    [
+     1265.45,
+     345.38
+    ]
+   ],
+   "spec": {
+    "tracks": 1
+   }
+  },
+  {
+   "id": "n8",
+   "points": [
+    [
+     1300,
+     400
+    ],
+    [
+     1627.43,
+     441.09
+    ]
+   ],
+   "spec": {
+    "tracks": 1
+   }
+  },
+  {
+   "id": "n10",
+   "points": [
+    [
+     1660,
+     400
+    ],
+    [
+     1988.35,
+     367.08
+    ]
+   ],
+   "spec": {
+    "tracks": 1
+   }
+  }
+ ],
+ "joints": [
+  {
+   "lines": [
+    "main",
+    "n4"
+   ],
+   "spec": {
+    "kind": "branch",
+    "frog": 4
+   }
+  },
+  {
+   "lines": [
+    "main",
+    "n5"
+   ],
+   "spec": {
+    "kind": "branch",
+    "frog": 5
+   }
+  },
+  {
+   "lines": [
+    "main",
+    "n6"
+   ],
+   "spec": {
+    "kind": "branch",
+    "frog": 6
+   }
+  },
+  {
+   "lines": [
+    "main",
+    "n8"
+   ],
+   "spec": {
+    "kind": "branch",
+    "frog": 8
+   }
+  },
+  {
+   "lines": [
+    "main",
+    "n10"
+   ],
+   "spec": {
+    "kind": "branch",
+    "frog": 10
+   }
+  }
+ ]
+}

@@ -31,3 +31,14 @@ write("bridge", [line(1, "road.a", [[0, 400], [600, 400]]), line(2, "water.c", [
 // 3. A winding 20 km road of 2,001 points (the cost per input byte and per point).
 const pts = Array.from({ length: 2001 }, (_, i) => [i * 10, 400 + 150 * Math.sin(i / 40)]);
 write("road20km", [line(1, "road.a", pts)], { segments: { a: { cross_section: TWO } } });
+
+// 4. Rail: a yard (2 mains, 4 + 2 spurs) and a double track on 1.5 m of model, written for Track Layer (72/25.4 points per mm: `<tag>.old.*`) and for
+// Cartographer (0.16 points per mm: `<tag>.*`).
+for (const [tag, spec, key] of [["yard1", { mains: 2, left: 4, right: 2, ends: "merge" }, "yards"], ["tracks2", { tracks: 2 }, "tracks"]]) {
+  for (const [file, k] of [[tag, 0.16], [`${tag}.old`, 72 / 25.4]]) {
+    const pts = [[100 * k, 400 * k], [1600 * k, 400 * k]];
+    const [inName, paramsName] = [`${file}.in.json`, `${file}.params.json`];
+    writeFileSync(join(outdir, inName), JSON.stringify({ objects: [line(1, "track.t1", pts)] }));
+    writeFileSync(join(outdir, paramsName), JSON.stringify({ _context: { mode: "filter", artboard: [0, 0, 2000 * k, 1000 * k], documentData: { [key]: { t1: spec } } } }));
+  }
+}

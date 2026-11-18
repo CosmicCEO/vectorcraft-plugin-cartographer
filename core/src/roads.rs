@@ -63,6 +63,16 @@ impl Spec {
         if dd["library"].is_object() {
             let _ = library.merge(&dd["library"]);
         }
+        Spec::read(dd, library)
+    }
+
+    /// Like `from_document_data` but the element library is not read (reading it is a JSON parse, about 0.7 M fuel): for a build with no road in it. The
+    /// stored library entry is carried over untouched all the same.
+    pub fn without_library(dd: &Value) -> Spec {
+        Spec::read(dd, Library::empty())
+    }
+
+    fn read(dd: &Value, library: Library) -> Spec {
         let mut segments = BTreeMap::new();
         if let Some(map) = dd["segments"].as_object() {
             for (id, s) in map {

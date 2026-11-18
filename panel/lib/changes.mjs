@@ -28,3 +28,27 @@ export function describeChanges(before, after, what = "intersection") {
   }
   return out.length ? out : ["no change"];
 }
+
+// The same for tracks and yards: a description there is {kind, spec}, and a change of kind is said in words.
+const TRACK_LABEL = {
+  tracks: "tracks", spacing: "spacing (mm)", ballast: "roadbed", ties: "ties", mains: "main tracks", left: "spurs on the left", right: "spurs on the right",
+  ends: "far end", frog: "turnout number", crossovers: "crossovers", at: "starts at (mm)", length: "length (mm)",
+};
+const showTrack = (v) => (v === null || v === undefined ? "automatic" : v === true ? "on" : v === false ? "off" : Array.isArray(v) ? (v.length ? v.map(crossover).join("; ") : "none") : String(v));
+const crossover = (c) => `main ${c.from} to ${c.to}${c.at === undefined ? " in the middle" : ` at ${c.at} mm`}`;
+const TRACK_KIND = { tracks: "parallel tracks", yard: "a yard" };
+
+/** Sentences for what changes from `before` ({kind, spec}, or null if nothing is stored) to `after`. */
+export function describeTrackChanges(before, after) {
+  if (!before) return [`new: ${TRACK_KIND[after.kind]}`];
+  if (before.kind !== after.kind) return [`changes from ${TRACK_KIND[before.kind]} to ${TRACK_KIND[after.kind]}`];
+  const out = [];
+  // In the order of the card, then any other field.
+  const order = Object.keys(TRACK_LABEL);
+  const keys = [...new Set([...Object.keys(before.spec), ...Object.keys(after.spec)])].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+  for (const key of keys) {
+    const [x, y] = [before.spec[key], after.spec[key]];
+    if (JSON.stringify(x ?? null) !== JSON.stringify(y ?? null)) out.push(`${TRACK_LABEL[key] ?? key}: ${showTrack(x)} → ${showTrack(y)}`);
+  }
+  return out.length ? out : ["no change"];
+}

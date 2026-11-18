@@ -4,8 +4,8 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { library, parseCrossSection, parseCrossing, parseEmbankment, parseHub, parseJunction, parseTransition, parseWater, parseWet } from "./cli.mjs";
-import { embankmentSystemPrompt, featureUserPrompt, waterSystemPrompt, wetSystemPrompt, transitionSystemPrompt, transitionUserPrompt, crossingSystemPrompt, crossingUserPrompt, extractJson, hubSystemPrompt, hubUserPrompt, extractLine, junctionSystemPrompt, junctionUserPrompt, systemPrompt, userPrompt } from "./prompt.mjs";
+import { library, parseCrossSection, parseCrossing, parseEmbankment, parseHub, parseJoint, parseJunction, parseSpec, parseTransition, parseWater, parseWet } from "./cli.mjs";
+import { embankmentSystemPrompt, featureUserPrompt, waterSystemPrompt, wetSystemPrompt, transitionSystemPrompt, transitionUserPrompt, crossingSystemPrompt, crossingUserPrompt, extractJson, jointSystemPrompt, jointUserPrompt, trackSystemPrompt, trackUserPrompt, hubSystemPrompt, hubUserPrompt, extractLine, junctionSystemPrompt, junctionUserPrompt, systemPrompt, userPrompt } from "./prompt.mjs";
 
 const here = import.meta.dirname;
 
@@ -283,4 +283,80 @@ export async function proposeFeature({ kind, description, current = null, extra 
     user = `${featureUserPrompt({ description, current, head })}\n\nYour previous answer was: ${json || String(reply).slice(0, 300)}\nIt was rejected: ${parsed.error}\nReply again with a corrected JSON object only.`;
   }
   return { ok: false, error: `the agent could not produce a valid ${f.what}: ${attempts.at(-1)?.error}`, attempts };
+}
+
+// ---- tracks (N-scale model railroad), ported from Track Layer
+
+/**
+ * Turns a description into a validated track or yard. The provider answers, the CLI checks the answer, and if it is not valid the provider
+ * gets the exact error once to fix it. `current` is {kind, spec} when editing. Returns {ok: true, kind, spec, summary, min_line_mm?, attempts}
+ * or {ok: false, error, attempts}.
+ */
+export async function proposeTrack({ description, current = null, provider, maxAttempts = 2 }) {
+  const system = trackSystemPrompt();
+  const request = { description, current };
+  let user = trackUserPrompt(request);
+  const attempts = [];
+  for (let n = 1; n <= maxAttempts; n++) {
+    let reply;
+    try {
+      reply = await ask(provider, { system, user, request });
+    } catch (e) {
+      return { ok: false, error: e.message, attempts };
+    }
+    const json = extractJson(reply);
+    let parsed = { ok: false, error: "the answer had no JSON object in it" };
+    if (json) {
+      try {
+        const obj = JSON.parse(json);
+        // Models sometimes write null for what they were told to leave out, and forget "kind" when it is obvious.
+        for (const k of Object.keys(obj)) if (obj[k] === null) delete obj[k];
+        const kind = obj.kind ?? (["mains", "left", "right", "ends", "frog"].some((k) => k in obj) ? "yard" : "tracks");
+        delete obj.kind;
+        parsed = await parseSpec(kind, obj);
+      } catch {
+        parsed = { ok: false, error: "the answer was not valid JSON" };
+      }
+    }
+    attempts.push({ reply: String(reply).slice(0, 600), json, ok: parsed.ok, error: parsed.error });
+    if (parsed.ok) return { ...parsed, attempts };
+    user = `${trackUserPrompt(request)}\n\nYour previous answer was: ${json || String(reply).slice(0, 300)}\nIt was rejected: ${parsed.error}\nReply again with a corrected JSON object only.`;
+  }
+  return { ok: false, error: `the agent could not produce a valid description: ${attempts.at(-1)?.error}`, attempts };
+}
+
+/**
+ * Turns a description of how two lines meet into a validated joint. `lines` are the two line ids, `found` what the program found from the
+ * drawing (see findJoint), `current` the stored joint description (an object) when editing. Returns {ok: true, spec, summary, attempts} or
+ * {ok: false, error, attempts}.
+ */
+export async function proposeJoint({ description, current = null, lines, found = null, provider, maxAttempts = 2 }) {
+  const system = jointSystemPrompt();
+  const request = { description, current, lines, found, kind: "joint" };
+  let user = jointUserPrompt(request);
+  const attempts = [];
+  for (let n = 1; n <= maxAttempts; n++) {
+    let reply;
+    try {
+      reply = await ask(provider, { system, user, request });
+    } catch (e) {
+      return { ok: false, error: e.message, attempts };
+    }
+    const json = extractJson(reply);
+    let parsed = { ok: false, error: "the answer had no JSON object in it" };
+    if (json) {
+      try {
+        const obj = JSON.parse(json);
+        for (const k of Object.keys(obj)) if (obj[k] === null) delete obj[k];
+        parsed = await parseJoint(JSON.stringify(obj));
+        if (parsed.ok && parsed.joint.main && !lines.includes(parsed.joint.main)) parsed = { ok: false, error: `\`main\` must be one of the two lines, ${lines[0]} or ${lines[1]}.` };
+      } catch {
+        parsed = { ok: false, error: "the answer was not valid JSON" };
+      }
+    }
+    attempts.push({ reply: String(reply).slice(0, 600), json, ok: parsed.ok, error: parsed.error });
+    if (parsed.ok) return { ok: true, spec: parsed.joint, summary: parsed.summary, attempts };
+    user = `${jointUserPrompt(request)}\n\nYour previous answer was: ${json || String(reply).slice(0, 300)}\nIt was rejected: ${parsed.error}\nReply again with a corrected JSON object only.`;
+  }
+  return { ok: false, error: `the agent could not produce a valid joint: ${attempts.at(-1)?.error}`, attempts };
 }

@@ -2,15 +2,17 @@
 // change with an agent, and on Draw applies it (Describe Road, then Build Road) without losing the user's selection.
 import { EventEmitter } from "node:events";
 import { cardModel } from "./cards.mjs";
-import { diffCrossSection, editCrossSection, parseCrossSection, parseCrossing, parseEmbankment, parseHub, parseJunction, parseSettings, parseTransition, parseWater, parseWet, schema } from "./cli.mjs";
-import { describeChanges } from "./changes.mjs";
+import { diffCrossSection, editCrossSection, parseCrossSection, parseCrossing, parseEmbankment, parseHub, parseJoint, parseJunction, parseSettings, parseSpec, parseTransition, parseWater, parseWet, findJoint, schema } from "./cli.mjs";
+import { describeChanges, describeTrackChanges } from "./changes.mjs";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { PLUGIN_ID, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_SETTINGS, SET_TRANSITION, SET_JUNCTION, SET_WATER, SET_WET, allPaths, classify, inspectState, junctionId, nodes, readSpec, segmentId, waterId } from "./doc.mjs";
+import { PLUGIN_ID, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_SETTINGS, SET_TRANSITION, SET_JUNCTION, SET_JOINT, SET_TRACKS, SET_WATER, SET_WET, SET_YARD, allPaths, classify, inspectState, junctionId, nodes, readSpec, segmentId, trackId, waterId } from "./doc.mjs";
 import { organise, unlockOurs } from "./layers.mjs";
-import { propose as proposeWith, proposeCrossing, proposeFeature, proposeHub, proposeJunction, proposeTransition } from "./providers.mjs";
+import { propose as proposeWith, proposeCrossing, proposeFeature, proposeHub, proposeJoint, proposeJunction, proposeTrack, proposeTransition } from "./providers.mjs";
 
 const DEFAULT_TEXT = "lane back | lane fwd";
+const DEFAULT_TRACK = { kind: "tracks", spec: { tracks: 1 } };
+const NEEDS_MIX_NOTE = "Roads and tracks cannot be described together yet (not supported yet): select one or the other.";
 const DEFAULT_CROSSING = { treatment: "signal", crosswalks: true, minor: null, over: null, diameter: 40, stub: "keep" };
 const DEFAULT_HUB = { treatment: "signal", crosswalks: true, minor: null, stub: "keep" };
 const CROSSING_KEYS = ["treatment", "crosswalks", "radius", "minor", "over", "main", "diameter", "stub", "pocket", "pocket_length", "pocket_taper", "slip", "slip_radius", "opening", "gore", "gore_length", "accel_length", "accel_taper", "beacon", "gates"];
@@ -32,7 +34,7 @@ export class Panel extends EventEmitter {
     this.control = control;
     this.providers = providers ?? { default: null, providers: {} };
     this.provider = this.providers.default;
-    this.state = { connected: false, error: null, doc: null, selection: [], notes: [], target: null, road: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, mode: "road", pending: null, busy: null, message: null };
+    this.state = { connected: false, error: null, doc: null, selection: [], notes: [], target: null, road: null, track: null, joint: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, mode: "road", pending: null, busy: null, message: null };
     this.last = { revision: null, selection: "", title: null };
     this.schema = null;
     this.settingsOpen = false; // the settings card is read from a saved copy only while it is open
@@ -85,7 +87,7 @@ export class Panel extends EventEmitter {
     } catch (e) {
       const noDoc = /no (active )?document/i.test(e.message);
       this.last = { revision: null, selection: "", title: null };
-      return this.#set({ connected: !noDoc && this.control.connected, error: noDoc ? "Open or create a document in VectorCraft." : e.message, doc: null, selection: [], target: null, road: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, pending: null });
+      return this.#set({ connected: !noDoc && this.control.connected, error: noDoc ? "Open or create a document in VectorCraft." : e.message, doc: null, selection: [], target: null, road: null, track: null, joint: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, pending: null });
     }
     const key = s.selection.join(",");
     // A different document (its title changed) is read again and drops every proposal made for the old one.
@@ -109,19 +111,27 @@ export class Panel extends EventEmitter {
         let spines = [];
         if (n.role === "road-shape") spines = [road(n.segment, n.piece)];
         else if (n.role === "junction-shape") spines = [paths.find((p) => junctionId(p.name) === n.segment)];
+        else if (n.role === "track-shape") spines = [paths.find((p) => trackId(p.name) === n.track)];
         else if (n.role === "crossing-shape") spines = ((this.spec = await readSpec(this.control)).crossings?.[n.segment]?.roads ?? []).map((r) => road(r));
         else if (n.role === "water-shape") spines = [paths.find((p) => waterId(p.name) === n.segment)];
         else if (n.role === "wet-shape") {
           const w = (this.spec = await readSpec(this.control)).wets?.[n.segment];
           spines = [road(w?.road), paths.find((p) => waterId(p.name) === w?.water)];
         } else spines = ((this.spec = await readSpec(this.control)).hubs?.[n.segment]?.roads ?? []).map((r) => road(r));
-        return spines.filter((p) => p && !seen.has(p.id)).map((p) => (seen.add(p.id), { id: p.id, name: p.name, kind: "Path", role: waterId(p.name) ? "water" : junctionId(p.name) ? "junction" : "road", segment: segmentId(p.name) ?? junctionId(p.name) ?? waterId(p.name), viaShape: true }));
+        return spines.filter((p) => p && !seen.has(p.id)).map((p) => (seen.add(p.id), { id: p.id, name: p.name, kind: "Path", role: trackId(p.name) ? "track" : waterId(p.name) ? "water" : junctionId(p.name) ? "junction" : "road", segment: segmentId(p.name) ?? junctionId(p.name) ?? waterId(p.name), track: trackId(p.name) ?? undefined, viaShape: true }));
       }))).flat();
     }
     const segments = [...new Set(sel.filter((n) => n.role === "road").map((n) => n.segment))];
     let target = null;
     const waters = [...new Set(sel.filter((n) => n.role === "water").map((n) => n.segment))];
-    if (waters.length === 1 && !segments.length && sel.every((n) => n.role === "water")) target = { kind: "water", segment: waters[0], ids: sel.map((n) => n.id) };
+    const trackLines = sel.filter((n) => n.role === "track");
+    const trackIds = [...new Set(trackLines.map((n) => trackId(n.name)))];
+    const allTrack = trackLines.length > 0 && trackLines.length === sel.length;
+    // A track line mixed with a road, junction or water line is not something the panel can describe yet.
+    const mixed = trackLines.length > 0 && sel.some((n) => ["road", "junction", "water"].includes(n.role));
+    if (allTrack && trackIds.length === 1) target = { kind: "track", id: trackIds[0], ids: sel.map((n) => n.id) };
+    else if (allTrack && trackIds.length === 2) target = { kind: "joint", lines: [...trackIds].sort(), ids: sel.map((n) => n.id) };
+    else if (waters.length === 1 && !segments.length && sel.every((n) => n.role === "water")) target = { kind: "water", segment: waters[0], ids: sel.map((n) => n.id) };
     else if (waters.length === 1 && segments.length === 1 && sel.every((n) => n.role === "road" || n.role === "water")) target = { kind: "wet", road: segments[0], water: waters[0], ids: sel.map((n) => n.id) };
     else if (segments.length === 1 && sel.every((n) => n.role === "road")) target = { kind: "road", segment: segments[0], ids: sel.map((n) => n.id) };
     else if (segments.length === 2 && sel.every((n) => n.role === "road")) target = { kind: "crossing", roads: [...segments].sort(), ids: sel.map((n) => n.id) };
@@ -130,6 +140,28 @@ export class Panel extends EventEmitter {
     else if (sel.length === 1 && sel[0].role === "line") target = { kind: "line", ids: [sel[0].id] };
     else if (sel.length) target = { kind: "other", ids: sel.map((n) => n.id) };
 
+    // A track (or a plain line described as one): what is stored for it, checked by the CLI, and the card built from the schema.
+    let track = null;
+    if (target?.kind === "track" || (target?.kind === "line" && this.state.mode === "track")) {
+      this.spec = await readSpec(this.control);
+      const yard = target.id ? this.spec.yards?.[target.id] : null;
+      const stored = yard ? { kind: "yard", spec: yard } : target.id && this.spec.tracks?.[target.id] ? { kind: "tracks", spec: this.spec.tracks[target.id] } : null;
+      const shown = stored ?? DEFAULT_TRACK;
+      const parsed = await parseSpec(shown.kind, shown.spec);
+      const spec = parsed.ok ? parsed.spec : shown.spec;
+      track = { id: target.id ?? null, described: !!stored, kind: shown.kind, spec, summary: parsed.ok ? parsed.summary : "", min_line_mm: parsed.min_line_mm ?? null, card: await this.#card(shown.kind, spec) };
+    }
+    // Two track lines selected: how do they meet, and is there a joint stored for them?
+    let joint = null;
+    if (target?.kind === "joint") {
+      this.spec = await readSpec(this.control);
+      const [a, b] = target.lines;
+      const found = this.spec.lines?.[a] && this.spec.lines?.[b] ? await findJoint(this.spec.lines[a], this.spec.lines[b], a, b) : { ok: false, error: "The panel could not read both lines from the document." };
+      const stored = Object.entries(this.spec.joints ?? {}).find(([, j]) => j.lines?.length === 2 && j.lines.includes(a) && j.lines.includes(b));
+      const parsed = stored ? await parseJoint(JSON.stringify(stored[1])) : null;
+      const spec = parsed?.ok ? parsed.joint : { kind: found.ok ? found.kind : "crossing" };
+      joint = { id: stored?.[0] ?? null, lines: [a, b], found, described: !!stored, spec, summary: parsed?.ok ? parsed.summary : "", card: await this.#card("joint", spec) };
+    }
     let road = null;
     if (target?.kind === "road") {
       this.spec = await readSpec(this.control);
@@ -201,7 +233,7 @@ export class Panel extends EventEmitter {
     // A settings proposal is dropped when the stored settings are no longer the ones it was made from (another document, an undo).
     let settingsPending = switched ? null : this.state.settingsPending;
     if (reread && settingsPending && JSON.stringify(settings?.values) !== JSON.stringify(settingsPending.base)) settingsPending = null;
-    this.#set({ connected: true, error: null, doc: { title: s.title, revision: s.revision }, notes: this.spec?.notes ?? [], selection: sel, target, road, junction, crossing, hub, water, wet, embank, settings, settingsPending, pending: keep ? this.state.pending : null, message: keep ? this.state.message : null });
+    this.#set({ connected: true, error: null, doc: { title: s.title, revision: s.revision }, notes: this.spec?.notes ?? [], selection: sel, target, road, track, joint, junction, crossing, hub, water, wet, embank, settings, settingsPending, pending: keep ? this.state.pending : null, message: mixed ? NEEDS_MIX_NOTE : keep ? this.state.message : null });
   }
 
   /** Words to a proposed cross-section (not applied until Draw). */
@@ -237,9 +269,34 @@ export class Panel extends EventEmitter {
     });
   }
 
+  /** The card for a kind of description ("tracks", "yard", "joint"), built from the CLI's schema (read once). */
+  async #card(kind, values) {
+    this.schemas ??= {};
+    this.schemas[kind] ??= await schema(kind);
+    return cardModel(this.schemas[kind], values);
+  }
+
+  #isTrack(t) {
+    return t?.kind === "track" || (t?.kind === "line" && this.state.mode === "track");
+  }
+
   /** One agent's attempt for the current target: {pending, message?} when it gave a valid proposal, else {message}. */
   async #ask(t, description, provider, id) {
     const base = { source: "agent", agent: id, description };
+    if (this.#isTrack(t)) {
+      const tr = this.state.track;
+      const current = tr?.described ? { kind: tr.kind, spec: tr.spec } : null;
+      const r = await proposeTrack({ description, current, provider });
+      return r.ok ? { pending: { kind: r.kind, spec: r.spec, summary: r.summary, min_line_mm: r.min_line_mm ?? null, changes: describeTrackChanges(current, r), ...base } } : { message: r.error };
+    }
+    if (t.kind === "joint") {
+      const j = this.state.joint;
+      const r = await proposeJoint({ description, current: j.described ? j.spec : null, lines: j.lines, found: j.found, provider });
+      if (!r.ok) return { message: r.error };
+      const before = j.described ? j.spec : null;
+      const changes = !before ? [`new: ${r.summary}`] : JSON.stringify(before) === JSON.stringify(r.spec) ? ["no change"] : [`from ${j.summary} to ${r.summary}`];
+      return { pending: { kind: "joint", spec: r.spec, summary: r.summary, changes, ...base } };
+    }
     if (this.#isWater(t)) {
       const w = this.state.water;
       const r = await proposeFeature({ kind: "water", description, current: w?.described ? w.spec : null, provider });
@@ -319,17 +376,20 @@ export class Panel extends EventEmitter {
   selectLine() {
     return this.#serial(async () => {
       const t = this.state.target;
-      if (!t || (t.kind !== "road" && t.kind !== "junction")) return this.#set({ message: "Select a road or a junction first." });
+      if (!t || (t.kind !== "road" && t.kind !== "junction" && t.kind !== "track")) return this.#set({ message: "Select a road, a junction or a track first." });
       await this.control.run("select.set", { ids: t.ids });
       await this.#refresh(true);
-      this.#set({ message: "The line is selected in VectorCraft: move or reshape its points to change the road." });
+      this.#set({ message: `The line is selected in VectorCraft: move or reshape its points to change the ${t.kind === "track" ? "track" : "road"}.` });
     });
   }
 
-  /** What a plain line is: a road, or a connection between two roads. */
+  /** What a plain line is: a road, a connection between two roads, water, or railway track. */
   setMode(mode) {
-    if (mode !== "road" && mode !== "connection" && mode !== "transition" && mode !== "water" && mode !== "fill") return false;
+    if (mode !== "road" && mode !== "connection" && mode !== "transition" && mode !== "water" && mode !== "fill" && mode !== "track") return false;
+    const was = this.state.mode;
     this.#set({ mode, pending: null, message: null });
+    // A plain line described as track shows the track card, which is read from the document: look again now.
+    if (mode === "track" || was === "track") this.tick(true);
     return true;
   }
 
@@ -338,6 +398,39 @@ export class Panel extends EventEmitter {
     return this.#serial(async () => {
       const r = await parseJunction(JSON.stringify({ legs: [], control: "none", crosswalks: false }));
       this.#set({ pending: { kind: "junction", junction: r.junction, summary: r.summary, source: "match" }, message: null });
+    });
+  }
+
+  /** Quick choices for the selected track or yard: any field of its card ({tracks, spacing, ballast: "on"|"off", mains, left, …}). An empty value leaves the field out. Checked by the CLI first; nothing is applied until Draw. */
+  editTrack(patch) {
+    return this.#serial(async () => {
+      const tr = this.state.track;
+      if (!tr || !this.#isTrack(this.state.target)) return this.#set({ message: "Select a track line first." });
+      const pending = ["tracks", "yard"].includes(this.state.pending?.kind) ? this.state.pending : null;
+      const base = pending ?? { kind: tr.kind, spec: tr.spec };
+      const next = { ...base.spec };
+      for (const [k, v] of Object.entries(patch)) next[k] = v === "on" ? true : v === "off" ? false : v;
+      for (const k of Object.keys(next)) if (next[k] === null || next[k] === undefined || next[k] === "") delete next[k];
+      const r = await parseSpec(base.kind, next);
+      this.#set(r.ok ? { pending: { kind: r.kind, spec: r.spec, summary: r.summary, min_line_mm: r.min_line_mm ?? null, source: "edit", changes: describeTrackChanges({ kind: tr.kind, spec: tr.spec }, r) }, message: null } : { message: r.error });
+    });
+  }
+
+  /** Quick choices for the selected joint: any of {kind, main, frog}. Checked by the CLI first; nothing is applied until Draw. */
+  editJoint(patch) {
+    return this.#serial(async () => {
+      const j = this.state.joint;
+      if (!j || this.state.target?.kind !== "joint") return this.#set({ message: "Select the two track lines first." });
+      const base = this.state.pending?.kind === "joint" ? this.state.pending.spec : j.spec;
+      const next = { ...base, ...patch };
+      delete next.lines;
+      for (const k of Object.keys(next)) if (next[k] === null || next[k] === undefined || next[k] === "") delete next[k];
+      const r = await parseJoint(JSON.stringify(next));
+      if (!r.ok) return this.#set({ message: r.error });
+      if (r.joint.main && !j.lines.includes(r.joint.main)) return this.#set({ message: `\`main\` must be one of the two lines, ${j.lines[0]} or ${j.lines[1]}.` });
+      const before = j.described ? j.spec : null;
+      const changes = !before ? [`new: ${r.summary}`] : JSON.stringify(before) === JSON.stringify(r.joint) ? ["no change"] : [`from ${j.summary} to ${r.summary}`];
+      this.#set({ pending: { kind: "joint", spec: r.joint, summary: r.summary, source: "edit", changes }, message: null });
     });
   }
 
@@ -564,7 +657,21 @@ export class Panel extends EventEmitter {
       if (!t || t.kind === "other") return this.#set({ message: "Select one line (or one road) first." });
       this.#set({ busy: "drawing", message: null });
       try {
-        if (this.#isWater(t)) {
+        if (this.#isTrack(t)) {
+          // A proposal, else (for a plain line, which must become a track) what the card shows; a track that is already described is only rebuilt.
+          const chosen = ["tracks", "yard"].includes(pending?.kind) ? pending : t.kind === "line" ? this.state.track : null;
+          if (chosen) {
+            await this.control.run("select.set", { ids: t.ids });
+            await this.control.run(chosen.kind === "yard" ? SET_YARD : SET_TRACKS, { params: { description: JSON.stringify(chosen.spec) } });
+          }
+        } else if (t.kind === "joint") {
+          // A proposal, else (for two lines with no stored joint) what the card shows; a stored joint is only rebuilt.
+          const spec = pending?.kind === "joint" ? pending.spec : this.state.joint.described ? null : this.state.joint.spec;
+          if (spec) {
+            await this.control.run("select.set", { ids: t.ids });
+            await this.control.run(SET_JOINT, { params: { description: JSON.stringify(spec) } });
+          }
+        } else if (this.#isWater(t)) {
           const spec = tidy(pending?.kind === "water" ? pending.water : this.state.water.spec);
           await this.control.run("select.set", { ids: t.ids });
           await this.control.run(SET_WATER, { params: { description: JSON.stringify(spec) } });

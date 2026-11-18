@@ -117,3 +117,44 @@ test("the page renders a plain line, a road, an intersection and the open settin
   page.send(panel.snapshot());
   assert.match(page.byId.get("ssummary").textContent, /style medium-contrast/);
 });
+
+const geom = (pts) => ({ subpaths: [{ anchors: pts.map(([x, y]) => ({ p: [x * 0.16, y * 0.16] })), closed: false }] });
+const CROSS = [
+  { id: 2, name: "track.a", geom: geom([[0, 0], [600, 0]]) },
+  { id: 3, name: "track.b", geom: geom([[300, -200], [300, 200]]) },
+];
+const YARD = { mains: 2, left: 4, right: 2, ends: "merge", frog: 6, spacing: 24.765, at: 0, ballast: true, ties: true };
+
+test("the page renders a track, a yard, a joint and their proposals with the cards present", async () => {
+  const page = runPage();
+  const hiddenOf = (id) => page.byId.get(id).hidden;
+
+  const track = await start({ paths: [{ id: 2, name: "track.t1" }], selection: [2] });
+  page.send(track.panel.snapshot());
+  assert.deepEqual([hiddenOf("trackCard"), hiddenOf("jointCard")], [false, true]);
+  assert.match(page.byId.get("tsummary").textContent, /not described yet/i);
+  await track.panel.editTrack({ tracks: 3 });
+  page.send(track.panel.snapshot());
+  assert.match(page.byId.get("tsummary").textContent, /Proposed: 3 tracks/);
+  assert.equal(hiddenOf("proposal"), true, "a track proposal is not shown as a road proposal");
+
+  const yard = await start({ paths: [{ id: 2, name: "track.t1" }], selection: [2], spec: { tracks: {}, yards: { t1: YARD } } });
+  page.send(yard.panel.snapshot());
+  assert.match(page.byId.get("tsummary").textContent, /2 mains/);
+  assert.equal(hiddenOf("tneeds"), false, "a yard says how much line it needs");
+
+  const joint = await start({ paths: CROSS, selection: [2, 3] });
+  page.send(joint.panel.snapshot());
+  assert.deepEqual([hiddenOf("trackCard"), hiddenOf("jointCard")], [true, false]);
+  assert.match(page.byId.get("jfound").textContent, /cross/);
+  await joint.panel.editJoint({ kind: "crossing", main: "a" });
+  page.send(joint.panel.snapshot());
+  assert.match(page.byId.get("jsummary").textContent, /Proposed: a crossing/);
+
+  const plain = await start({ paths: [{ id: 5, name: "" }], selection: [5] });
+  plain.panel.setMode("track");
+  await plain.panel.tick(true);
+  page.send(plain.panel.snapshot());
+  assert.equal(hiddenOf("trackCard"), false, "a plain line in track mode shows the track card");
+  assert.equal(hiddenOf("modeCard"), false);
+});
