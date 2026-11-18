@@ -29,8 +29,8 @@ fn load_spec(params: &Value) -> Result<Spec, String> {
     Ok(Spec::from_document_data(data))
 }
 
-/// How far hand-drawn lines wander, metres: 0.15 when drawing true, 0.25 mm on paper at a target scale (never more than 3 m).
-const WOBBLE_TRUE_M: f64 = 0.15;
+/// How far hand-drawn lines wander, metres: 0.4 when drawing true, 0.25 mm on paper at a target scale (never more than 3 m).
+const WOBBLE_TRUE_M: f64 = 0.4;
 const WOBBLE_PRINT_MM: f64 = 0.25;
 const WOBBLE_MAX_M: f64 = 3.0;
 

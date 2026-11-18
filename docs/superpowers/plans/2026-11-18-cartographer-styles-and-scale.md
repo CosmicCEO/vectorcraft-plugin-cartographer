@@ -94,7 +94,7 @@
 
 - Rail is not wobbled and not widened: it is a model at true 1:160, where gauge and ties must stay exact. Only its colours follow the style.
 - Black-white is four grey tones for now, not hatch and stipple patterns (a filter can only write paths and solid fills; patterns need a spike). Hairlines are not applied.
-- Hand-drawn amplitude is 0.15 m for scale `true` and 0.25 mm on paper for `1:N`; variable stroke width is a stable 0.85 to 1.15 factor per object, not a taper along the stroke.
+- Hand-drawn amplitude is 0.4 m for scale `true` (0.15 m was invisible at one point per metre) and 0.25 mm on paper for `1:N`; variable stroke width is a stable 0.85 to 1.15 factor per object, not a taper along the stroke.
 - Minimum print sizes: 0.3 mm for a band, 0.12 mm for a stroke (the seed materials use 0.25 to 0.3 mm). The materials library's own `min_print_width` is not wired to road elements, which have no such field.
 - `set_style` is not a separate command: the existing Set Settings command and the settings card change the style, and the next Build applies it.
 - High-contrast is a colour transform (contrast 1.6 around mid-grey), not a re-designed palette.

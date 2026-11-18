@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "cartographer-cli"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "cartographer-core",
  "serde_json",
@@ -12,14 +12,14 @@ dependencies = [
 
 [[package]]
 name = "cartographer-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "cartographer-filter"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "cartographer-core",
  "serde_json",

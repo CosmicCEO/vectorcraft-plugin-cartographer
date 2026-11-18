@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 Styles
+- The document settings now change what a build draws. Four styles: `medium-contrast` (the default, identical to 0.4.0), `high-contrast`, `black-white` (four grey tones) and `hand-drawn` (a deterministic wander seeded from the document, stroke widths varied per object). The line you drew and a join never move; rail is coloured by the style but never moved.
+- Target print scale: with `1:N` every band is at least 0.3 mm wide on paper and every road stroke at least 0.12 mm; the line you drew and the joins stay put.
+- **Draw this** on the Document settings card rebuilds every road and track, so the new style or scale shows at once.
+- Fuel: hand-drawn at 1:5000 costs 6 to 8% more than the plain build; medium-contrast about 0.2% more than 0.4.0. Parity gates unchanged (road 15/15, rail 8/8).
+- `scripts/live-style-check.mjs` drives the settings card against a real VectorCraft and exports a picture per style. `docs/STYLES.md` lists what is not done yet (hatch and stipple for black-white, hairlines, per-element styles).
+
 ## 0.4.0 Track
 - Track Layer ported as the `track` kind: a line named `track.<id>` becomes N-scale track (rails, ties, roadbed): parallel tracks, yards, NMRA turnouts, crossovers, crossings, branches and joins. Commands Describe Track, Describe Yard and Join Two Lines; Build handles roads and tracks together (tracks are drawn after roads).
 - `cartographer-cli` gains `parse-tracks`, `parse-yard`, `parse-joint`, `find-joint` and `schema tracks|yard|joint`.

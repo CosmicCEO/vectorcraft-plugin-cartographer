@@ -83,12 +83,6 @@ impl Out {
         self.displace = on;
     }
 
-    /// A point as written: displaced by the style when that is on.
-    #[inline(always)]
-    fn place(&self, p: P) -> P {
-        if self.displace && self.style.wobbles() { self.style.wobble(p) } else { p }
-    }
-
     /// Sets the thinnest a road stroke may be, in metres of ground (from the target print scale).
     pub fn set_min_stroke(&mut self, metres: f64) {
         self.min_stroke = if metres.is_finite() && metres > 0.0 { metres } else { 0.0 };
@@ -182,11 +176,12 @@ impl Out {
     /// line needs 2 points, a shape 3, all finite.
     fn open_object(&mut self, name: &str, subs: &[Vec<P>], map: &impl Fn(P) -> P, closed: bool, smooth: bool) -> bool {
         let min = if closed { 3 } else { 2 };
+        let (on, style) = (self.displace && self.style.wobbles(), self.style); // decided once per object, not per point
         let usable: Vec<Vec<P>> = subs
             .iter()
             .filter(|s| s.len() >= min)
             .map(|s| {
-                let mut m: Vec<P> = s.iter().map(|&w| self.place(map(w))).collect();
+                let mut m: Vec<P> = s.iter().map(|&w| if on { style.wobble(map(w)) } else { map(w) }).collect();
                 // A smooth closed ring that repeats its first point (how a drawn shape is read) is one point shorter: the repeat would be a zero-length
                 // chord and `thin` would drop every corner. A plain polygon keeps its points exactly as given.
                 if smooth && closed && m.len() > 2 && m.first() == m.last() {
@@ -257,6 +252,7 @@ impl Out {
 
     /// A new stroked object made of many two-point segments (ties), written straight out with no allocation per segment.
     pub fn segments(&mut self, name: &str, segs: impl Iterator<Item = [P; 2]>, map: impl Fn(P) -> P, rgb: [f64; 3], width: f64) {
+        let (on, style) = (self.displace && self.style.wobbles(), self.style);
         let mut segs = segs.peekable();
         if segs.peek().is_none() || !visible_width(width) {
             return; // VectorCraft refuses an object with no points
@@ -269,7 +265,7 @@ impl Out {
         self.texts[self.layer].push_str(",\"path\":{\"subpaths\":[");
         let mut first = true;
         for [a, b] in segs {
-            let (a, b) = (self.place(map(a)), self.place(map(b)));
+            let (a, b) = if on { (style.wobble(map(a)), style.wobble(map(b))) } else { (map(a), map(b)) };
             if ![a[0], a[1], b[0], b[1]].iter().all(|c| c.is_finite()) {
                 continue; // a non-finite point would be written as 0 and draw a line to the origin
             }

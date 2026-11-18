@@ -80,7 +80,7 @@ fn hand_drawn_moves_the_road_and_keeps_the_line() {
         }
     }
     assert!(moved > 0, "some coordinate moved");
-    assert!(worst <= 0.15 + 1e-3, "the displacement stays within the amplitude: {worst}");
+    assert!(worst <= 0.4 + 1e-3, "the displacement stays within the amplitude: {worst}");
     let kept = |t: &str| objects(t).into_iter().filter(|o| o["name"].as_str().is_none_or(|n| !n.starts_with("gen."))).collect::<Vec<_>>();
     assert_eq!(kept(&plain), kept(&hand), "the line you drew is not changed by the style");
 }

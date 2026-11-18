@@ -42,3 +42,8 @@ for (const [tag, spec, key] of [["yard1", { mains: 2, left: 4, right: 2, ends: "
     writeFileSync(join(outdir, paramsName), JSON.stringify({ _context: { mode: "filter", artboard: [0, 0, 2000 * k, 1000 * k], documentData: { [key]: { t1: spec } } } }));
   }
 }
+
+// 5. The same roads in the hand-drawn style and at a target print scale (the style kit and the minimum widths cost something on every point).
+for (const [tag, base] of [["road600", [line(1, "road.a", [[100, 700], [100, 100]])]], ["road20km", [line(1, "road.a", Array.from({ length: 2001 }, (_, i) => [i * 10, 400 + 150 * Math.sin(i / 40)]))]]]) {
+  write(`${tag}-hand`, base, { segments: { a: { cross_section: TWO } }, settings: { style: "hand-drawn", seed: 3, target_print_scale: "1:5000" } });
+}

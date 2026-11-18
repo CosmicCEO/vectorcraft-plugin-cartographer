@@ -39,6 +39,10 @@ G. Hide the "track t1 spine" layer and press Draw. Expected: the track is rebuil
 13. Press **Draw this**, then Save As, close the document and open the saved file. Expected: the card shows the same values after opening it (`hand-drawn`, `1:5000`).
 14. Type `1:0` into the scale. Expected: a plain message mentioning `1:N`, and nothing changes in VectorCraft.
 
+## Styles
+
+S. With some roads built, open **Document settings**, choose `hand-drawn`, press **Draw this**. Expected: the roads are rebuilt at once and their edges wander slightly; the line you drew keeps its straight red highlight. Choose `black-white`: every colour becomes grey. Choose `medium-contrast`: the original drawing returns. Set the scale to `1:5000`: thin lines and narrow bands get wider. `node scripts/live-style-check.mjs out` does this for you and saves a picture per style; passed on VectorCraft 0.24.1 on macOS (2026-11-18).
+
 ## Switching documents
 
 15. With a proposal showing on any card, create or open a different document. Expected: the proposal disappears and the cards show the new document.
