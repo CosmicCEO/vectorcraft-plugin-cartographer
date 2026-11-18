@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 Migration
+- `node scripts/migrate.mjs <in> <out>` converts a saved VectorCraft document made with Road Builder and/or Track Layer: the stored records move to Cartographer's id, Track Layer's `track.*` lines are scaled to 0.16 points per millimetre, stale `gen.*` objects are removed (the first Build redraws them), and a plain report says what happened. It runs on a copy and never changes the input or overwrites a file.
+- `scripts/live-migrate-check.mjs`: against the real old plug-ins in a live VectorCraft, the migrated documents build to the same SVG (roads identical, tracks identical when scaled).
+- `docs/RELEASE-1.0.md` (what is done and what is the owner's, the commands to tag and release, wording to retire the two old repositories) and `.github/workflows/release.yml` (builds the package on macOS and Linux when a tag is pushed; never run yet).
+- Not carried over, by decision: the older centreline model, `.pmap` files and Add Junction (see `docs/MIGRATION.md`).
+
 ## 0.5.0 Styles
 - The document settings now change what a build draws. Four styles: `medium-contrast` (the default, identical to 0.4.0), `high-contrast`, `black-white` (four grey tones) and `hand-drawn` (a deterministic wander seeded from the document, stroke widths varied per object). The line you drew and a join never move; rail is coloured by the style but never moved.
 - Target print scale: with `1:N` every road band is at least 0.3 mm wide on paper and every road stroke at least 0.12 mm (water and symbols are not held to a minimum yet); the line you drew and the joins stay put.

@@ -45,6 +45,12 @@ The owner is not a developer: keep chat answers short and plain; write documents
 - Inline the per-point branch (`on`, `style` decided once per object in `open_object` and `segments`): a closure or helper per point cost 4% on rail in WebAssembly.
 - Draw on the settings card rebuilds (`Panel.drawSettings`), only when the document has a road, junction, water or track line.
 
+## Migration (0.6.0)
+- Migration is an offline command on a COPY of a saved file (`scripts/lib/migrate.mjs`, `scripts/migrate.mjs`): a filter cannot read another plug-in's data and a command parameter is too small for a record. Never change the input; never overwrite an output; refuse a document that already has Cartographer data.
+- Names carry over (layers and spines depend on them); unknown keys are kept and reported; the old records stay in the file; only `gen.*` objects are removed; only `track.*` lines are scaled, by `TRACK_SCALE` = 0.16 / (72 / 25.4).
+- The proof is `scripts/live-migrate-check.mjs` against the real old plug-ins, not a fixture. Do not loosen its comparison.
+- Do not tag, release, merge or touch the old repositories: `docs/RELEASE-1.0.md` is the owner's list.
+
 ## Build, test, run
 - Rust: `cargo +stable test --release --workspace`; WebAssembly: `cargo +stable build --release --target wasm32-unknown-unknown --workspace`. On macOS with Homebrew, put rustup first on `PATH` (`/opt/homebrew/opt/rustup/bin`); `scripts/build.mjs` does this.
 - Node: `node --test panel/test/*.test.mjs scripts/test/*.test.mjs` (panel tests need `cargo build --release -p cartographer-cli` first).
