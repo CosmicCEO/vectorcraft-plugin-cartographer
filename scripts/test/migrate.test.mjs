@@ -210,3 +210,38 @@ test("no arguments print the usage", () => {
   assert.equal(r.status, 2);
   assert.match(r.stderr, /usage/i);
 });
+
+// ---- review fixes
+
+import { linkSync } from "node:fs";
+
+test("a document in the older centreline model is refused, not stripped of its drawing", () => {
+  const input = doc({ layers: [layer("L", path("centerline", [anchor(0, 0), anchor(100, 0)]), path("gen.line.nbEdge", [anchor(0, 1), anchor(100, 1)]))], data: { [IDS.roadbuilder]: RB } });
+  assert.throws(() => migrateDocument(input), /older centreline model/);
+  const { input: file, output } = sandbox(input);
+  const r = run(file, output);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /older centreline model/);
+  assert.equal(existsSync(output), false);
+});
+
+test("the same file under another name is refused even with force", () => {
+  const { dir, input } = sandbox();
+  const before = readFileSync(input);
+  const alias = join(dir, "hard.vectorcraft");
+  linkSync(input, alias);
+  const r = run(input, alias, "--force");
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /different file/);
+  assert.deepEqual(readFileSync(input), before, "the input is byte-identical");
+});
+
+test("text written as a \\u escape comes back as valid UTF-8, and raw UTF-8 comes back byte for byte", () => {
+  const escaped = Buffer.from(`${JSON.stringify(doc({ data: { [IDS.roadbuilder]: RB } }), null, 2).replace(/"version": 4,/, '"version": 4,\n  "title": "caf\\u00e9 \\u540d",')}`, "utf8");
+  const { bytes } = migrateBytes(escaped);
+  const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  assert.match(text, /"title": "café 名"/);
+  const raw = Buffer.from(JSON.stringify(doc({ layers: [layer("Ünï } 名前 🚗", path("road.a", [anchor(0, 0), anchor(1, 1)]))], data: { [IDS.roadbuilder]: RB } }), null, 2), "utf8");
+  const out = migrateBytes(raw).bytes;
+  assert.match(new TextDecoder("utf-8", { fatal: true }).decode(out), /"name": "Ünï } 名前 🚗"/);
+});

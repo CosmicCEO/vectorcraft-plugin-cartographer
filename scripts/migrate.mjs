@@ -3,7 +3,7 @@
 //   node scripts/migrate.mjs <in.vectorcraft> <out.vectorcraft> [--force]
 // Then open the output in VectorCraft, install Cartographer, select all and press Build. See docs/MIGRATION.md.
 import "./lib/require-node.mjs";
-import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { migrateBytes } from "./lib/migrate.mjs";
 
@@ -22,8 +22,12 @@ try {
 } catch (e) {
   fail(`cannot read ${input}: ${e.code ?? e.message}`);
 }
-const same = existsSync(resolve(output)) && realpathSync(resolve(input)) === realpathSync(resolve(output));
-if (same || resolve(input) === resolve(output)) fail("The output must be a different file from the input: the input is never changed.");
+// The same file under another name (a hard link, a symlink, a different capitalisation on a case-insensitive disk) is found by its identity.
+const identity = (p) => {
+  const s = statSync(p);
+  return `${s.dev}:${s.ino}`;
+};
+if (resolve(input) === resolve(output) || (existsSync(resolve(output)) && identity(resolve(input)) === identity(resolve(output)))) fail("The output must be a different file from the input: the input is never changed.");
 if (existsSync(resolve(output)) && !force) fail(`${output} already exists. Choose another name, or add --force to replace it.`);
 
 let result;

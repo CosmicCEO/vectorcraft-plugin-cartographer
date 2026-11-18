@@ -60,6 +60,11 @@ export function migrateDocument(input) {
   const [rb, tl] = [data[IDS.roadbuilder], data[IDS.tracklayer]];
   if (!rb && !tl) return { file, report: ["Nothing to migrate: this document has no Road Builder or Track Layer data."] };
 
+  // Road Builder's older centreline model draws `gen.line.*` and `gen.stub.*` from a `centerline` object; Cartographer cannot redraw those, so removing
+  // them would delete the document's only drawing. Refuse instead.
+  const hasCenterline = (nodes) => nodes.some((n) => n?.name === "centerline" || hasCenterline(n?.kind?.children ?? []));
+  if (hasCenterline(file.document.layers ?? [])) throw new Error("This document uses Road Builder's older centreline model (it has a `centerline` line), which Cartographer does not draw. Migrating it would remove its drawing, so nothing was changed: keep using Road Builder for it.");
+
   const report = [];
   const record = { schema: 1, version: 1 };
   const notes = [];
@@ -104,26 +109,24 @@ export function migrateDocument(input) {
   return { file, report };
 }
 
-const MARKER = "\u0000VCBLOBS";
+const MARKER = Buffer.from("\u0000VCBLOBS", "latin1");
 
 /** Converts the bytes of a .vectorcraft file (plain or gzip JSON, possibly followed by a binary tail). Returns `{bytes, report}`. */
 export function migrateBytes(bytes) {
   const zipped = bytes[0] === 0x1f && bytes[1] === 0x8b;
   const raw = zipped ? gunzipSync(bytes) : bytes;
-  const text = raw.toString("latin1");
-  const marker = text.indexOf(MARKER);
-  const end = (marker >= 0 ? text.lastIndexOf("}", marker) : text.lastIndexOf("}")) + 1;
+  // The JSON part ends at the last `}` before the binary tail (a UTF-8 multibyte character never contains that byte). Work in bytes, so the tail is
+  // kept exactly and the JSON is read and written as UTF-8.
+  const marker = raw.indexOf(MARKER);
+  const end = (marker >= 0 ? raw.lastIndexOf(0x7d, marker) : raw.lastIndexOf(0x7d)) + 1;
   let file;
   try {
-    file = JSON.parse(text.slice(0, end));
+    file = JSON.parse(raw.subarray(0, end).toString("utf8"));
   } catch {
     throw new Error("This is not a VectorCraft document (its JSON cannot be read).");
   }
   if (!file?.document || typeof file.document !== "object") throw new Error("This is not a VectorCraft document (it has no document part).");
   const { file: converted, report } = migrateDocument(file);
-  // The text was read as latin1 (one character per byte), so writing it back as latin1 gives the original bytes; a character above 255 can only
-  // have come from a \u escape and is written as one again.
-  const json = JSON.stringify(converted, null, 2).replace(/[^\u0000-ÿ]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
-  const out = Buffer.concat([Buffer.from(json, "latin1"), raw.subarray(Buffer.byteLength(text.slice(0, end), "latin1"))]);
+  const out = Buffer.concat([Buffer.from(JSON.stringify(converted, null, 2), "utf8"), raw.subarray(end)]);
   return { bytes: zipped ? gzipSync(out) : out, report };
 }

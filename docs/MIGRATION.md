@@ -10,7 +10,7 @@
 - Leaves the old records in the file (harmless, and a way back).
 - Prints a plain-words report: what moved, how many lines were scaled, how many generated objects were removed, what was kept but is not used.
 
-A document that has nothing to migrate, or that already has Cartographer data, is reported and no file is written.
+A document that has nothing to migrate, that already has Cartographer data, or that uses the older centreline model, is reported and no file is written. The output may not be the input under any name (a hard link or another capitalisation of the same file is found by its identity), even with `--force`.
 
 ## Steps
 
@@ -25,6 +25,6 @@ A document that has nothing to migrate, or that already has Cartographer data, i
 
 ## What it does not do
 
-- **The older centreline model** (`centerline`, `profile.*`, `flag.*`, junction markers like `C1.signal.right.Main-St`), **`.pmap` files** and **Add Junction** are not in Cartographer. Documents drawn that way are not converted; their data would be kept but not used. They stay in the Road Builder repository. The Ross Bridge map was moved onto cross-sections in Road Builder already, and the owner decided against exporting simulation data (which `.pmap` v2 was for).
+- **The older centreline model** (`centerline`, `profile.*`, `flag.*`, junction markers like `C1.signal.right.Main-St`), **`.pmap` files** and **Add Junction** are not in Cartographer. A document that has a `centerline` line is **refused** (nothing is written): its only drawing is made by the older model, which Cartographer cannot redraw, so migrating would delete it. Keep using Road Builder for such documents; they stay in the Road Builder repository. The Ross Bridge map was moved onto cross-sections in Road Builder already, and the owner decided against exporting simulation data (which `.pmap` v2 was for).
 - It does not convert a document back.
 - It needs the saved file: it cannot read an open document.
