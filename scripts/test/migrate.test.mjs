@@ -131,3 +131,82 @@ test("a gzip file comes back gzip", () => {
 test("a file that is not a document says so plainly", () => {
   assert.throws(() => migrateBytes(Buffer.from("not json at all")), /not a VectorCraft document/);
 });
+
+// ---- the command
+
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+
+const SCRIPT = resolve(import.meta.dirname, "../migrate.mjs");
+const run = (...args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" });
+const sandbox = (file = doc({ data: { [IDS.roadbuilder]: RB } })) => {
+  const dir = mkdtempSync(join(tmpdir(), "migrate-"));
+  const input = join(dir, "in.vectorcraft");
+  writeFileSync(input, bytesOf(file));
+  return { dir, input, output: join(dir, "out.vectorcraft") };
+};
+
+test("the command writes a copy and leaves the input alone", () => {
+  const { input, output } = sandbox();
+  const before = readFileSync(input);
+  const r = run(input, output);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(readFileSync(input), before, "the input is byte-identical");
+  assert.ok(JSON.parse(readFileSync(output, "latin1")).document.unknown.pluginData[IDS.cartographer]);
+  assert.match(r.stdout, /Road Builder: 1 road/);
+  assert.match(r.stdout, /wrote/i);
+});
+
+test("it refuses to overwrite and says so", () => {
+  const { input, output } = sandbox();
+  writeFileSync(output, "precious");
+  const r = run(input, output);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /already exists/);
+  assert.equal(readFileSync(output, "utf8"), "precious");
+});
+
+test("it refuses the input as the output", () => {
+  const { input } = sandbox();
+  const r = run(input, input);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /different file/);
+});
+
+test("a missing input is a plain message", () => {
+  const r = run(join(tmpdir(), "no-such-file.vectorcraft"), join(tmpdir(), "x.vectorcraft"));
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /cannot read/i);
+});
+
+test("nothing to migrate writes nothing", () => {
+  const { input, output } = sandbox(doc({ data: { somebody: {} } }));
+  const r = run(input, output);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /nothing to migrate/i);
+  assert.equal(existsSync(output), false);
+});
+
+test("a document that was migrated already is refused by the command too", () => {
+  const { input, output } = sandbox(doc({ data: { [IDS.cartographer]: { schema: 1 }, [IDS.roadbuilder]: RB } }));
+  const r = run(input, output);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /already has Cartographer data/);
+  assert.equal(existsSync(output), false);
+});
+
+test("force replaces an existing output", () => {
+  const { input, output } = sandbox();
+  writeFileSync(output, "old");
+  const r = run(input, output, "--force");
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(JSON.parse(readFileSync(output, "latin1")).document);
+});
+
+test("no arguments print the usage", () => {
+  const r = run();
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /usage/i);
+});
