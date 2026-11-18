@@ -30,6 +30,8 @@ E. Draw a second line that crosses the first, select both lines (they must both 
 F. Select a road line and a track line together (a road line is named `road.<id>`). Expected: the panel says that is not supported yet and offers nothing to draw.
 G. Hide the "track t1 spine" layer and press Draw. Expected: the track is rebuilt and the spine is hidden again afterwards.
 
+`node scripts/live-rail-check.mjs out` runs steps A, C, E, F and G for you against the running VectorCraft and panel (no agent needed; it works in a new document) and exports `out/live-rail.png`. It passed on VectorCraft 0.24.1 on macOS (2026-11-17). Steps B and D need an agent, and looking at the result is still yours to do.
+
 ## Settings card
 
 11. At the bottom of the page open **Document settings**. Expected: the target print scale `true`, the style `medium-contrast`, seed 1, north 0.

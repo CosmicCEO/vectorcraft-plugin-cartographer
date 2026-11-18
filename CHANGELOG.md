@@ -7,7 +7,7 @@
 - Panel: a track, yard and joint branch with cards built from schemas (no per-kind form code), a **Railway track (N scale)** mode for a plain line, one layer per track, and a plain "not supported yet" note when a road line and a track line are selected together.
 - Output settings are per kind: rail numbers use 4 decimals and finer curve thinning, roads keep 3 and 0.12.
 - Parity with Track Layer: 8 scenarios identical when scaled, with one difference on purpose (Track Layer drew each branch's ballast wedge as a point; Cartographer draws it). A build with no road in it no longer reads the road element library (0.7 M fuel saved). Rail builds cost 15 to 30% more than Track Layer; the smallest road build costs about 2% more than Road Builder (`docs/PARITY-RAIL.md`, `docs/PARITY.md`).
-- The panel's rail branch has been tested against the stand-in for VectorCraft only; `docs/PANEL-CHECK.md` has the steps for the real application.
+- `scripts/live-rail-check.mjs` drives the rail panel against a real VectorCraft (track card, yard, crossing joint, road plus track, hidden spine layer); it passed on macOS. Agent steps and Linux are still the owner's check (`docs/PANEL-CHECK.md`).
 
 ## 0.3.0 Panel
 - Road Builder's companion panel ported: the road card with its element bar and edits, lane changes, junctions, intersections, hubs, water, embankments and crossings, the layers (one per feature, water under roads), and the agents (Claude, a command, an OpenAI-style endpoint, Apple Intelligence on a Mac). The 62 Road Builder panel tests pass unchanged.
