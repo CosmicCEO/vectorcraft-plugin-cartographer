@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0 Release
+- The first release: roads, railway track, styles and the target print scale, and migration of Road Builder and Track Layer documents, all in one plug-in (0.1.0 to 0.6.0 below). Replaces Road Builder and Track Layer.
+- No functional change from 0.6.0. The release workflow now tests packaging before a tag (a manual dry run), checks that the tag matches the version, and publishes only on a tag.
+- Not in 1.0: a road meeting a track, the older centreline model, `.pmap` files and Add Junction (see `docs/MIGRATION.md`), hatch and stipple tones for black-white, labels.
+
 ## 0.6.0 Migration
 - `node scripts/migrate.mjs <in> <out>` converts a saved VectorCraft document made with Road Builder and/or Track Layer: the stored records move to Cartographer's id, Track Layer's `track.*` lines are scaled to 0.16 points per millimetre, stale `gen.*` objects are removed (the first Build redraws them), and a plain report says what happened. It runs on a copy and never changes the input or overwrites a file.
 - `scripts/live-migrate-check.mjs`: against the real old plug-ins in a live VectorCraft, the migrated documents build to the same SVG (roads identical, tracks identical when scaled).

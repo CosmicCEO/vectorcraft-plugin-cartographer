@@ -7,7 +7,7 @@ use serde_json::Value;
 const MANIFEST: &str = r#"{
   "id": "com.cosmicceo.cartographer.build",
   "name": "Cartographer",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "kind": "filter",
   "author": "CosmicCEO",
   "description": "Draws maps from lines and shapes plus a description: a line named road.<id> becomes the road described by its cross-section; roads cross in intersections; water, embankments, bridges and culverts. Select All first, so everything is included. Lines named track.<id> become N-scale model railroad track (rails, ties, roadbed, turnouts, yards, crossings and joins).",
