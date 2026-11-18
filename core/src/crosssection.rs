@@ -282,7 +282,7 @@ pub fn layout(p: &Parsed, lib: &Library, heading: P, anchor: Anchor) -> Result<V
     let mut x = 0.0;
     for it in items {
         let def = lib.get(&it.kind).ok_or_else(|| format!("unknown element \"{}\"", it.kind))?;
-        let width = it.width.unwrap_or(def.width);
+        let width = it.width.unwrap_or(def.width).max(lib.min_width());
         placed.push(Placed { id: def.id.clone(), role: def.role, dir: if def.directional { dir_of(it.way) } else { None }, width, left: x, right: x + width, fill: def.fill });
         x += width;
     }

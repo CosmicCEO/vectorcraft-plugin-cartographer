@@ -22,6 +22,7 @@ pub mod scenarios;
 pub mod schema;
 pub mod standards;
 pub mod storage;
+pub mod style;
 pub mod ties;
 pub mod tracks;
 pub mod transition;

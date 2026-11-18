@@ -38,6 +38,13 @@ The owner is not a developer: keep chat answers short and plain; write documents
 - Two standards files, one tool: `library/standards.json` (road) and `library/standards-rail.json` (NMRA; values from the NMRA PDFs only, never from memory); `node scripts/standards.mjs check`.
 - Panel: a plain line is a road until the mode card says track; `panel/lib/kinds.mjs` says what names a line and its layer; cards for tracks, yards and joints come from `schema tracks|yard|joint` (`cardModel`); a road line and a track line selected together are not supported yet.
 
+## Styles and the print scale (0.5.0)
+- `StyleKit` (`core/src/style.rs`) lives in `Out`: colours go through `tone`, road points through `wobble`, stroke widths through `stroke_factor` and the print minimum (`Out::stroke_w`). Medium-contrast at scale `true` takes none of these paths: it must stay byte-identical to 0.4.0 (parity gates).
+- The wander is a function of position only (value noise on a lattice, seeded). Never make it depend on the object, or joins open. Long edges are cut into pieces (`StyleKit::densify`) before they are displaced: moving only vertices leaves a straight edge straight and strands any point that lies along it. It never touches the lines you drew (`keep_*` do not pass through it) and `rail_builder::build_into` switches it off (`Out::displace(false)`) around rail writes, restoring it even on error.
+- The print minimum band width lives in `Library::set_min_width` (one line in `crosssection::layout`); `Spec::from_document_data` sets it from the settings. Do not widen anywhere else: junctions and crossings read widths from `layout`.
+- Inline the per-point branch (`on`, `style` decided once per object in `open_object` and `segments`): a closure or helper per point cost 4% on rail in WebAssembly.
+- Draw on the settings card rebuilds (`Panel.drawSettings`), only when the document has a road, junction, water or track line.
+
 ## Build, test, run
 - Rust: `cargo +stable test --release --workspace`; WebAssembly: `cargo +stable build --release --target wasm32-unknown-unknown --workspace`. On macOS with Homebrew, put rustup first on `PATH` (`/opt/homebrew/opt/rustup/bin`); `scripts/build.mjs` does this.
 - Node: `node --test panel/test/*.test.mjs scripts/test/*.test.mjs` (panel tests need `cargo build --release -p cartographer-cli` first).
