@@ -633,7 +633,10 @@ export class Panel extends EventEmitter {
       try {
         await this.control.run("select.all");
         await this.control.run(SET_SETTINGS, { params: { description: JSON.stringify(changed) } });
-        if (selected.length) await this.control.run("select.set", { ids: selected }); // the user's selection comes back
+        // A new style or print scale is built at once (the design: changing it rebuilds everything), when there is anything to build.
+        const paths = await allPaths(this.control);
+        if (paths.some((p) => segmentId(p.name) || junctionId(p.name) || waterId(p.name) || trackId(p.name))) await this.#build(selected);
+        else if (selected.length) await this.control.run("select.set", { ids: selected }); // the user's selection comes back
         this.#set({ settingsPending: null });
       } catch (e) {
         message = `Could not draw: ${e.message}`;

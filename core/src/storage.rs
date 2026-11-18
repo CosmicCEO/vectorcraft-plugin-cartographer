@@ -91,6 +91,32 @@ impl Settings {
         Ok(s)
     }
 
+    /// Reads settings one key at a time: a key that is invalid is left at its default and named in the second value, so one bad field never
+    /// turns off the others. A value that is not an object gives the defaults and one problem; keys that are not settings are ignored.
+    pub fn from_json_lenient(v: &Value) -> (Settings, Vec<String>) {
+        let mut s = Settings::default();
+        let mut problems = Vec::new();
+        if v.is_null() {
+            return (s, problems);
+        }
+        let Some(map) = v.as_object() else {
+            return (s, vec!["the stored settings are not an object, so the defaults were used".into()]);
+        };
+        for key in SETTING_KEYS {
+            let Some(value) = map.get(key).filter(|t| !t.is_null()) else { continue };
+            match Settings::from_json(&json!({ key: value })) {
+                Ok(one) => match key {
+                    "target_print_scale" => s.target_print_scale = one.target_print_scale,
+                    "style" => s.style = one.style,
+                    "seed" => s.seed = one.seed,
+                    _ => s.north_deg = one.north_deg,
+                },
+                Err(e) => problems.push(format!("setting {key} was ignored: {e}")),
+            }
+        }
+        (s, problems)
+    }
+
     pub fn to_json(&self) -> Value {
         json!({"target_print_scale": self.target_print_scale.to_text(), "style": self.style.id(), "seed": self.seed, "north_deg": self.north_deg})
     }

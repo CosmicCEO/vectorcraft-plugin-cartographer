@@ -188,3 +188,22 @@ test("a settings proposal is dropped when the stored settings changed under it (
   assert.equal(panel.snapshot().settingsPending, null);
   assert.equal(panel.snapshot().settings.values.style, "black-white");
 });
+
+test("Draw on the settings card rebuilds a document that has roads or tracks, and only then", async () => {
+  const road = await setup({ paths: [{ id: 2, name: "road.a" }], selection: [2], spec: { segments: { a: { cross_section: TWO, anchor: "auto" } } } });
+  await road.panel.editSettings({ style: "hand-drawn" });
+  await road.panel.drawSettings();
+  assert.deepEqual(steps(road.vc), ["select.all", SET_SETTINGS, "select.all", "plugin.run", "select.set"], "the new style is built at once");
+  assert.equal(road.panel.snapshot().message, "Drawn.");
+
+  const track = await setup({ paths: [{ id: 2, name: "track.t1" }], selection: [2] });
+  await track.panel.editSettings({ target_print_scale: "1:5000" });
+  await track.panel.drawSettings();
+  assert.ok(steps(track.vc).includes("plugin.run"), "a track is rebuilt too");
+
+  const none = await setup();
+  await none.panel.editSettings({ style: "black-white" });
+  await none.panel.drawSettings();
+  assert.ok(!steps(none.vc).includes("plugin.run"), "nothing to build, so no build and no error");
+  assert.equal(none.panel.snapshot().message, "Drawn.");
+});

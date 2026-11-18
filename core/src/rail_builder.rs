@@ -85,7 +85,9 @@ pub fn build_into(items: &[Item], data: &Value, out: &mut Out) -> Result<Vec<Str
     let mut notes: Vec<String> = Vec::new();
     out.precision(RAIL_DECIMALS);
     out.thinning(RAIL_THINNING);
+    out.displace(false); // a model at true scale: the style may colour it but never move it
     let result = build_lines(items, &data, out, &mut notes);
+    out.displace(true);
     out.precision(crate::output::DEFAULT_DECIMALS);
     out.thinning(crate::output::DEFAULT_THINNING);
     result.map(|()| notes)

@@ -39,4 +39,11 @@ for (const [tag, oldFile, oldTag, limit] of cases) {
   if (!ok) failed++;
   console.log(`${tag}: old ${o} new ${n} ratio ${ratio.toFixed(3)} ${ok ? "ok" : `TOO COSTLY (limit ${limit})`}`);
 }
+// The same roads in the hand-drawn style at 1:5000 against the plain build of the same road: at most twice the cost (long edges are cut into pieces so they follow the wander; the plain build is already inside the host's limit, see docs/PARITY.md).
+for (const tag of ["road600", "road20km"]) {
+  const [plain, hand] = [run(newWasm, tag), run(newWasm, `${tag}-hand`)];
+  const ok = hand <= 2 * plain;
+  if (!ok) failed++;
+  console.log(`${tag}-hand: plain ${plain} hand-drawn ${hand} ratio ${(hand / plain).toFixed(3)} ${ok ? "ok" : "TOO COSTLY (limit 2.0)"}`);
+}
 process.exit(failed ? 1 : 0);

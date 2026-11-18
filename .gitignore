@@ -4,3 +4,4 @@ target/
 *.params.json
 dist/
 .superpowers/
+out/

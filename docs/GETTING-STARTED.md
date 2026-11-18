@@ -62,6 +62,14 @@ To check the panel against a real VectorCraft, follow [PANEL-CHECK.md](PANEL-CHE
 - "cartographer-cli not found": run `node scripts/build.mjs`.
 - "this document was saved by a newer Cartographer": update the plug-in; the document is left untouched.
 
+## Documents from Road Builder or Track Layer
+
+Copy the saved file and run `node scripts/migrate.mjs old.vectorcraft migrated.vectorcraft`, open the result, select all and press Build. See [MIGRATION.md](MIGRATION.md).
+
+## Style and print scale
+
+Open **Document settings** at the bottom of the panel, change the style (`medium-contrast`, `high-contrast`, `black-white`, `hand-drawn`), the seed or the target print scale (`true` or `1:5000`), and press **Draw this**: the roads and tracks are rebuilt. See [STYLES.md](STYLES.md).
+
 ## Railway track
 
 Draw a line, select it, and in the panel choose **Railway track (N scale)**. Describe it in words ("double track", "a yard with 8 spurs on the left and 4 on the right, merging back at the end") or use the card (tracks, spacing, roadbed, ties; for a yard also main tracks, spurs, far end, turnout number, start and length). Select two track lines to say how they meet: a crossing, a branch (a siding off the other with a turnout) or a join end to end. Everything is millimetres of model at 1:160, drawn at 0.16 points per millimetre; see [RAIL.md](RAIL.md).
