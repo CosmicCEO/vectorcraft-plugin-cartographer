@@ -40,7 +40,7 @@ The owner is not a developer: keep chat answers short and plain; write documents
 
 ## Styles and the print scale (0.5.0)
 - `StyleKit` (`core/src/style.rs`) lives in `Out`: colours go through `tone`, road points through `wobble`, stroke widths through `stroke_factor` and the print minimum (`Out::stroke_w`). Medium-contrast at scale `true` takes none of these paths: it must stay byte-identical to 0.4.0 (parity gates).
-- The wander is a function of position only (value noise on a lattice, seeded). Never make it depend on the object, or joins open. It never touches the lines you drew (`keep_*` do not pass through it) and `rail_builder::build_into` switches it off (`Out::displace(false)`) around rail writes, restoring it even on error.
+- The wander is a function of position only (value noise on a lattice, seeded). Never make it depend on the object, or joins open. Long edges are cut into pieces (`StyleKit::densify`) before they are displaced: moving only vertices leaves a straight edge straight and strands any point that lies along it. It never touches the lines you drew (`keep_*` do not pass through it) and `rail_builder::build_into` switches it off (`Out::displace(false)`) around rail writes, restoring it even on error.
 - The print minimum band width lives in `Library::set_min_width` (one line in `crosssection::layout`); `Spec::from_document_data` sets it from the settings. Do not widen anywhere else: junctions and crossings read widths from `layout`.
 - Inline the per-point branch (`on`, `style` decided once per object in `open_object` and `segments`): a closure or helper per point cost 4% on rail in WebAssembly.
 - Draw on the settings card rebuilds (`Panel.drawSettings`), only when the document has a road, junction, water or track line.

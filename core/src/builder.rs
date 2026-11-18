@@ -36,7 +36,7 @@ const WOBBLE_MAX_M: f64 = 3.0;
 
 /// The document's style, read from its settings. A missing, unreadable or invalid record gives the plain kit (medium-contrast, no wobble).
 pub fn style_kit(params: &Value) -> StyleKit {
-    let Ok(s) = Settings::from_json(&params["_context"]["documentData"]["settings"]) else { return StyleKit::plain() };
+    let s = Settings::from_json_lenient(&params["_context"]["documentData"]["settings"]).0;
     let amplitude = match s.target_print_scale {
         TargetScale::True => WOBBLE_TRUE_M,
         TargetScale::Ratio(n) => ground_m_for_print_mm(WOBBLE_PRINT_MM, n).min(WOBBLE_MAX_M),
@@ -46,7 +46,7 @@ pub fn style_kit(params: &Value) -> StyleKit {
 
 /// The thinnest a road stroke may be, metres of ground: 0.12 mm on paper at the document's target print scale (0 when drawing true).
 pub fn min_stroke(params: &Value) -> f64 {
-    Settings::from_json(&params["_context"]["documentData"]["settings"]).map_or(0.0, |s| s.target_print_scale.min_width_m(crate::units::MIN_STROKE_PRINT_MM))
+    Settings::from_json_lenient(&params["_context"]["documentData"]["settings"]).0.target_print_scale.min_width_m(crate::units::MIN_STROKE_PRINT_MM)
 }
 
 /// `load_spec` without the element library, for a build that draws no road.
@@ -105,7 +105,8 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     let mut out = Out::new();
     out.set_style(style_kit(params));
     out.set_min_stroke(min_stroke(params));
-    let mut notes: Vec<String> = Vec::new();
+    // A stored setting that cannot be read is ignored (the others still apply) and said so here.
+    let mut notes: Vec<String> = Settings::from_json_lenient(&params["_context"]["documentData"]["settings"]).1;
     let points: usize = items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)).map(|i| i.subs.iter().map(Vec::len).sum::<usize>()).sum();
     if points > NEAR_LIMIT_POINTS {
         notes.push(format!("this build has {points} points; VectorCraft refuses a build of about 2,000 or more points, so split long roads"));

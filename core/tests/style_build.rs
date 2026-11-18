@@ -64,23 +64,20 @@ fn hand_drawn_moves_the_road_and_keeps_the_line() {
     let hand = build(&road_input(), json!({"style": "hand-drawn"}));
     assert_ne!(plain, hand);
     let (a, b) = (generated(&plain, "gen.road."), generated(&hand, "gen.road."));
-    assert!(!a.is_empty());
-    let mut moved = 0;
+    assert_eq!(a.len(), b.len(), "the same objects are drawn");
+    let mut moved = false;
     let mut worst: f64 = 0.0;
     for (x, y) in a.iter().zip(&b) {
-        if points(x).len() != points(y).len() {
-            continue; // a curve thinned differently
-        }
-        for (p, q) in points(x).iter().zip(points(y)) {
-            let d = (p[0] - q[0]).abs().max((p[1] - q[1]).abs());
+        // Every hand-drawn point is within the amplitude (0.4 m on each axis) of where the plain drawing had the same edge.
+        let plain_line = points(x);
+        for q in points(y) {
+            let d = distance_to(&plain_line, q);
             worst = worst.max(d);
-            if d > 0.0 {
-                moved += 1;
-            }
+            moved |= d > 1e-9;
         }
     }
-    assert!(moved > 0, "some coordinate moved");
-    assert!(worst <= 0.4 + 1e-3, "the displacement stays within the amplitude: {worst}");
+    assert!(moved, "some point moved");
+    assert!(worst <= 0.4 * 2f64.sqrt() + 1e-3, "the displacement stays within the amplitude: {worst}");
     let kept = |t: &str| objects(t).into_iter().filter(|o| o["name"].as_str().is_none_or(|n| !n.starts_with("gen."))).collect::<Vec<_>>();
     assert_eq!(kept(&plain), kept(&hand), "the line you drew is not changed by the style");
 }
@@ -102,8 +99,10 @@ fn two_objects_that_share_a_point_get_the_same_displaced_point() {
     out.fills("gen.road.b.1.surface", &[b], |p| p, [0.5, 0.5, 0.5]);
     let objs = objects(&out.finish());
     let (pa, pb) = (points(&objs[0]), points(&objs[1]));
-    assert_eq!(pa[2], pb[0], "the shared corner (10, 5) lands on the same point in both");
-    assert_ne!(pa[2], [10.0, 5.0], "and it did move");
+    // Long edges are cut into pieces, so indices differ; the point the two shapes share is the one found in both lists.
+    let shared: Vec<[f64; 2]> = pa.iter().filter(|p| pb.contains(p)).copied().collect();
+    assert!(!shared.is_empty(), "the shared corner lands on the same point in both");
+    assert!(shared.iter().all(|p| *p != [10.0, 5.0]), "and it did move");
 }
 
 #[test]
@@ -156,4 +155,82 @@ fn a_failed_rail_build_turns_the_displacement_back_on() {
     assert!(rail_builder::build_into(&items, &json!({"tracks": {"a": {"tracks": 99}}}), &mut out).is_err());
     out.fills("gen.road.after", &[vec![[10.0, 5.0], [20.0, 5.0], [20.0, 9.0], [10.0, 9.0]]], |p| p, [0.5, 0.5, 0.5]);
     assert_ne!(points(&objects(&out.finish())[0])[0], [10.0, 5.0], "a road written after a failed rail build is still displaced");
+}
+
+/// How far `p` is from the polyline `line`.
+fn distance_to(line: &[[f64; 2]], p: [f64; 2]) -> f64 {
+    line.windows(2)
+        .map(|w| {
+            let (dx, dy) = (w[1][0] - w[0][0], w[1][1] - w[0][1]);
+            let len2 = dx * dx + dy * dy;
+            let t = if len2 == 0.0 { 0.0 } else { (((p[0] - w[0][0]) * dx + (p[1] - w[0][1]) * dy) / len2).clamp(0.0, 1.0) };
+            ((p[0] - (w[0][0] + t * dx)).powi(2) + (p[1] - (w[0][1] + t * dy)).powi(2)).sqrt()
+        })
+        .fold(f64::INFINITY, f64::min)
+}
+
+#[test]
+fn a_point_that_lies_along_another_objects_edge_stays_on_that_edge() {
+    // A long straight edge and a shape whose corner touches it half way along: the corner moves, so the edge must move with it.
+    let mut out = Out::new();
+    out.set_style(StyleKit::new(Style::HandDrawn, 5, 0.5));
+    out.path("gen.road.a.1.line.0", &[vec![[0.0, 0.0], [200.0, 0.0]]], |p| p, [0.2, 0.2, 0.2], 0.15, false);
+    out.fills("gen.road.b.1.kerb", &[vec![[100.0, 0.0], [110.0, 0.0], [110.0, 4.0], [100.0, 4.0]]], |p| p, [0.5, 0.5, 0.5]);
+    let objs = objects(&out.finish());
+    let edge = points(&objs[0]);
+    let corner = points(&objs[1])[0];
+    assert!(edge.len() > 2, "a long edge is subdivided so it can follow the wander: {} points", edge.len());
+    assert!(distance_to(&edge, corner) < 0.05, "the corner is {} m from the edge", distance_to(&edge, corner));
+}
+
+#[test]
+fn a_hand_drawn_straight_road_wanders() {
+    let hand = build(&road_input(), json!({"style": "hand-drawn"}));
+    let edge = generated(&hand, "gen.road.a.1.line.0").into_iter().next().unwrap();
+    let ys: Vec<f64> = points(&edge).iter().map(|p| p[1]).collect();
+    let (lo, hi) = ys.iter().fold((f64::MAX, f64::MIN), |(l, h), &y| (l.min(y), h.max(y)));
+    assert!(ys.len() > 10 && hi - lo > 0.1, "{} points, y from {lo} to {hi}", ys.len());
+}
+
+#[test]
+fn one_bad_setting_does_not_turn_off_the_others_and_is_reported() {
+    let plain = drawn(&build(&road_input(), json!({})));
+    let text = build(&road_input(), json!({"style": "hand-drawn", "north_deg": 999}));
+    assert_ne!(drawn(&text), plain, "the style still applies");
+    let notes: Vec<String> = serde_json::from_str::<Value>(&text).unwrap()["documentData"]["notes"].as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect();
+    assert!(notes.iter().any(|n| n.contains("north_deg")), "{notes:?}");
+    let bad_style = build(&road_input(), json!({"style": "nope", "target_print_scale": "1:5000"}));
+    assert_ne!(drawn(&bad_style), plain, "the scale still applies");
+    assert!(bad_style.contains("style"), "and the style problem is named in the notes");
+}
+
+#[test]
+fn at_a_signalled_intersection_nothing_opens_when_hand_drawn() {
+    let input = json!({"objects": [line(1, "road.a", &[[0.0, 200.0], [400.0, 200.0]]), line(2, "road.b", &[[200.0, 0.0], [200.0, 400.0]])]});
+    let make = |settings: Value| {
+        let params = json!({"_context": {"documentData": {"schema": 1, "segments": {"a": {"cross_section": TWO}, "b": {"cross_section": TWO}},
+            "crossings": {"x1": {"treatment": "signal", "roads": ["a", "b"]}}, "settings": settings}, "artboard": [0, 0, 600, 800]}});
+        build_text(&input, &params).unwrap()
+    };
+    let (plain, hand) = (make(json!({})), make(json!({"style": "hand-drawn", "seed": 4})));
+    let polys = |t: &str| objects(t).iter().filter(|o| o["name"].as_str().is_some_and(|n| n.starts_with("gen."))).map(points).collect::<Vec<_>>();
+    let (pp, hp) = (polys(&plain), polys(&hand));
+    let kit = StyleKit::new(Style::HandDrawn, 4, 0.4);
+    assert_eq!(pp.len(), hp.len());
+    let (mut touching, mut worst) = (0, 0.0_f64);
+    for (i, poly) in pp.iter().enumerate() {
+        for p in poly {
+            for (j, other) in pp.iter().enumerate() {
+                if i == j || other.len() < 2 || distance_to(other, *p) > 1e-6 {
+                    continue;
+                }
+                // Where the style puts this point (it is a function of position), and how far that is from the other object's hand-drawn edge.
+                let q = kit.wobble(*p);
+                touching += 1;
+                worst = worst.max(distance_to(&hp[j], q));
+            }
+        }
+    }
+    assert!(touching > 5, "the intersection has objects that touch: {touching}");
+    assert!(worst < 0.1, "the worst gap between touching objects is {worst} m");
 }

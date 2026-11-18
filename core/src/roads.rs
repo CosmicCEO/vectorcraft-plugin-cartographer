@@ -64,9 +64,8 @@ impl Spec {
             let _ = library.merge(&dd["library"]);
         }
         // A target print scale gives every band a minimum print size (the design, 6.5); a missing or invalid setting means none.
-        if let Ok(s) = crate::storage::Settings::from_json(&dd["settings"]) {
-            library.set_min_width(s.target_print_scale.min_width_m(crate::units::MIN_BAND_PRINT_MM));
-        }
+        let settings = crate::storage::Settings::from_json_lenient(&dd["settings"]).0;
+        library.set_min_width(settings.target_print_scale.min_width_m(crate::units::MIN_BAND_PRINT_MM));
         Spec::read(dd, library)
     }
 

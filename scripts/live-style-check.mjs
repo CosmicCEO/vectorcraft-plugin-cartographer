@@ -76,6 +76,9 @@ const hand = await setAndExport("hand-drawn", { style: "hand-drawn" });
 assert.notDeepEqual(road(hand), road(medium), "hand-drawn moves the road");
 const spine = (svg) => svg.match(/<[a-z]+\s[^>]*id="road\.r1"[^>]*>/)?.[0];
 assert.ok(spine(medium) && spine(medium) === spine(hand), "the line you drew is not wobbled");
+const edge = road(hand).find((e) => e.includes('id="gen.road.r1.1.line.0"')) ?? "";
+const ys = [...(edge.match(/points="([^"]*)"/)?.[1] ?? "").matchAll(/[-0-9.]+,([-0-9.]+)/g)].map((m) => Number(m[1]));
+assert.ok(ys.length > 10 && Math.max(...ys) - Math.min(...ys) > 0.1, `a straight hand-drawn edge wanders: ${ys.length} points`);
 say(`hand-drawn: ${road(hand).length} road objects differ from medium-contrast, the spine is unchanged`);
 
 const bw = await setAndExport("black-white", { style: "black-white" });
