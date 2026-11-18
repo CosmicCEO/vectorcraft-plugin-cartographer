@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 Package fix
+- The release package works: `scripts/install.mjs` and the panel looked for the plug-in and the native helper under `target/`, which only exists in a source checkout, so a downloaded package could not install or start the panel without hand-setting `CARTOGRAPHER_CLI`. They now also look where the package keeps them (`cartographer_filter.wasm`, `bin/cartographer-cli`).
+- `node scripts/check.mjs` in a package no longer asks for Rust (not needed to install and run a package).
+- `scripts/package.mjs` now checks that what it packed can be found by those lookups, so this cannot ship broken again.
+
 ## 1.0.0 Release
 - The first release: roads, railway track, styles and the target print scale, and migration of Road Builder and Track Layer documents, all in one plug-in (0.1.0 to 0.6.0 below). Replaces Road Builder and Track Layer.
 - No functional change from 0.6.0. The release workflow now tests packaging before a tag (a manual dry run), checks that the tag matches the version, and publishes only on a tag.

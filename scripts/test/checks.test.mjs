@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checks } from "../lib/checks.mjs";
+import { checks, problems } from "../lib/checks.mjs";
 
 const good = { nodeVersion: "v22.1.0", hasRustup: true, hasWasmTarget: true, hasCli: true, controlReachable: true };
 
@@ -33,3 +33,11 @@ test("the VectorCraft checks are optional: a missing CLI or app does not fail th
   assert.equal(missing.length, 2);
   assert.ok(missing.every((c) => c.optional && c.fix));
 });
+
+test("a release package needs no Rust, so the Rust checks are not asked for", () => {
+  const list = checks({ nodeVersion: "v22.1.0", hasRustup: false, hasWasmTarget: false, packaged: true });
+  assert.ok(!list.some((c) => /Rust|WebAssembly/.test(c.name)), list.map((c) => c.name).join(", "));
+  assert.deepEqual(problems({ nodeVersion: "v22.1.0", packaged: true }), []);
+  assert.ok(problems({ nodeVersion: "v22.1.0", hasRustup: false, hasWasmTarget: false }).length >= 2, "a source checkout still needs them");
+});
+

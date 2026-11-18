@@ -2,12 +2,14 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { cliBinary } from "../../scripts/lib/locate.mjs";
 
 const here = import.meta.dirname;
 
 /** Where the CLI binary is: CARTOGRAPHER_CLI, else the release build next to the panel. */
 export function cliPath() {
-  const p = process.env.CARTOGRAPHER_CLI ?? resolve(here, "../../target/release/cartographer-cli");
+  // A source checkout has target/release/...; a release package has bin/cartographer-cli.
+  const p = process.env.CARTOGRAPHER_CLI ?? cliBinary(resolve(here, "../..")) ?? resolve(here, "../../target/release/cartographer-cli");
   if (!existsSync(p)) throw new Error(`cartographer-cli not found at ${p}. Build it: node scripts/build.mjs (or set CARTOGRAPHER_CLI)`);
   return p;
 }

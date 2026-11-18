@@ -3,10 +3,12 @@ import "./lib/require-node.mjs";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { call } from "./lib/control.mjs";
+import { wasmFile } from "./lib/locate.mjs";
 
-const wasm = resolve(import.meta.dirname, "../target/wasm32-unknown-unknown/release/cartographer_filter.wasm");
-if (!existsSync(wasm)) {
-  console.error("fix: the plug-in is not built yet. Run: node scripts/build.mjs");
+// A source checkout has target/...; a release package has cartographer_filter.wasm next to the scripts folder.
+const wasm = wasmFile(resolve(import.meta.dirname, ".."));
+if (!wasm || !existsSync(wasm)) {
+  console.error("fix: the plug-in is not built yet. Run: node scripts/build.mjs (a release package already contains it).");
   process.exit(1);
 }
 try {

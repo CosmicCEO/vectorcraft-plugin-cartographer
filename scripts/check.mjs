@@ -7,6 +7,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { checks } from "./lib/checks.mjs";
 import { rustEnv } from "./lib/env.mjs";
+import { isPackaged } from "./lib/locate.mjs";
 import { probeRust } from "./lib/probe.mjs";
 
 const ci = process.argv.includes("--ci");
@@ -22,6 +23,7 @@ const reachable = (port) =>
 
 const probe = {
   nodeVersion: process.version,
+  packaged: isPackaged(join(import.meta.dirname, "..")),
   ...probeRust(env),
   hasCli: existsSync(cliPath),
   appleHelper: process.platform === "darwin" ? existsSync(join(import.meta.dirname, "../target/apple-fm-agent")) : undefined,
