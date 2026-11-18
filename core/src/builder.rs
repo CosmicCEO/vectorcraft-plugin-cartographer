@@ -44,6 +44,11 @@ pub fn style_kit(params: &Value) -> StyleKit {
     StyleKit::new(s.style, s.seed, amplitude)
 }
 
+/// The thinnest a road stroke may be, metres of ground: 0.12 mm on paper at the document's target print scale (0 when drawing true).
+pub fn min_stroke(params: &Value) -> f64 {
+    Settings::from_json(&params["_context"]["documentData"]["settings"]).map_or(0.0, |s| s.target_print_scale.min_width_m(crate::units::MIN_STROKE_PRINT_MM))
+}
+
 /// `load_spec` without the element library, for a build that draws no road.
 fn load_spec_without_library(params: &Value) -> Result<Spec, String> {
     let data = &params["_context"]["documentData"];
@@ -99,6 +104,7 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
 
     let mut out = Out::new();
     out.set_style(style_kit(params));
+    out.set_min_stroke(min_stroke(params));
     let mut notes: Vec<String> = Vec::new();
     let points: usize = items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)).map(|i| i.subs.iter().map(Vec::len).sum::<usize>()).sum();
     if points > NEAR_LIMIT_POINTS {

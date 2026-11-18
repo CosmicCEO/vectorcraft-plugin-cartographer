@@ -51,12 +51,23 @@ pub struct ElementDef {
 pub struct Library {
     elements: BTreeMap<String, ElementDef>,
     aliases: BTreeMap<String, String>,
+    /// The narrowest a band may be drawn, metres of ground (0: no minimum). Set from the target print scale.
+    min_width: f64,
 }
 
 impl Library {
+    /// Sets the narrowest a band may be drawn, in metres of ground; a bad number (negative, NaN) means no minimum.
+    pub fn set_min_width(&mut self, metres: f64) {
+        self.min_width = if metres.is_finite() && metres > 0.0 { metres } else { 0.0 };
+    }
+
+    pub fn min_width(&self) -> f64 {
+        self.min_width
+    }
+
     /// A library with no elements: for a build that has no road in it and so never looks one up.
     pub fn empty() -> Library {
-        Library { elements: BTreeMap::new(), aliases: BTreeMap::new() }
+        Library { elements: BTreeMap::new(), aliases: BTreeMap::new(), min_width: 0.0 }
     }
 
     /// The library shipped with the plug-in.
@@ -66,7 +77,7 @@ impl Library {
     }
 
     pub fn from_json(v: &Value) -> Result<Library, String> {
-        let mut lib = Library { elements: BTreeMap::new(), aliases: BTreeMap::new() };
+        let mut lib = Library { elements: BTreeMap::new(), aliases: BTreeMap::new(), min_width: 0.0 };
         lib.merge(v)?;
         Ok(lib)
     }

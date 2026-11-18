@@ -38,6 +38,8 @@ pub struct Out {
     style: StyleKit,
     /// Whether the style may move points and change stroke widths: roads yes, rail no (see `displace`).
     displace: bool,
+    /// The thinnest a road stroke may be, metres (0: no minimum). Rail is not held to it (see `displace`).
+    min_stroke: f64,
 }
 
 /// The stack an object goes on: new objects are listed roadbed first, then ties, then rails, whatever order they were written in.
@@ -68,7 +70,7 @@ impl Out {
     }
 
     pub fn new() -> Out {
-        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, ties_left: DEFAULT_MAX_TIES, decimals: DEFAULT_DECIMALS, thin_tol: THIN, style: StyleKit::plain(), displace: true }
+        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, ties_left: DEFAULT_MAX_TIES, decimals: DEFAULT_DECIMALS, thin_tol: THIN, style: StyleKit::plain(), displace: true, min_stroke: 0.0 }
     }
 
     /// Sets how the objects written from now on are painted (colours through the style, hand-drawn displacement and stroke factor).
@@ -87,9 +89,14 @@ impl Out {
         if self.displace && self.style.wobbles() { self.style.wobble(p) } else { p }
     }
 
-    /// A stroke width as written for the object called `name`.
+    /// Sets the thinnest a road stroke may be, in metres of ground (from the target print scale).
+    pub fn set_min_stroke(&mut self, metres: f64) {
+        self.min_stroke = if metres.is_finite() && metres > 0.0 { metres } else { 0.0 };
+    }
+
+    /// A stroke width as written for the object called `name`: the style's factor, then the print minimum (neither applies to rail).
     fn stroke_w(&self, name: &str, width: f64) -> f64 {
-        if self.displace { width * self.style.stroke_factor(name) } else { width }
+        if self.displace { (width * self.style.stroke_factor(name)).max(self.min_stroke) } else { width }
     }
 
     /// Puts the objects written from now on on the given stack.

@@ -54,3 +54,8 @@ impl TargetScale {
         }
     }
 }
+
+/// The narrowest a band prints, millimetres on paper (the seed materials use 0.25 to 0.3).
+pub const MIN_BAND_PRINT_MM: f64 = 0.3;
+/// The thinnest a road stroke prints, millimetres on paper.
+pub const MIN_STROKE_PRINT_MM: f64 = 0.12;
