@@ -3,6 +3,7 @@ import "./lib/require-node.mjs";
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { cliBinary, isPackaged, wasmFile } from "./lib/locate.mjs";
 import { archiveName, sumsLine } from "./lib/package.mjs";
 
 const version = process.argv[2];
@@ -26,6 +27,11 @@ cpSync(join(root, "target/wasm32-unknown-unknown/release/cartographer_filter.was
 cpSync(join(root, "target/release/cartographer-cli"), join(stage, "bin/cartographer-cli"));
 for (const d of ["panel", "library", "docs", "scripts"]) if (existsSync(join(root, d))) cpSync(join(root, d), join(stage, d), { recursive: true, filter: (p) => !p.includes("/target/") && !p.endsWith(".DS_Store") });
 for (const f of ["README.md", "CHANGELOG.md", "LICENSE"]) if (existsSync(join(root, f))) cpSync(join(root, f), join(stage, f));
+// What a user runs from the package must find the plug-in and the helper where this script just put them.
+if (!wasmFile(stage) || !cliBinary(stage) || !isPackaged(stage)) {
+  console.error("fix: the package layout does not match scripts/lib/locate.mjs");
+  process.exit(1);
+}
 run("tar", ["-czf", join(dist, archive), "-C", dist, basename(stage)]);
 writeFileSync(join(dist, "SHA256SUMS"), `${sumsLine(archive, readFileSync(join(dist, archive)))}\n`);
 console.log(`wrote dist/${archive}`);
