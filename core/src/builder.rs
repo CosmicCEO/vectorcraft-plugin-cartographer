@@ -7,6 +7,8 @@ use crate::hub::{self, HubSpec};
 use crate::junction::{self, JunctionSpec, junction_id};
 use crate::output::Out;
 use crate::rail_builder;
+use crate::style::StyleKit;
+use crate::units::{TargetScale, ground_m_for_print_mm};
 use crate::roads::{self, Spec, anchor_from, segment_id};
 use crate::storage::{Doc, Settings};
 use crate::transition;
@@ -25,6 +27,21 @@ fn load_spec(params: &Value) -> Result<Spec, String> {
     let data = &params["_context"]["documentData"];
     Doc::check_schema(data)?;
     Ok(Spec::from_document_data(data))
+}
+
+/// How far hand-drawn lines wander, metres: 0.15 when drawing true, 0.25 mm on paper at a target scale (never more than 3 m).
+const WOBBLE_TRUE_M: f64 = 0.15;
+const WOBBLE_PRINT_MM: f64 = 0.25;
+const WOBBLE_MAX_M: f64 = 3.0;
+
+/// The document's style, read from its settings. A missing, unreadable or invalid record gives the plain kit (medium-contrast, no wobble).
+pub fn style_kit(params: &Value) -> StyleKit {
+    let Ok(s) = Settings::from_json(&params["_context"]["documentData"]["settings"]) else { return StyleKit::plain() };
+    let amplitude = match s.target_print_scale {
+        TargetScale::True => WOBBLE_TRUE_M,
+        TargetScale::Ratio(n) => ground_m_for_print_mm(WOBBLE_PRINT_MM, n).min(WOBBLE_MAX_M),
+    };
+    StyleKit::new(s.style, s.seed, amplitude)
 }
 
 /// `load_spec` without the element library, for a build that draws no road.
@@ -81,6 +98,7 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     }
 
     let mut out = Out::new();
+    out.set_style(style_kit(params));
     let mut notes: Vec<String> = Vec::new();
     let points: usize = items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)).map(|i| i.subs.iter().map(Vec::len).sum::<usize>()).sum();
     if points > NEAR_LIMIT_POINTS {

@@ -2,6 +2,7 @@
 
 use crate::geom::Len2;
 use crate::geom::P;
+use crate::style::StyleKit;
 use serde_json::Value;
 use std::fmt::Write;
 
@@ -33,6 +34,10 @@ pub struct Out {
     decimals: u8,
     /// Curve thinning tolerance in document points (see `thinning`).
     thin_tol: f64,
+    /// How the document is painted (see `style.rs`).
+    style: StyleKit,
+    /// Whether the style may move points and change stroke widths: roads yes, rail no (see `displace`).
+    displace: bool,
 }
 
 /// The stack an object goes on: new objects are listed roadbed first, then ties, then rails, whatever order they were written in.
@@ -63,7 +68,28 @@ impl Out {
     }
 
     pub fn new() -> Out {
-        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, ties_left: DEFAULT_MAX_TIES, decimals: DEFAULT_DECIMALS, thin_tol: THIN }
+        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, ties_left: DEFAULT_MAX_TIES, decimals: DEFAULT_DECIMALS, thin_tol: THIN, style: StyleKit::plain(), displace: true }
+    }
+
+    /// Sets how the objects written from now on are painted (colours through the style, hand-drawn displacement and stroke factor).
+    pub fn set_style(&mut self, kit: StyleKit) {
+        self.style = kit;
+    }
+
+    /// Lets the style move points and change stroke widths (default on). Rail turns it off: a model at true scale keeps its gauge exact.
+    pub fn displace(&mut self, on: bool) {
+        self.displace = on;
+    }
+
+    /// A point as written: displaced by the style when that is on.
+    #[inline(always)]
+    fn place(&self, p: P) -> P {
+        if self.displace && self.style.wobbles() { self.style.wobble(p) } else { p }
+    }
+
+    /// A stroke width as written for the object called `name`.
+    fn stroke_w(&self, name: &str, width: f64) -> f64 {
+        if self.displace { width * self.style.stroke_factor(name) } else { width }
     }
 
     /// Puts the objects written from now on on the given stack.
@@ -153,7 +179,7 @@ impl Out {
             .iter()
             .filter(|s| s.len() >= min)
             .map(|s| {
-                let mut m: Vec<P> = s.iter().map(|&w| map(w)).collect();
+                let mut m: Vec<P> = s.iter().map(|&w| self.place(map(w))).collect();
                 // A smooth closed ring that repeats its first point (how a drawn shape is read) is one point shorter: the repeat would be a zero-length
                 // chord and `thin` would drop every corner. A plain polygon keeps its points exactly as given.
                 if smooth && closed && m.len() > 2 && m.first() == m.last() {
@@ -196,6 +222,7 @@ impl Out {
     }
 
     fn paint(&mut self, rgb: [f64; 3]) {
+        let rgb = self.style.tone(rgb);
         self.texts[self.layer].push_str("{\"type\":\"solid\",\"color\":{\"model\":\"rgb\",\"r\":");
         num(&mut self.texts[self.layer], rgb[0]);
         self.texts[self.layer].push_str(",\"g\":");
@@ -210,6 +237,7 @@ impl Out {
         if !visible_width(width) {
             return;
         }
+        let width = self.stroke_w(name, width);
         if !self.open_object(name, subs, &map, closed, false) {
             return;
         }
@@ -226,6 +254,7 @@ impl Out {
         if segs.peek().is_none() || !visible_width(width) {
             return; // VectorCraft refuses an object with no points
         }
+        let width = self.stroke_w(name, width);
         let (mark, was_first) = (self.texts[self.layer].len(), self.firsts[self.layer]);
         self.sep();
         self.texts[self.layer].push_str("{\"name\":");
@@ -233,7 +262,7 @@ impl Out {
         self.texts[self.layer].push_str(",\"path\":{\"subpaths\":[");
         let mut first = true;
         for [a, b] in segs {
-            let (a, b) = (map(a), map(b));
+            let (a, b) = (self.place(map(a)), self.place(map(b)));
             if ![a[0], a[1], b[0], b[1]].iter().all(|c| c.is_finite()) {
                 continue; // a non-finite point would be written as 0 and draw a line to the origin
             }
@@ -291,6 +320,7 @@ impl Out {
         if !visible_width(width) {
             return;
         }
+        let width = self.stroke_w(name, width);
         if !self.open_object(name, subs, &map, false, true) {
             return;
         }
