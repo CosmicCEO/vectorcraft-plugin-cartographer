@@ -245,7 +245,8 @@ pub fn build(items: &[Item], spec: &Spec, artboard: Option<[f64; 4]>, out: &mut 
         let Some(id) = water_id(&it.name) else { continue };
         let Some(sub) = it.subs.first() else { continue };
         let closed = is_closed(sub);
-        let ws = spec.water(&id).unwrap_or_else(|| WaterSpec::default_for(closed));
+        // A target print scale gives a creek or river the same minimum print width as a road band, about its own line.
+        let ws = spec.water_drawn(&id, closed);
         if let Err(e) = ws.check_shape(closed) {
             notes.push(format!("water {id}: {e}"));
             continue;

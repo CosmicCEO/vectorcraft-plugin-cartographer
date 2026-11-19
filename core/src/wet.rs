@@ -188,7 +188,7 @@ pub fn build(items: &[Item], spec: &Spec, out: &mut Out) -> Vec<String> {
 fn emit_one(items: &[Item], spec: &Spec, id: &str, w: &WetSpec, out: &mut Out) -> Result<Vec<String>, String> {
     let wline = items.iter().find(|i| water_id(&i.name).as_deref() == Some(w.water.as_str()) && i.subs.first().is_some_and(|s| s.len() >= 2)).ok_or_else(|| format!("water {} is not in the document", w.water))?;
     let wsub = &wline.subs[0];
-    let ws = spec.water(&w.water).unwrap_or_else(|| WaterSpec::default_for(is_closed(wsub)));
+    let ws = spec.water_drawn(&w.water, is_closed(wsub));
     let wpath: Vec<P> = wsub.iter().map(|&p| flip(p)).collect();
     // The shore's line is its water's edge; a lake's ring and a river's centreline likewise; all are crossed as lines.
     let mut last_err = format!("road {} is not in the document", w.road);

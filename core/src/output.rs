@@ -90,7 +90,12 @@ impl Out {
 
     /// A stroke width as written for the object called `name`: the style's factor, then the print minimum (neither applies to rail).
     fn stroke_w(&self, name: &str, width: f64) -> f64 {
-        if self.displace { (width * self.style.stroke_factor(name)).max(self.min_stroke) } else { width }
+        if !self.displace {
+            return width;
+        }
+        let w = width * self.style.stroke_factor(&marking_key(name));
+        // Crosswalk bars, arrows and culvert pipes are drawn at a pitch: widening them would fill the gaps, so they keep their true width.
+        if is_symbol(name) { w } else { w.max(self.min_stroke) }
     }
 
     /// Puts the objects written from now on on the given stack.
@@ -583,4 +588,21 @@ fn write_curve(text: &mut String, raw: &[P], closed: bool, decimals: u8, tol: f6
         }
         text.push('}');
     }
+}
+
+/// The marking an object belongs to, without the piece number of the road line it was built from (`gen.road.a.3.line.1` is `gen.road.a.line.1`), so one
+/// marking keeps one hand-drawn width along all the pieces of a road.
+fn marking_key(name: &str) -> String {
+    let parts: Vec<&str> = name.split('.').collect();
+    if parts.len() > 4 && parts[0] == "gen" && parts[3].parse::<u32>().is_ok() {
+        parts.iter().enumerate().filter(|(i, _)| *i != 3).map(|(_, p)| *p).collect::<Vec<_>>().join(".")
+    } else {
+        name.to_string()
+    }
+}
+
+/// Marks drawn at a pitch (crosswalk bars, arrows, culvert pipes, level-crossing ties, gore chevrons): a whole name segment after the feature id
+/// (`gen.<kind>.<id>...`), so a road called `arrowhead` or `pipeline` is not one.
+fn is_symbol(name: &str) -> bool {
+    name.split('.').skip(3).any(|seg| ["crosswalk", "arrow", "arrows", "pipe", "ties", "chevrons"].contains(&seg))
 }
