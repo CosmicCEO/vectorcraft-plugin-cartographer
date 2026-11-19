@@ -104,7 +104,7 @@ fn the_level_crossing_schema_offers_the_treatments() {
     assert_eq!(s["kind"], "level_crossing");
     let f = &s["fields"][0];
     assert_eq!(f["key"], "treatment");
-    assert_eq!(f["options"], json!(["level", "gated"]));
+    assert_eq!(f["options"], json!(["level", "gated", "road over", "track over"]));
     assert_eq!(f["default"], "level");
 }
 
@@ -192,3 +192,53 @@ fn the_missing_crossing_note_survives_a_busy_document() {
     assert!(notes.contains("track t crosses road a"), "{notes}");
 }
 
+
+fn built(treatment: &str) -> Vec<Value> {
+    objects(&build_text(&input(), &params(data(json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": treatment}}})), "")).unwrap())
+}
+
+#[test]
+fn road_over_lays_the_road_deck_on_top_of_the_track() {
+    let objs = built("road over");
+    assert!(named(&objs, "gen.track.t.level.lc1.panel").is_empty(), "a bridge has no crossing panel");
+    let deck = named(&objs, "gen.track.t.level.lc1.deck");
+    assert!(!deck.is_empty(), "the road surface is laid over the track");
+    let pos = |o: &Value| objs.iter().position(|x| x == o).unwrap();
+    let last_rail = named(&objs, "gen.track.t").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".rails")).map(|o| pos(o)).max().unwrap();
+    assert!(deck.iter().all(|d| pos(d) > last_rail), "the deck is above the rails");
+    // The deck spans the road (y 100 ± 3.5) and is wider than the track's ties.
+    let span = |v: Vec<f64>| (v.iter().cloned().fold(f64::MAX, f64::min), v.iter().cloned().fold(f64::MIN, f64::max));
+    let (y0, y1) = span(deck.iter().flat_map(|d| points(d)).map(|p| p[1]).collect());
+    let (x0, x1) = span(deck.iter().flat_map(|d| points(d)).map(|p| p[0]).collect());
+    let (t0, t1) = span(named(&objs, "gen.track.t").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".ties")).flat_map(|o| points(o)).map(|p| p[0]).collect());
+    assert!(y0 <= 96.5 && y1 >= 103.5, "{y0}..{y1}");
+    assert!(x0 < t0 && x1 > t1, "deck {x0}..{x1}, ties {t0}..{t1}");
+    assert_eq!(named(&objs, "gen.track.t.level.lc1.bridge").len(), 2, "a parapet on each side of the road");
+}
+
+#[test]
+fn track_over_keeps_every_tie_and_draws_the_bridge_sides() {
+    let objs = built("track over");
+    assert!(named(&objs, "gen.track.t.level.lc1.panel").is_empty() && named(&objs, "gen.track.t.level.lc1.deck").is_empty());
+    let ties = |objs: &[Value]| named(objs, "gen.track.t").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".ties")).map(|o| o["path"]["subpaths"].as_array().unwrap().len()).sum::<usize>();
+    let plain = objects(&build_text(&input(), &params(data(json!({})), "")).unwrap());
+    assert_eq!(ties(&objs), ties(&plain), "the track runs on over the road with all its ties");
+    let sides = named(&objs, "gen.track.t.level.lc1.bridge");
+    assert_eq!(sides.len(), 2, "a parapet on each side of the track");
+    for s in sides {
+        let p = points(s);
+        assert!(p.iter().all(|q| (q[0] - 300.0).abs() > 1.0 && (q[0] - 300.0).abs() < 5.0), "beside the track: {p:?}");
+        let (y0, y1) = (p.iter().map(|q| q[1]).fold(f64::MAX, f64::min), p.iter().map(|q| q[1]).fold(f64::MIN, f64::max));
+        assert!(y0 < 96.5 && y1 > 103.5, "spans the road: {y0}..{y1}");
+    }
+}
+
+#[test]
+fn the_card_and_the_command_offer_both_bridges() {
+    for t in ["road over", "track over"] {
+        let text = set_level_crossing_text(&input(), &params(data(json!({})), &format!(r#"{{"treatment": "{t}"}}"#))).unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&text).unwrap()["documentData"]["level_crossings"]["lc1"]["treatment"], t);
+    }
+    let card = cartographer_core::schema::level_crossing_schema();
+    assert_eq!(card["fields"][0]["options"], json!(["level", "gated", "road over", "track over"]));
+}

@@ -1,6 +1,8 @@
 //! Level crossings: a road line and a track line that cross (the design's "road meets track"). The road stays on the ground and the track goes
 //! over it: the track's ties are left out under the road (`avoid_bands`, the same mechanism as a track crossing another track), a grey crossing
 //! panel is laid between the ballast and the rails, and the rails run across. `gated` adds a crossbuck and a gate arm on each approach.
+//! Two grade separations use the same record: `road over` (a road bridge: the road's surface is laid over the track, with a parapet on each
+//! side) and `track over` (a rail bridge: the track runs on over the road with all its ties, with a parapet on each side of it).
 //! Stored as `level_crossings: {id: {road, track, treatment}}`; set with the command Make Level Crossing (`set_level_crossing`). Objects are named
 //! `gen.track.<track>.level.<id>.*`.
 
@@ -15,7 +17,7 @@ use crate::vcdoc::Item;
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 
-pub const TREATMENTS: [&str; 2] = ["level", "gated"];
+pub const TREATMENTS: [&str; 4] = ["level", "gated", "road over", "track over"];
 const PANEL: [f64; 3] = [0.72, 0.72, 0.72];
 /// Crossbucks are dark so they show on a white page (the road is not under them: they stand beside it).
 const SIGN: [f64; 3] = [0.15, 0.15, 0.15];
@@ -23,7 +25,7 @@ const RED: [f64; 3] = [0.85, 0.1, 0.1];
 /// Room left beyond the road edge before ties start again, metres.
 const MARGIN: f64 = 0.5;
 
-/// Reads a description: `{"treatment": "level" | "gated"}` (empty is level). Returns the treatment.
+/// Reads a description: `{"treatment": "level" | "gated" | "road over" | "track over"}` (empty is level). Returns the treatment.
 pub fn parse_treatment(v: &Value) -> Result<String, String> {
     let Some(obj) = v.as_object() else { return Err("the level crossing description must be a JSON object".into()) };
     if let Some(bad) = obj.keys().find(|k| k.as_str() != "treatment") {
@@ -66,7 +68,7 @@ pub fn cross_point(road: &[P], track: &[P]) -> Option<Found> {
 /// Where a road's cross-section lies across its line, metres: the lowest and highest offset, measured to the right of travel along the line (a road
 /// anchored at one edge lies wholly on one side). `line` is the piece in document points; its general heading decides how a compass-facing
 /// cross-section is read, as the road code does.
-fn road_extent(spec: &Spec, road: &str, line: &[P]) -> Option<(f64, f64)> {
+fn road_extent(spec: &Spec, road: &str, line: &[P]) -> Option<(f64, f64, Vec<(f64, f64, [f64; 3])>)> {
     let (text, anchor) = spec.segments.get(road)?;
     let parsed = parse(text, &spec.library).ok()?;
     let (a, b) = (line.first()?, line.last()?);
@@ -75,7 +77,7 @@ fn road_extent(spec: &Spec, road: &str, line: &[P]) -> Option<(f64, f64)> {
     let placed = layout(&parsed, &spec.library, [dx / l, dy / l], anchor.clone()).ok()?;
     let lo = placed.iter().map(|e| e.left).fold(f64::INFINITY, f64::min);
     let hi = placed.iter().map(|e| e.right).fold(f64::NEG_INFINITY, f64::max);
-    (lo.is_finite() && hi.is_finite()).then_some((lo, hi))
+    (lo.is_finite() && hi.is_finite()).then(|| (lo, hi, placed.iter().map(|e| (e.left, e.right, e.fill)).collect()))
 }
 
 /// The line moved sideways by `d` (to the right of travel, document points), vertex by vertex along the mean of the neighbouring normals.
@@ -103,6 +105,8 @@ struct Job {
     /// The road's extent across its line, metres to the right of travel.
     lo: f64,
     hi: f64,
+    /// The road's elements across its line (left, right, colour), for the deck of a road bridge.
+    strips: Vec<(f64, f64, [f64; 3])>,
 }
 
 fn lines<'a>(items: &'a [Item], pick: impl Fn(&str) -> bool) -> Vec<&'a Vec<P>> {
@@ -127,11 +131,11 @@ fn jobs(items: &[Item], spec: &Spec, notes: &mut Vec<String>) -> Vec<Job> {
             notes.push(format!("Level crossing {id}: road {road} and track {track} no longer cross; left out."));
             continue;
         };
-        let Some((lo, hi)) = road_extent(spec, road, rl) else {
+        let Some((lo, hi, strips)) = road_extent(spec, road, rl) else {
             notes.push(format!("Level crossing {id}: road {road} has no cross-section yet; left out."));
             continue;
         };
-        out.push(Job { id, track: track.to_string(), treatment: rec["treatment"].as_str().unwrap_or("level").to_string(), road_line: rl.clone(), found, lo, hi });
+        out.push(Job { id, track: track.to_string(), treatment: rec["treatment"].as_str().unwrap_or("level").to_string(), road_line: rl.clone(), found, lo, hi, strips });
     }
     out
 }
@@ -139,7 +143,7 @@ fn jobs(items: &[Item], spec: &Spec, notes: &mut Vec<String>) -> Vec<Job> {
 /// For each track, the strips (model millimetres, as the rail code works) where its ties are left out because a road crosses it.
 pub fn avoid_bands(items: &[Item], spec: &Spec) -> HashMap<String, Vec<Band>> {
     let mut bands: HashMap<String, Vec<Band>> = HashMap::new();
-    for job in jobs(items, spec, &mut Vec::new()) {
+    for job in jobs(items, spec, &mut Vec::new()).into_iter().filter(|j| j.treatment == "level" || j.treatment == "gated") {
         // The strip is the road itself: its middle may lie off the drawn line (a road anchored at one edge).
         let pts: Vec<P> = shifted(&job.road_line, (job.lo + job.hi) / 2.0).iter().map(|&p| to_mm(p)).collect();
         bands.entry(job.track).or_default().push(Band::new(pts, ((job.hi - job.lo) / 2.0 + MARGIN) / PT_PER_MM));
@@ -165,6 +169,29 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
         let ring = vec![corner(far, ht), corner(far, -ht), corner(near, -ht), corner(near, ht)];
         // Named under the track, so the panel lives in the track layer (between its ballast and its rails).
         let base = format!("gen.track.{}.level.{}", job.track, job.id);
+        let line = |a: (f64, f64), b: (f64, f64)| vec![corner(a.0, a.1), corner(b.0, b.1)];
+        if job.treatment == "road over" {
+            // Above everything on the track: the road's own surface, element by element, then a parapet along each edge.
+            out.layer(Layer::Rails);
+            let hb = ht + 1.0;
+            for (k, (l, r, fill)) in job.strips.iter().enumerate() {
+                out.polygon(&format!("{base}.deck.{k}"), &[corner(*r, hb), corner(*r, -hb), corner(*l, -hb), corner(*l, hb)], |p| p, *fill);
+            }
+            for (tag, a) in [("left", job.lo - 0.3), ("right", job.hi + 0.3)] {
+                out.path(&format!("{base}.bridge.{tag}"), &[line((a, -hb), (a, hb))], |p| p, SIGN, 0.3, false);
+            }
+            out.layer(Layer::Roadbed);
+            continue;
+        }
+        if job.treatment == "track over" {
+            // The track is already drawn over the road with every tie; a parapet runs along each side of it across the road.
+            out.layer(Layer::Rails);
+            for (tag, b) in [("left", -(ht + 0.2)), ("right", ht + 0.2)] {
+                out.path(&format!("{base}.bridge.{tag}"), &[line((near - 1.0, b), (far + 1.0, b))], |p| p, SIGN, 0.3, false);
+            }
+            out.layer(Layer::Roadbed);
+            continue;
+        }
         out.layer(Layer::Ties);
         out.polygon(&format!("{base}.panel"), &ring, |p| p, PANEL);
         if job.treatment == "gated" {

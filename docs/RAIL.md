@@ -13,7 +13,7 @@ A line named `track.<id>` becomes railroad track: rails, ties and roadbed to NMR
 | Branch (siding off another line) | built (single-track branch) | `{"kind": "branch", "frog"}` |
 | Join end to end (equal track counts) | built | `{"kind": "join"}` |
 | Branch or join with different track counts | designed, not built | Track Layer's `docs/superpowers/specs/2026-11-13-joining-lines-design.md` |
-| Road crossing a track at grade (level crossing) | built (1.5) | `{"treatment": "level" or "gated"}` by **Make Level Crossing** (`set_level_crossing`), with one road line and one track line selected; or the panel card |
+| Road crossing a track at grade (level crossing) | built (1.5) | `{"treatment": "level", "gated", "road over" or "track over"}` by **Make Level Crossing** (`set_level_crossing`), with one road line and one track line selected; or the panel card |
 | Slip switches | planned | |
 | Wye, balloon loop | planned | |
 | Bézier drawn lines | built (rails, roadbed, ties, yards follow them) | |
@@ -46,7 +46,10 @@ A line named `track.<id>` becomes railroad track: rails, ties and roadbed to NMR
 - A record `level_crossings: {id: {road, track, treatment}}` names the two lines; every build finds where they cross again. Lines that no longer cross, or a road with no cross-section, are left out with a note.
 - The road stays on the ground: the track's ties are left out under the road plus 0.5 m each side (the same mechanism as a track crossing another track), a grey crossing panel covers the ballast inside the road, and the rails run across over it.
 - The panel is as wide as everything the track carries there (a yard's spurs on the wider side, both ways), so a lopsided yard gets a panel wider than its narrow side.
-- `gated` adds, on each approach, a crossbuck beside the road and a red gate arm reaching to the road's line.
+- `gated` adds, on each approach (on the approaching driver's right: right-hand traffic), a crossbuck beside the road and a red gate arm reaching to the road's line.
+- `road over` is a road bridge: the road's surface is laid over the track, element by element, with a parapet along each edge; the track runs underneath.
+- `track over` is a rail bridge: the track runs on over the road with every tie, with a parapet on each side of it.
+- A track line that crosses a road line with no crossing stored gets a build note asking for one.
 - The objects are named `gen.track.<track>.level.<id>.*`, so they live in the track's layer; the panel keeps track layers above road layers.
 - Not done: an overpass (the road on a bridge over the track), half barriers, signals, a crossing that is not at about a right angle (refused below about 10 degrees).
 

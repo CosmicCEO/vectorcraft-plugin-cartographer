@@ -70,7 +70,7 @@ pub fn joint_schema() -> Value {
 pub fn level_crossing_schema() -> Value {
     json!({"kind": "level_crossing", "fields": [
         {"key": "treatment", "label": "Crossing", "type": "choice", "options": crate::level::TREATMENTS, "default": "level",
-         "help": "level: the road crosses the track on a panel, the rails run across. gated: also a crossbuck and a gate arm on each approach."}
+         "help": "level: the road crosses the track on a panel, the rails run across. gated: also a crossbuck and a gate arm on each approach. road over: a road bridge over the track. track over: a rail bridge over the road."}
     ]})
 }
 
