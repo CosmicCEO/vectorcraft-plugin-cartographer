@@ -5,14 +5,16 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { appLaunch, isRunning, waitForPort } from "./lib/vc.mjs";
 
+// The control port is VectorCraft's, not the panel's: say what to run next so nobody opens it in a browser.
+const NEXT = "\nNext: start the panel with  node panel/server.mjs  and open the address it prints (http://127.0.0.1:8789).";
 const port = Number(process.argv[2] ?? process.env.VECTORCRAFT_CONTROL_PORT ?? 7979);
 if (await waitForPort(port, 300)) {
-  console.log(`VectorCraft is already running with its control port ${port}: nothing to do.`);
+  console.log(`VectorCraft is already running (its own control port is ${port}).${NEXT}`);
   process.exit(0);
 }
 // A running VectorCraft may just be busy: give its port a while before deciding it was started without one.
 if (isRunning(process.platform, spawnSync) && (await waitForPort(port, 10_000))) {
-  console.log(`VectorCraft is already running with its control port ${port}: nothing to do.`);
+  console.log(`VectorCraft is already running (its own control port is ${port}).${NEXT}`);
   process.exit(0);
 }
 if (isRunning(process.platform, spawnSync)) {
@@ -42,7 +44,7 @@ if (failed) {
   process.exit(1);
 }
 if (ready) {
-  console.log(`VectorCraft is ready on control port ${port}.`);
+  console.log(`VectorCraft is ready (its own control port is ${port}).${NEXT}`);
   process.exit(0);
 } else {
   console.error(`fix: VectorCraft did not answer on control port ${port} within 30 seconds. If it was already running, quit it (Cmd-Q on a Mac) and run this again: the port is set only when VectorCraft starts.`);
