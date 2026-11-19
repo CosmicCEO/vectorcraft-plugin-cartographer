@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0
+- **Railway in metres:** track and yard descriptions, cards, stored records and messages are in metres of ground (spacing 3.96 m, not 24.765 mm); "N scale" is gone from the panel and the guides. Documents saved by 1.0 to 1.5 are converted when they are next read and draw the same. Text such as "4000mm", "100cm" or "36in" means real lengths. 1.5 cannot change a document saved by 1.6 (it says so).
+- **Road meets track:** two bridges join the level crossings on the same card: **road over** (the road's surface laid over the track, parapets along it) and **track over** (the track runs on over the road, parapets beside it). Both follow a curving track. Gates now stand on the approaching driver's right. A build note says when a track crosses a road with no crossing stored.
+- **Panel:** lines made with the shape tools (line, ellipse, rectangle, polygon) work like pen lines; a road drawn partly with the shape tool keeps its pieces in order.
+- **Setup:** `node scripts/build.mjs` in a release package says there is nothing to build; `start-vectorcraft.mjs` waits until VectorCraft answers, says at once when it cannot start, and on a Mac when VectorCraft is running without its control port; the panel says plainly when its port is in use.
+
 ## 1.5.0
 - **Road meets track:** select a road line and a track line that cross (or use Make Level Crossing) to make a level crossing, plain or gated. The track's ties stop under the road, a crossing panel covers the ballast, the rails run across; gated adds crossbucks and gate arms. Roads drawn from one edge and roads drawn in pieces are handled.
 - **Small scales:** creeks and rivers get the band print minimum (bridges span the creek as drawn); crosswalk bars, arrows, culvert pipes, level-crossing ties and gore chevrons keep their true width instead of printing solid; in the hand-drawn style one marking keeps one width along every piece of a road.

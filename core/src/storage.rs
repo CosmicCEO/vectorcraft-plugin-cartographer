@@ -143,9 +143,13 @@ fn migrate(v: &Value) -> Result<Map<String, Value>, String> {
         return Err(format!("this document was saved by a newer Cartographer (schema {found}); update the plug-in before changing it"));
     }
     // Schema 2: the railway is stored in metres (1 kept model millimetres).
-    let mut raw = match crate::rail_units::upgrade(&Value::Object(raw)) {
-        Value::Object(m) => m,
-        _ => Map::new(),
+    let mut raw = if found < 2 {
+        match crate::rail_units::upgrade(&Value::Object(raw)) {
+            Value::Object(m) => m,
+            _ => Map::new(),
+        }
+    } else {
+        raw
     };
     raw.insert("schema".into(), json!(SCHEMA));
     Ok(raw)
