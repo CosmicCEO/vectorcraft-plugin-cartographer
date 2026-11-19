@@ -169,4 +169,10 @@ test("the page renders a road and a track as a level crossing card", async () =>
   page.send(panel.snapshot());
   assert.match(page.byId.get("lsummary").textContent, /Proposed: a gated level crossing/);
   assert.equal(page.byId.get("trackCard").hidden, true);
+  await panel.editLevel({ treatment: "road over" });
+  page.send(panel.snapshot());
+  assert.match(page.byId.get("lsummary").textContent, /Proposed: a road bridge over the track/);
+  await panel.editLevel({ treatment: "track over" });
+  page.send(panel.snapshot());
+  assert.match(page.byId.get("lsummary").textContent, /Proposed: a rail bridge over the road/);
 });

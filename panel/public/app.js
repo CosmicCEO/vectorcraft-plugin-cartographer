@@ -1,3 +1,5 @@
+/** How each treatment of a road meeting a track is said (the same words as panel/lib/panel.mjs). */
+const CROSSING_WORDS = { level: "a level crossing", gated: "a gated level crossing", "road over": "a road bridge over the track", "track over": "a rail bridge over the road" };
 // The panel page. Everything the server sends is shown with textContent, never as HTML.
 const $ = (id) => document.getElementById(id);
 // ?zoom=0.6 shrinks the page (for a small window, or a screenshot).
@@ -85,7 +87,7 @@ function show(s) {
   else if (t.kind === "hub") ctx.append(el("strong", {}, `${t.roads.length} roads meet: ${t.roads.join(", ")}`), el("p", { className: "muted" }, s.hub?.described ? "They form an intersection. Change it below, then Draw." : "Choose what happens where they meet, then Draw."));
   else if (t.kind === "crossing") ctx.append(el("strong", {}, `Roads ${t.roads[0]} and ${t.roads[1]} cross`), el("p", { className: "muted" }, s.crossing?.described ? "They form an intersection. Change it below, then Draw." : "Choose what happens where they cross, then Draw."));
   else if (t.kind === "track") ctx.append(el("strong", {}, `Track ${t.id}`), el("p", { className: "muted" }, s.track?.described ? "Railway track. Change it below, or describe the change in words." : "Not described yet: one track. Change it below or describe it in words."));
-  else if (t.kind === "level") ctx.append(el("strong", {}, `Road ${t.road} crosses track ${t.track}`), el("p", { className: "muted" }, s.level?.described ? "A level crossing. Change it below." : "A road and a track are selected: make it a level crossing (the road on a panel, the rails across)."));
+  else if (t.kind === "level") ctx.append(el("strong", {}, `Road ${t.road} crosses track ${t.track}`), el("p", { className: "muted" }, s.level?.described ? "Stored. Change it below." : "A road and a track are selected: make a level crossing (the road on a panel, the rails across) or a bridge (road over or track over)."));
   else if (t.kind === "joint") ctx.append(el("strong", {}, `Lines ${t.lines[0]} and ${t.lines[1]}`), el("p", { className: "muted" }, s.joint?.described ? "These two lines are joined. Change it below, or describe the change in words." : "Two track lines are selected: say how they meet."));
   else ctx.append(el("strong", {}, "Select one line or one road"), el("p", { className: "muted" }, "The selection holds something this panel does not describe."));
   if (t && (t.kind === "road" || t.kind === "junction" || t.kind === "track") && !s.busy) {
@@ -313,7 +315,7 @@ function show(s) {
   $("levelCard").hidden = !(s.level && t?.kind === "level");
   if (s.level && t?.kind === "level") {
     const pl = s.pending?.kind === "level" ? s.pending : null;
-    $("lsummary").textContent = pl ? `Proposed: ${pl.summary}` : s.level.described ? `Stored: ${s.level.spec.treatment === "gated" ? "a gated level crossing" : "a level crossing"}` : "Not stored yet: a level crossing.";
+    $("lsummary").textContent = pl ? `Proposed: ${pl.summary}` : s.level.described ? `Stored: ${CROSSING_WORDS[s.level.spec.treatment] ?? "a level crossing"}` : "Not stored yet: a level crossing.";
     fillList("lchanges", pl?.changes);
     showCard("l", $("lfields"), s.level.card, pl?.spec ?? null, (patch) => act("level", { patch }));
     $("lcancel").hidden = !pl;

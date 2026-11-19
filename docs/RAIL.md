@@ -51,5 +51,5 @@ A line named `track.<id>` becomes railroad track: rails, ties and roadbed to NMR
 - `track over` is a rail bridge: the track runs on over the road with every tie, with a parapet on each side of it.
 - A track line that crosses a road line with no crossing stored gets a build note asking for one.
 - The objects are named `gen.track.<track>.level.<id>.*`, so they live in the track's layer; the panel keeps track layers above road layers.
-- Not done: an overpass (the road on a bridge over the track), half barriers, signals, a crossing that is not at about a right angle (refused below about 10 degrees).
+- Not done: half barriers, signals, a crossing that is not at about a right angle (refused below about 10 degrees).
 

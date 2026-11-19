@@ -96,6 +96,28 @@ fn shifted(line: &[P], d: f64) -> Vec<P> {
         .collect()
 }
 
+/// The part of `line` where `f` (a coordinate along the line's points) lies in [lo, hi], cut exactly at the ends: the first such run.
+fn clip(line: &[P], f: impl Fn(P) -> f64, lo: f64, hi: f64) -> Vec<P> {
+    let mut out: Vec<P> = Vec::new();
+    for w in line.windows(2) {
+        let (fa, fb) = (f(w[0]), f(w[1]));
+        let at = |v: f64| { let t = if (fb - fa).abs() < 1e-12 { 0.0 } else { (v - fa) / (fb - fa) }; [w[0][0] + t * (w[1][0] - w[0][0]), w[0][1] + t * (w[1][1] - w[0][1])] };
+        let (t0, t1) = (fa.min(fb).max(lo), fa.max(fb).min(hi));
+        if t0 > t1 {
+            if !out.is_empty() {
+                break;
+            }
+            continue;
+        }
+        let (p, q) = if fa <= fb { (at(t0), at(t1)) } else { (at(t1), at(t0)) };
+        if out.last().is_none_or(|l: &P| (l[0] - p[0]).abs() + (l[1] - p[1]).abs() > 1e-9) {
+            out.push(p);
+        }
+        out.push(q);
+    }
+    out
+}
+
 struct Job {
     id: String,
     track: String,
@@ -105,6 +127,8 @@ struct Job {
     /// The road's extent across its line, metres to the right of travel.
     lo: f64,
     hi: f64,
+    /// The track line that crosses the road (document points), for bridges on a curve.
+    track_line: Vec<P>,
     /// The road's elements across its line (left, right, colour), for the deck of a road bridge.
     strips: Vec<(f64, f64, [f64; 3])>,
 }
@@ -135,7 +159,7 @@ fn jobs(items: &[Item], spec: &Spec, notes: &mut Vec<String>) -> Vec<Job> {
             notes.push(format!("Level crossing {id}: road {road} has no cross-section yet; left out."));
             continue;
         };
-        out.push(Job { id, track: track.to_string(), treatment: rec["treatment"].as_str().unwrap_or("level").to_string(), road_line: rl.clone(), found, lo, hi, strips });
+        out.push(Job { id, track: track.to_string(), treatment: rec["treatment"].as_str().unwrap_or("level").to_string(), road_line: rl.clone(), track_line: tls.iter().find(|t| cross_point(rl, t).is_some()).map(|t| t.to_vec()).unwrap_or_default(), found, lo, hi, strips });
     }
     out
 }
@@ -170,10 +194,15 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
         // Named under the track, so the panel lives in the track layer (between its ballast and its rails).
         let base = format!("gen.track.{}.level.{}", job.track, job.id);
         let line = |a: (f64, f64), b: (f64, f64)| vec![corner(a.0, a.1), corner(b.0, b.1)];
+        // Where a point lies across the road (to the right of travel) and across the track: the inverse of `corner`.
+        let across_road = |p: P| nr[0] * (p[0] - x[0]) + nr[1] * (p[1] - x[1]);
+        let across_track = |p: P| nt[0] * (p[0] - x[0]) + nt[1] * (p[1] - x[1]);
+        // How far a curving track wanders from its direction at the crossing while it is on the road.
+        let drift = clip(&job.track_line, across_road, near - 1.0, far + 1.0).iter().map(|&p| across_track(p).abs()).fold(0.0, f64::max);
         if job.treatment == "road over" {
             // Above everything on the track: the road's own surface, element by element, then a parapet along each edge.
             out.layer(Layer::Rails);
-            let hb = ht + 1.0;
+            let hb = ht + 1.0 + drift;
             for (k, (l, r, fill)) in job.strips.iter().enumerate() {
                 out.polygon(&format!("{base}.deck.{k}"), &[corner(*r, hb), corner(*r, -hb), corner(*l, -hb), corner(*l, hb)], |p| p, *fill);
             }
@@ -186,8 +215,12 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
         if job.treatment == "track over" {
             // The track is already drawn over the road with every tie; a parapet runs along each side of it across the road.
             out.layer(Layer::Rails);
+            // Along the track itself (it may curve), from one side of the road to the other.
             for (tag, b) in [("left", -(ht + 0.2)), ("right", ht + 0.2)] {
-                out.path(&format!("{base}.bridge.{tag}"), &[line((near - 1.0, b), (far + 1.0, b))], |p| p, SIGN, 0.3, false);
+                let side = clip(&shifted(&job.track_line, b), across_road, near - 1.0, far + 1.0);
+                if side.len() >= 2 {
+                    out.path(&format!("{base}.bridge.{tag}"), &[side], |p| p, SIGN, 0.3, false);
+                }
             }
             out.layer(Layer::Roadbed);
             continue;

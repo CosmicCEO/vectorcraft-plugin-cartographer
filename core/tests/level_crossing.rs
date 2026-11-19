@@ -242,3 +242,53 @@ fn the_card_and_the_command_offer_both_bridges() {
     let card = cartographer_core::schema::level_crossing_schema();
     assert_eq!(card["fields"][0]["options"], json!(["level", "gated", "road over", "track over"]));
 }
+
+/// A track on a 31 m radius crossing the road (y = 100) at 30 degrees at x = 300: it curves a little across the road.
+fn curved() -> Value {
+    let (a, r) = (30f64.to_radians(), 31.0);
+    let n = [-a.sin(), a.cos()];
+    let c = [300.0 + r * n[0], 100.0 + r * n[1]];
+    let pts: Vec<[f64; 2]> = (0..=120).map(|i| -0.9 + 1.8 * i as f64 / 120.0).map(|th: f64| {
+        let (s, co) = th.sin_cos();
+        let v = [-n[0], -n[1]];
+        [c[0] + r * (v[0] * co - v[1] * s), c[1] + r * (v[0] * s + v[1] * co)]
+    }).collect();
+    json!({"objects": [line(1, "road.a", &[[0.0, 100.0], [600.0, 100.0]]), line(2, "track.t", &pts)]})
+}
+
+fn inside(poly: &[[f64; 2]], p: [f64; 2]) -> bool {
+    let mut c = false;
+    for i in 0..poly.len() {
+        let (a, b) = (poly[i], poly[(i + 1) % poly.len()]);
+        if (a[1] > p[1]) != (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0] {
+            c = !c;
+        }
+    }
+    c
+}
+
+#[test]
+fn a_road_bridge_over_a_curving_track_covers_every_tie_under_the_road() {
+    let rec = json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "road over"}}});
+    let objs = objects(&build_text(&curved(), &params(data(rec), "")).unwrap());
+    let decks: Vec<Vec<[f64; 2]>> = named(&objs, "gen.track.t.level.lc1.deck").iter().map(|d| points(d)).collect();
+    let ties: Vec<[f64; 2]> = named(&objs, "gen.track.t").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".ties")).flat_map(|o| points(o)).collect();
+    let under: Vec<_> = ties.iter().filter(|p| (p[1] - 100.0).abs() < 3.4).collect();
+    assert!(!under.is_empty());
+    let bare: Vec<_> = under.iter().filter(|p| !decks.iter().any(|d| inside(d, ***p))).collect();
+    assert!(bare.is_empty(), "tie ends on the road outside the deck: {bare:?}");
+}
+
+#[test]
+fn a_rail_bridge_on_a_curve_keeps_its_parapets_beside_the_track() {
+    let rec = json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "track over"}}});
+    let input = curved();
+    let track: Vec<[f64; 2]> = input["objects"][1]["path"]["subpaths"][0]["anchors"].as_array().unwrap().iter().map(|a| [a["p"][0].as_f64().unwrap(), a["p"][1].as_f64().unwrap()]).collect();
+    let objs = objects(&build_text(&input, &params(data(rec), "")).unwrap());
+    for s in named(&objs, "gen.track.t.level.lc1.bridge") {
+        for p in points(s) {
+            let d = track.iter().map(|q| ((p[0] - q[0]).powi(2) + (p[1] - q[1]).powi(2)).sqrt()).fold(f64::MAX, f64::min);
+            assert!(d > 1.0 && d < 3.0, "a parapet point {p:?} is {d} m from the track");
+        }
+    }
+}
