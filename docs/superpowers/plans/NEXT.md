@@ -1,16 +1,21 @@
-# Next: 1.7 and 2.0 (draft for the owner, 2026-11-19)
+# Next: 1.7 to 2.5 (agreed with the owner, 2026-11-19)
 
-Status: 1.6.0 released. Deferred minors from each release are in `docs/RELEASE-1.5.md` and `docs/RELEASE-1.6.md`. This page is the proposed order; the owner confirms or changes it before a plan is written.
+Status: 1.6.0 released. Deferred minors from each release are in `docs/RELEASE-1.5.md` and `docs/RELEASE-1.6.md`. This page is the agreed order; each release gets its own plan before work starts.
 
 ## 1.7: small, soon
 
 - **Turnout ties in a yard ladder** (owner): the first turnout of a ladder has all its ties; the turnouts after it have none between the switch and the spur. Every turnout gets its ties.
-- The start script already names the panel as the next step (merged after 1.6.0, PR #23); 1.7 ships it.
+- Already merged after 1.6.0, shipped in 1.7: the start script names the panel as the next step (#23); a plain line or shape selected with a track says to make it a road first (#25).
 - Bridge minors from 1.6 that show on paper: the road bridge deck stays straight under a hand-drawn road; a lopsided yard's rail-bridge parapets sit at the wider side's distance on both sides.
 
-## 2.0: the Cartographer app, then the map
+## Owner decisions (2026-11-19)
 
-### A. The app (owner decision: Tauri)
+1. No Apple Developer ID: the Mac app is not signed. The first launch is opened once with right-click, Open (or allowed in System Settings); the guide says so.
+2. Linux in 2.1; 2.0 is the Mac app.
+3. The printed map is 2.5, after some optimization releases.
+4. The Ross Bridge Parkway map is no longer a reason for this work: Cartographer stands on its own.
+
+## 2.0: the Cartographer app (Mac)
 
 Goal: no terminal. Double-click Cartographer and work.
 
@@ -19,29 +24,32 @@ Goal: no terminal. Double-click Cartographer and work.
 - The app finds VectorCraft, starts it with its control port (or says plainly that a running VectorCraft must be quit once), and stops the panel when the app quits.
 - First run installs or updates the plug-in in VectorCraft and checks the setup (today's `install.mjs` and `check.mjs`, as buttons with plain results).
 - Menu: Check setup, Reinstall plug-in, Open the guide, About (version).
-- macOS: a signed and notarized `.dmg`; Linux: an AppImage. Built and published by the release workflow, like the packages today.
+- An unsigned `.dmg`, built and published by the release workflow like the packages today; the guide shows the one-time right-click, Open.
 - The terminal scripts stay for development and for anyone who prefers them.
-- Risks: signing needs an Apple Developer ID (question 1); Tauri's window on Linux (WebKitGTK) differs a little from Safari's, so the panel is tested in both; the app is about 100 MB (Node).
+- With it, the API change best made once: one `set_feature` command instead of the per-kind commands, and cards built from the plug-in's schemas instead of hand-written ones. 1.x documents still open (records are not changed).
+- Risks: macOS may warn more strongly about an unsigned app in later versions; the app is about 100 MB (Node).
 
-### B. API once (with A, since the panel changes anyway)
+## 2.1: Linux app
 
-- One `set_feature` command instead of the per-kind commands; cards built from the plug-in's schemas instead of hand-written ones. An API change: 1.x documents still open (records are not changed).
+- The same app as an AppImage; the panel tested in Tauri's Linux window (WebKitGTK), which differs a little from Safari's.
 
-### C. A finished printed map
+## 2.2 to 2.4: optimization (to be detailed with the owner)
+
+- Rail cost: the shared output still copies each path (`docs/PARITY-RAIL.md`); rail builds are 1.2 to 1.27 times Track Layer's.
+- Larger drawings: the point limit (a plain road builds to about 19,450 points) and build time on big documents.
+- Deferred minors from `docs/RELEASE-1.5.md` and `docs/RELEASE-1.6.md`.
+
+## 2.5: a finished printed map
 
 - Labels, scale bar, legend and north arrow (the panel makes text through VectorCraft's own commands; a filter cannot, spike S4).
 - Junction radii and setbacks that grow with the print scale; minimum sizes for symbols.
 - Style defaults for high-contrast and black-white (owner, 1.6), and black-white hatching (spike S6: the panel creates the pattern swatches first).
 
-### D. More of the world (2.1 or later)
+## Later (not scheduled)
 
 - Areas: trails, forests, swamps, estuaries (design section 6.3).
 - Half barriers and signals at level crossings.
-- Rail cost: the shared output still copies each path (`docs/PARITY-RAIL.md`).
 
-## Questions for the owner
+## Open question
 
-1. Mac signing: an Apple Developer ID (99 USD a year) lets the app open with a double-click. Without it macOS blocks the first launch; the app must then be opened once with right-click, Open (or allowed in System Settings).
-2. Linux: needed in 2.0, or Mac first and Linux in 2.1?
-3. Order inside 2.0: A (app) first, B with it, then C? Or is the printed map (C) more urgent than the app?
-4. The Ross Bridge Parkway map (traffic-incidents-web) was the reason for the plug-ins: should 2.0 include moving that map onto Cartographer, or does it stay separate?
+- Which optimization matters most to you for 2.2 to 2.4: build speed and cost, bigger drawings, or the panel's ease of use?
