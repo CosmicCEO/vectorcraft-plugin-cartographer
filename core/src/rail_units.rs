@@ -8,7 +8,7 @@ use serde_json::{Map, Value, json};
 pub const MM_PER_M: f64 = 6.25;
 
 /// The record keys that hold a length.
-const LENGTHS: [&str; 3] = ["spacing", "at", "length"];
+const LENGTHS: [&str; 4] = ["spacing", "at", "length", "before_end"];
 
 fn convert(v: &Value, to_mm: bool) -> Value {
     if let Some(x) = v.as_f64() {

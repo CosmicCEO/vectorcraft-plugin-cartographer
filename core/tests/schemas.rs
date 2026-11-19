@@ -28,7 +28,7 @@ fn the_tracks_schema_lists_four_fields_with_the_limits() {
 fn the_yard_schema_lists_its_fields_and_leaves_crossovers_to_words() {
     let s = yard_schema();
     assert_eq!(s["kind"], "yard");
-    assert_eq!(keys(&s), vec!["mains", "left", "right", "ends", "frog", "spacing", "at", "length", "ballast", "ties"]);
+    assert_eq!(keys(&s), vec!["mains", "left", "right", "ends", "frog", "spacing", "at", "length", "before_end", "ballast", "ties"]);
     assert_eq!((field(&s, "mains")["min"].as_i64(), field(&s, "mains")["max"].as_i64()), (Some(1), Some(4)));
     assert_eq!((field(&s, "left")["min"].as_i64(), field(&s, "left")["max"].as_i64()), (Some(0), Some(16)));
     assert_eq!((field(&s, "frog")["min"].as_i64(), field(&s, "frog")["max"].as_i64()), (Some(4), Some(20)));

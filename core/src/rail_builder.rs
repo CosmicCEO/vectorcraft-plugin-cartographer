@@ -309,7 +309,7 @@ pub fn set_yard_text(input: &Value, params: &Value) -> Result<String, String> {
         |v, line| {
             let spec = YardSpec::from_json(v)?;
             if let Some(len) = line {
-                let avail = spec.length.unwrap_or(len - spec.at);
+                let avail = spec.length.unwrap_or(len - spec.before_end - spec.at);
                 if spec.at + spec.min_length() > len + 1e-6 || avail < spec.min_length() - 1e-6 {
                     return Err(format!("This yard needs {:.0} mm of line from {:.0} mm on, and the selected line gives {:.0} mm. Draw a longer line, use a smaller frog number, or fewer spurs.", spec.min_length(), spec.at, avail.min(len - spec.at).max(0.0)));
                 }
