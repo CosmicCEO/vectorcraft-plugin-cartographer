@@ -121,3 +121,41 @@ fn the_panel_covers_a_whole_yard_not_only_its_mains() {
     assert!(width > 15.0, "the panel spans the yard: {width}");
 }
 
+
+// ---- review fixes
+
+fn ys_of(o: &Value) -> Vec<f64> {
+    points(o).iter().map(|p| p[1]).collect()
+}
+
+#[test]
+fn a_road_drawn_from_one_edge_gets_a_crossing_only_where_the_road_is() {
+    let mut d = data(json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "level"}}}));
+    d["segments"]["a"]["anchor"] = json!("left");
+    let objs = objects(&build_text(&input(), &params(d, "")).unwrap());
+    let ys = ys_of(named(&objs, "gen.track.t.level.lc1.panel")[0]);
+    let (lo, hi) = (ys.iter().cloned().fold(f64::MAX, f64::min), ys.iter().cloned().fold(f64::MIN, f64::max));
+    // The road covers y 100.0 to 107.2 (anchored at its left edge); the panel reaches 0.5 m past each edge, no more.
+    assert!(lo > 99.0 && hi < 108.0, "panel from {lo} to {hi}");
+    let ties: Vec<[f64; 2]> = named(&objs, "gen.track.t.").into_iter().filter(|o| o["name"].as_str().unwrap().contains("ties")).flat_map(points).collect();
+    assert!(ties.iter().any(|p| p[1] > 93.0 && p[1] < 99.0), "ties stay on the bare side of the road line");
+}
+
+#[test]
+fn a_road_in_pieces_still_gets_its_crossing() {
+    let pieces = json!({"objects": [line(1, "road.a", &[[0.0, 100.0], [200.0, 100.0]]), line(3, "road.a.2", &[[200.0, 100.0], [600.0, 100.0]]), line(2, "track.t", &[[300.0, 0.0], [300.0, 200.0]])]});
+    let objs = objects(&build_text(&pieces, &params(data(json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "level"}}})), "")).unwrap());
+    assert_eq!(named(&objs, "gen.track.t.level.lc1.panel").len(), 1);
+    let two = json!({"objects": [line(1, "road.a", &[[0.0, 100.0], [200.0, 100.0]]), line(3, "road.a.2", &[[200.0, 100.0], [600.0, 100.0]]), line(2, "track.t", &[[300.0, 0.0], [300.0, 200.0]])]});
+    assert!(set_level_crossing_text(&two, &params(data(json!({})), "")).is_ok(), "two pieces of one road and a track are one road and one track");
+}
+
+#[test]
+fn the_hand_drawn_style_does_not_move_the_panel() {
+    let lc = json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "level"}}});
+    let mut hand = data(lc.clone());
+    hand["settings"] = json!({"style": "hand-drawn"});
+    let a = objects(&build_text(&input(), &params(data(lc), "")).unwrap());
+    let b = objects(&build_text(&input(), &params(hand, "")).unwrap());
+    assert_eq!(points(named(&a, "gen.track.t.level.lc1.panel")[0]), points(named(&b, "gen.track.t.level.lc1.panel")[0]));
+}

@@ -63,12 +63,35 @@ pub fn cross_point(road: &[P], track: &[P]) -> Option<Found> {
     None
 }
 
-/// Half the width of a road's cross-section, metres (the widest side from its line).
-fn road_half(spec: &Spec, road: &str) -> Option<f64> {
+/// Where a road's cross-section lies across its line, metres: the lowest and highest offset, measured to the right of travel along the line (a road
+/// anchored at one edge lies wholly on one side). `line` is the piece in document points; its general heading decides how a compass-facing
+/// cross-section is read, as the road code does.
+fn road_extent(spec: &Spec, road: &str, line: &[P]) -> Option<(f64, f64)> {
     let (text, anchor) = spec.segments.get(road)?;
     let parsed = parse(text, &spec.library).ok()?;
-    let placed = layout(&parsed, &spec.library, [0.0, 1.0], anchor.clone()).ok()?;
-    placed.iter().map(|e| e.left.abs().max(e.right.abs())).reduce(f64::max)
+    let (a, b) = (line.first()?, line.last()?);
+    let (dx, dy) = (b[0] - a[0], a[1] - b[1]); // world frame: y up
+    let l = (dx * dx + dy * dy).sqrt().max(1e-9);
+    let placed = layout(&parsed, &spec.library, [dx / l, dy / l], anchor.clone()).ok()?;
+    let lo = placed.iter().map(|e| e.left).fold(f64::INFINITY, f64::min);
+    let hi = placed.iter().map(|e| e.right).fold(f64::NEG_INFINITY, f64::max);
+    (lo.is_finite() && hi.is_finite()).then_some((lo, hi))
+}
+
+/// The line moved sideways by `d` (to the right of travel, document points), vertex by vertex along the mean of the neighbouring normals.
+fn shifted(line: &[P], d: f64) -> Vec<P> {
+    let normal = |a: P, b: P| {
+        let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+        let l = (dx * dx + dy * dy).sqrt().max(1e-9);
+        [-dy / l, dx / l]
+    };
+    (0..line.len())
+        .map(|i| {
+            let (prev, next) = (line[i.saturating_sub(1)], line[(i + 1).min(line.len() - 1)]);
+            let n = normal(if i == 0 { line[0] } else { prev }, if i + 1 == line.len() { line[i] } else { next });
+            [line[i][0] + n[0] * d, line[i][1] + n[1] * d]
+        })
+        .collect()
 }
 
 struct Job {
@@ -77,30 +100,38 @@ struct Job {
     treatment: String,
     road_line: Vec<P>,
     found: Found,
-    half: f64,
+    /// The road's extent across its line, metres to the right of travel.
+    lo: f64,
+    hi: f64,
 }
 
-fn first_line<'a>(items: &'a [Item], pick: impl Fn(&str) -> bool) -> Option<&'a Vec<P>> {
-    items.iter().find(|i| pick(&i.name)).and_then(|i| i.subs.first()).filter(|s| s.len() >= 2)
+fn lines<'a>(items: &'a [Item], pick: impl Fn(&str) -> bool) -> Vec<&'a Vec<P>> {
+    items.iter().filter(|i| pick(&i.name)).filter_map(|i| i.subs.first()).filter(|s| s.len() >= 2).collect()
+}
+
+/// The first piece of the road and line of the track that cross (a road may be drawn as several pieces).
+pub fn find_crossing<'a>(roads: &[&'a Vec<P>], tracks: &[&Vec<P>]) -> Option<(&'a Vec<P>, Found)> {
+    roads.iter().find_map(|r| tracks.iter().find_map(|t| cross_point(r, t)).map(|f| (*r, f)))
 }
 
 fn jobs(items: &[Item], spec: &Spec, notes: &mut Vec<String>) -> Vec<Job> {
     let mut out = Vec::new();
     for (id, rec) in spec.level_crossings() {
         let (road, track) = (rec["road"].as_str().unwrap_or(""), rec["track"].as_str().unwrap_or(""));
-        let (Some(rl), Some(tl)) = (first_line(items, |n| segment_id(n).as_deref() == Some(road)), first_line(items, |n| track_id(n).as_deref() == Some(track))) else {
+        let (rls, tls) = (lines(items, |n| segment_id(n).as_deref() == Some(road)), lines(items, |n| track_id(n).as_deref() == Some(track)));
+        if rls.is_empty() || tls.is_empty() {
             notes.push(format!("Level crossing {id}: road {road} or track {track} is not in the document; left out."));
             continue;
-        };
-        let Some(found) = cross_point(rl, tl) else {
+        }
+        let Some((rl, found)) = find_crossing(&rls, &tls) else {
             notes.push(format!("Level crossing {id}: road {road} and track {track} no longer cross; left out."));
             continue;
         };
-        let Some(half) = road_half(spec, road) else {
+        let Some((lo, hi)) = road_extent(spec, road, rl) else {
             notes.push(format!("Level crossing {id}: road {road} has no cross-section yet; left out."));
             continue;
         };
-        out.push(Job { id, track: track.to_string(), treatment: rec["treatment"].as_str().unwrap_or("level").to_string(), road_line: rl.clone(), found, half });
+        out.push(Job { id, track: track.to_string(), treatment: rec["treatment"].as_str().unwrap_or("level").to_string(), road_line: rl.clone(), found, lo, hi });
     }
     out
 }
@@ -109,8 +140,9 @@ fn jobs(items: &[Item], spec: &Spec, notes: &mut Vec<String>) -> Vec<Job> {
 pub fn avoid_bands(items: &[Item], spec: &Spec) -> HashMap<String, Vec<Band>> {
     let mut bands: HashMap<String, Vec<Band>> = HashMap::new();
     for job in jobs(items, spec, &mut Vec::new()) {
-        let pts: Vec<P> = job.road_line.iter().map(|&p| to_mm(p)).collect();
-        bands.entry(job.track).or_default().push(Band::new(pts, (job.half + MARGIN) / PT_PER_MM));
+        // The strip is the road itself: its middle may lie off the drawn line (a road anchored at one edge).
+        let pts: Vec<P> = shifted(&job.road_line, (job.lo + job.hi) / 2.0).iter().map(|&p| to_mm(p)).collect();
+        bands.entry(job.track).or_default().push(Band::new(pts, ((job.hi - job.lo) / 2.0 + MARGIN) / PT_PER_MM));
     }
     bands
 }
@@ -126,11 +158,11 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
             notes.push(format!("Level crossing {}: the track runs nearly along the road; left out.", job.id));
             continue;
         }
-        let (hr, ht) = (job.half + MARGIN, crossing_half_mm(data, &job.track) * PT_PER_MM + 0.3);
+        let (near, far, ht) = (job.lo - MARGIN, job.hi + MARGIN, crossing_half_mm(data, &job.track) * PT_PER_MM + 0.3);
         let x = job.found.at;
         // The panel is the parallelogram where the road strip and the track strip overlap.
         let corner = |a: f64, b: f64| [x[0] + (a * nt[1] - nr[1] * b) / det, x[1] + (nr[0] * b - a * nt[0]) / det];
-        let ring = vec![corner(hr, ht), corner(hr, -ht), corner(-hr, -ht), corner(-hr, ht)];
+        let ring = vec![corner(far, ht), corner(far, -ht), corner(near, -ht), corner(near, ht)];
         // Named under the track, so the panel lives in the track layer (between its ballast and its rails).
         let base = format!("gen.track.{}.level.{}", job.track, job.id);
         out.layer(Layer::Ties);
@@ -138,11 +170,10 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
         if job.treatment == "gated" {
             out.layer(Layer::Rails); // signs and gates stand above everything on the track
             let clear = ht / det.abs() + 3.0;
-            for (sign, tag) in [(-1.0, "before"), (1.0, "after")] {
-                // On the approach, at the road edge; the arm reaches across to the road's line.
-                let side = sign;
+            for (sign, edge, tag) in [(-1.0, job.lo - 1.0, "before"), (1.0, job.hi + 1.0, "after")] {
+                // On the approach, beside the road's edge; the arm reaches across to the road's line.
                 let foot = [x[0] + rd[0] * sign * clear, x[1] + rd[1] * sign * clear];
-                let pole = [foot[0] + nr[0] * side * (job.half + 1.0), foot[1] + nr[1] * side * (job.half + 1.0)];
+                let pole = [foot[0] + nr[0] * edge, foot[1] + nr[1] * edge];
                 let arm: Vec<P> = [0.7_f64, -0.7].iter().map(|a| a.sin_cos()).flat_map(|(s, c)| [[pole[0] - 0.7 * s, pole[1] - 0.7 * c], [pole[0] + 0.7 * s, pole[1] + 0.7 * c]]).collect();
                 out.path(&format!("{base}.crossbuck.{tag}"), &[arm[0..2].to_vec(), arm[2..4].to_vec()], |p| p, SIGN, 0.25, false);
                 out.path(&format!("{base}.gate.{tag}"), &[vec![pole, foot]], |p| p, RED, 0.2, false);

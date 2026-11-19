@@ -151,7 +151,9 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     if has_road {
         // Level crossings are drawn after the tracks (their panel lies above the ballast, below the rails); a record whose track is gone says so.
         let data = params["_context"]["documentData"].as_object().cloned().unwrap_or_default();
+        out.displace(false); // the panel and signs sit on the track, a model at true scale: never wobbled or thickened
         notes.extend(level::build(&items, &spec, &data, &mut out));
+        out.displace(true);
     }
     // What the build had to say is kept with the document so the panel can show it; the rest of the stored data is carried over unchanged.
     let mut spec = spec;
@@ -518,20 +520,27 @@ pub fn set_joint_text(input: &Value, params: &Value) -> Result<String, String> {
 pub fn set_level_crossing_text(input: &Value, params: &Value) -> Result<String, String> {
     let items = items_from_filter_input(input);
     let mut spec = load_spec(params)?;
-    let roads: Vec<&Item> = items.iter().filter(|i| segment_id(&i.name).is_some()).collect();
-    let tracks: Vec<&Item> = items.iter().filter(|i| rail_builder::track_id(&i.name).is_some()).collect();
-    let (road, track) = match (roads.as_slice(), tracks.as_slice()) {
-        ([r], [t]) => (*r, *t),
-        _ => return Err(format!("Select one road line and one track line that cross ({} road line{} and {} track line{} selected).", roads.len(), if roads.len() == 1 { "" } else { "s" }, tracks.len(), if tracks.len() == 1 { "" } else { "s" })),
+    // One road (it may be drawn as several pieces) and one track.
+    let mut road_ids: Vec<String> = items.iter().filter_map(|i| segment_id(&i.name)).collect();
+    let mut track_ids: Vec<String> = items.iter().filter_map(|i| rail_builder::track_id(&i.name)).collect();
+    road_ids.dedup();
+    track_ids.dedup();
+    road_ids.sort();
+    road_ids.dedup();
+    track_ids.sort();
+    track_ids.dedup();
+    let (r, t) = match (road_ids.as_slice(), track_ids.as_slice()) {
+        ([r], [t]) => (r.clone(), t.clone()),
+        _ => return Err(format!("Select one road and one track that cross ({} road{} and {} track{} selected).", road_ids.len(), if road_ids.len() == 1 { "" } else { "s" }, track_ids.len(), if track_ids.len() == 1 { "" } else { "s" })),
     };
     let value: Value = match params["description"].as_str().map(str::trim).filter(|t| !t.is_empty()) {
         Some(raw) => serde_json::from_str(raw).map_err(|e| format!("the level crossing description is not valid JSON: {e}"))?,
         None => json!({}),
     };
     let treatment = level::parse_treatment(&value)?;
-    let (r, t) = (segment_id(&road.name).unwrap_or_default(), rail_builder::track_id(&track.name).unwrap_or_default());
-    let (Some(rl), Some(tl)) = (road.subs.first(), track.subs.first()) else { return Err("the selected lines have no points".into()) };
-    if level::cross_point(rl, tl).is_none() {
+    let pick = |want: &dyn Fn(&str) -> bool| -> Vec<&Vec<crate::geom::P>> { items.iter().filter(|i| want(&i.name)).filter_map(|i| i.subs.first()).filter(|s| s.len() >= 2).collect() };
+    let (rls, tls) = (pick(&|n| segment_id(n).as_deref() == Some(r.as_str())), pick(&|n| rail_builder::track_id(n).as_deref() == Some(t.as_str())));
+    if level::find_crossing(&rls, &tls).is_none() {
         return Err(format!("Road {r} and track {t} do not cross. Draw the track across the road, then select both."));
     }
     let id = spec.level_crossings().into_iter().find(|(_, v)| v["road"] == r.as_str() && v["track"] == t.as_str()).map(|(k, _)| k)
