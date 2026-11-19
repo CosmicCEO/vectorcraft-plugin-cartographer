@@ -9,7 +9,7 @@ Both are document settings (the **Document settings** card at the bottom of the 
 | `medium-contrast` (the default) | Flat fills and strong outlines: exactly what 0.4.0 drew. Nothing is changed. |
 | `high-contrast` | Every colour is pushed away from mid-grey (contrast 1.6): light fills lighter, dark lines darker. |
 | `black-white` | Every colour becomes one of four greys (black, two greys, white) by its brightness. |
-| `hand-drawn` | Road edges, kerbs, fills and marks wander slowly, deterministically from the document `seed` (long edges are cut into pieces so even a straight road wanders), and each stroke gets its own width (0.85 to 1.15 times). |
+| `hand-drawn` | Road edges, kerbs, fills and marks wander slowly, deterministically from the document `seed` (long edges are cut into pieces so even a straight road wanders), and each marking gets its own stroke width (0.85 to 1.15 times), the same along every piece of a road. |
 
 Rules that hold in every style:
 
@@ -19,14 +19,17 @@ Rules that hold in every style:
 - Railway track is a model at true scale: it is coloured by the style but never moved or widened, so its gauge stays exact.
 - A setting that cannot be read (a typo in a stored record, `north_deg` out of range) is ignored and named in the build notes; the other settings still apply. A record from a newer Cartographer is refused, as before.
 
-Not done yet: a minimum print size for water and symbols (only road bands and road strokes get one), hatch and stipple tones for black-white (a filter can write only paths and solid fills, so patterns need their own spike), hairline strokes, a taper along a stroke, per-element styles, a style for rail beyond colour.
+Crosswalk bars, arrows and culvert pipes keep their true width (they are drawn at a pitch, and widening them would fill the gaps).
+
+Not done yet: a minimum print size for symbols, junction radii and setbacks that grow with the bands, hatch and stipple tones for black-white (a filter can write only paths and solid fills, so patterns need their own spike), hairline strokes, a taper along a stroke, per-element styles, a style for rail beyond colour.
 
 ## Target print scale
 
-`true`, or `1:N`. With a scale set, a build gives road bands and road strokes a minimum print size, measured on the paper (water, junction details and symbols are not held to one yet):
+`true`, or `1:N`. With a scale set, a build gives road bands, creeks and rivers, and road strokes a minimum print size, measured on the paper (junction details and symbols are not held to one yet):
 
 - a band (a lane, a margin, a bike lane ...) is at least **0.3 mm** wide on paper, which is `0.3 * N / 1000` metres of ground (1.5 m at 1:5000); a narrower band is widened equally about the road's own line;
-- a road stroke (kerb lines, lane lines, and also arrows, crosswalk bars and water edges, which share the writer) is at least **0.12 mm** on paper (0.6 m at 1:5000);
+- a creek or river is at least as wide as that band minimum, about its own line;
+- a road stroke (kerb lines, lane lines, water edges) is at least **0.12 mm** on paper (0.6 m at 1:5000);
 - the line you drew and every join stay where they are; junctions and intersections follow the widened bands because they read widths from the same place.
 
 At `true` nothing is widened. Rail is not widened (it is at true model scale). Changing the setting needs a rebuild, which **Draw this** does.
