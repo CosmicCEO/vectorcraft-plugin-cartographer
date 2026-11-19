@@ -411,3 +411,13 @@ test("lines drawn with the shape tools count as lines: a Line becomes a track, a
   done();
 });
 
+
+test("a yard saved by 1.5 (millimetres, schema 1) is shown and changed in metres, never as metres of millimetres", async () => {
+  const spec = { schema: 1, tracks: {}, yards: { t1: { mains: 1, left: 2, ends: "stub", frog: 6, spacing: 24.765, at: 100, length: 2000, crossovers: [{ from: 1, to: 1, at: 500 }], ballast: true, ties: true } } };
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "track.t1" }], selection: [2], spec });
+  const { panel, done } = await setup(vc);
+  const s = panel.snapshot().track.spec;
+  assert.ok(Math.abs(s.spacing - 3.9624) < 1e-6 && s.at === 16 && s.length === 320, JSON.stringify(s));
+  assert.equal(s.crossovers[0].at, 80);
+  done();
+});

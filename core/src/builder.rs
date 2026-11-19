@@ -144,7 +144,7 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
         // Tracks are built after the roads, so their ties and rails lie above the roads' paving; a stored description that cannot be read fails the build.
         // A road crossing a track at a level crossing leaves the track's ties out under it.
         let level_bands = if has_road { level::avoid_bands(&items, &spec) } else { Default::default() };
-        let mut track_notes = rail_builder::build_into_with(&items, &params["_context"]["documentData"], &mut out, &level_bands)?;
+        let mut track_notes = rail_builder::build_into_with(&items, &params["_context"]["documentData"], &mut out, &level_bands).map_err(|e| crate::rail_units::metres_text(&e))?;
         if has_road {
             // A missing level crossing is said first: it is the note a user can act on. All of these share the track half of the 30 notes.
             let mut level_notes = level::missing_notes(&items, &spec);

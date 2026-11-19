@@ -159,8 +159,25 @@ export async function readSpec(control) {
       await new Promise((r) => setTimeout(r, 50));
     }
     const doc = parseNativeFile(readFileSync(path)).document ?? {};
-    return { segments: {}, tracks: {}, yards: {}, joints: {}, level_crossings: {}, ...(doc.unknown?.pluginData?.[PLUGIN_ID] ?? {}), lines: trackLines(doc) };
+    return { segments: {}, tracks: {}, yards: {}, joints: {}, level_crossings: {}, ...inMetres(doc.unknown?.pluginData?.[PLUGIN_ID] ?? {}), lines: trackLines(doc) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+/** A record saved before schema 2 kept its railway in model millimetres (1:160): said in metres of ground here, as the plug-in reads it
+ *  (core/src/rail_units.rs `upgrade`), so the panel never shows or writes back millimetres as metres. */
+export function inMetres(data) {
+  if ((data.schema ?? 0) >= 2) return data;
+  const m = (x) => (typeof x === "number" ? Math.round((x / 6.25) * 1e6) / 1e6 : x);
+  const rec = (r) => {
+    if (!r || typeof r !== "object") return r;
+    const out = { ...r };
+    for (const k of ["spacing", "at", "length"]) if (k in out) out[k] = m(out[k]);
+    if (Array.isArray(out.crossovers)) out.crossovers = out.crossovers.map(rec);
+    return out;
+  };
+  const table = (t) => (t && typeof t === "object" ? Object.fromEntries(Object.entries(t).map(([k, v]) => [k, rec(v)])) : t);
+  return { ...data, ...(data.tracks ? { tracks: table(data.tracks) } : {}), ...(data.yards ? { yards: table(data.yards) } : {}), schema: 2 };
+}
+

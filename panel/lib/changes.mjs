@@ -31,8 +31,8 @@ export function describeChanges(before, after, what = "intersection") {
 
 // The same for tracks and yards: a description there is {kind, spec}, and a change of kind is said in words.
 const TRACK_LABEL = {
-  tracks: "tracks", spacing: "spacing (mm)", ballast: "roadbed", ties: "ties", mains: "main tracks", left: "spurs on the left", right: "spurs on the right",
-  ends: "far end", frog: "turnout number", crossovers: "crossovers", at: "starts at (mm)", length: "length (mm)",
+  tracks: "tracks", spacing: "spacing (m)", ballast: "roadbed", ties: "ties", mains: "main tracks", left: "spurs on the left", right: "spurs on the right",
+  ends: "far end", frog: "turnout number", crossovers: "crossovers", at: "starts at (m)", length: "length (m)",
 };
 const showTrack = (v) => (v === null || v === undefined ? "automatic" : v === true ? "on" : v === false ? "off" : Array.isArray(v) ? (v.length ? v.map(crossover).join("; ") : "none") : String(v));
 const crossover = (c) => `main ${c.from} to ${c.to}${c.at === undefined ? " in the middle" : ` at ${c.at} m`}`;

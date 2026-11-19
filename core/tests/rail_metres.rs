@@ -72,3 +72,11 @@ fn messages_speak_metres() {
     assert_eq!(metres_text("13 ft prototype = 24.8 mm"), "13 ft = 3.97 m");
     assert_eq!(metres_text("No. 6 turnout"), "No. 6 turnout");
 }
+
+#[test]
+fn millimetres_and_inches_in_a_description_are_real_ones() {
+    let m = record_to_model(&json!({"spacing": "4000mm", "at": "100cm", "length": "1000in"}));
+    assert_eq!(m["spacing"].as_f64(), Some(25.0), "4000 mm of ground is 4 m");
+    assert_eq!(m["at"].as_f64(), Some(6.25));
+    assert!((m["length"].as_f64().unwrap() - 25.4 * 6.25).abs() < 1e-9);
+}

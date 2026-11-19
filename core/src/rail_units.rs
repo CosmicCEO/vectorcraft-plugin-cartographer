@@ -14,10 +14,20 @@ fn convert(v: &Value, to_mm: bool) -> Value {
     if let Some(x) = v.as_f64() {
         return if to_mm { json!(x * MM_PER_M) } else { json!((x / MM_PER_M * 1e6).round() / 1e6) };
     }
-    // Text in metres ("2m", "1.5 m") becomes a number; feet, era names and anything else are left to the rail parser.
+    // Text in real units ("2m", "4000mm", "100cm", "36in") becomes a number; feet (of ground already), era names and anything else are left
+    // to the rail parser.
     if let (true, Some(t)) = (to_mm, v.as_str()) {
-        if let Some(n) = t.trim().to_lowercase().strip_suffix('m').filter(|n| !n.ends_with('m')).and_then(|n| n.trim().parse::<f64>().ok()) {
-            return json!(n * MM_PER_M);
+        let t = t.trim().to_lowercase();
+        let split = t.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(t.len());
+        let metres_per = match t[split..].trim() {
+            "m" => Some(1.0),
+            "cm" => Some(0.01),
+            "mm" => Some(0.001),
+            "in" | "\"" => Some(0.0254),
+            _ => None,
+        };
+        if let (Some(k), Ok(n)) = (metres_per, t[..split].parse::<f64>()) {
+            return json!(n * k * MM_PER_M);
         }
     }
     v.clone()
