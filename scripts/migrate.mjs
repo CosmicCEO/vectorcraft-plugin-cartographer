@@ -3,8 +3,8 @@
 //   node scripts/migrate.mjs <in.vectorcraft> <out.vectorcraft> [--force]
 // Then open the output in VectorCraft, install Cartographer, select all and press Build. See docs/MIGRATION.md.
 import "./lib/require-node.mjs";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, lstatSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { migrateBytes } from "./lib/migrate.mjs";
 
 const args = process.argv.slice(2);
@@ -28,7 +28,17 @@ const identity = (p) => {
   return `${s.dev}:${s.ino}`;
 };
 if (resolve(input) === resolve(output) || (existsSync(resolve(output)) && identity(resolve(input)) === identity(resolve(output)))) fail("The output must be a different file from the input: the input is never changed.");
-if (existsSync(resolve(output)) && !force) fail(`${output} already exists. Choose another name, or add --force to replace it.`);
+// lstat sees a symlink even when it points nowhere.
+const present = (p) => {
+  try {
+    lstatSync(p);
+    return true;
+  } catch {
+    return false;
+  }
+};
+if (present(resolve(output)) && !force) fail(`${output} already exists. Choose another name, or add --force to replace it.`);
+if (!existsSync(dirname(resolve(output)))) fail(`The folder ${dirname(resolve(output))} does not exist.`);
 
 let result;
 try {
@@ -38,5 +48,13 @@ try {
 }
 for (const line of result.report) console.log(line);
 if (/^Nothing to migrate/.test(result.report[0])) process.exit(0);
-writeFileSync(resolve(output), result.bytes);
+// Written to a new temporary file next to the output, then renamed into place: a failed write never leaves half a file.
+const temp = `${resolve(output)}.${process.pid}.tmp`;
+try {
+  writeFileSync(temp, result.bytes, { flag: "wx" });
+  renameSync(temp, resolve(output));
+} catch (e) {
+  rmSync(temp, { force: true });
+  fail(`could not write ${output}: ${e.code ?? e.message}`);
+}
 console.log(`wrote ${output}`);

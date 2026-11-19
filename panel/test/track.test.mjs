@@ -104,6 +104,7 @@ test("Draw with nothing proposed just rebuilds", async () => {
   const { panel, done } = await setup(vc);
   await panel.draw();
   assert.deepEqual(steps(vc), ["select.all", "plugin.run", "select.set"]);
+  assert.equal(panel.snapshot().message, "Rebuilt.", "the result of Draw is still said after the panel reads the document again");
   done();
 });
 
@@ -352,3 +353,17 @@ test("Draw on two lines with no stored joint stores what the card shows, a descr
   assert.ok(!vc.doc.calls.slice(before).some((c) => c.command === SET_JOINT), "a stored joint is not sent again");
   done();
 });
+
+test("a second copy of the same document is a different document: proposals do not follow", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "track.t1" }], selection: [2] });
+  vc.doc.fileName = "plan.vectorcraft";
+  const { panel, done } = await setup(vc);
+  await panel.editTrack({ tracks: 2 });
+  assert.equal(panel.snapshot().pending.kind, "tracks");
+  vc.doc.fileName = "plan copy.vectorcraft"; // the same inner title, another file
+  vc.doc.revision++;
+  await panel.tick(true);
+  assert.equal(panel.snapshot().pending, null);
+  done();
+});
+

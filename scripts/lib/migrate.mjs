@@ -40,21 +40,36 @@ function counts(record) {
     .join(", ");
 }
 
+/** A number read losslessly (see `migrateBytes`) as a plain number. */
+const num = (v) => (JSON.isRawJSON(v) ? Number(v.rawJSON) : v);
+
+/** A deep copy that keeps losslessly read numbers as they are. */
+const clone = (v) => (Array.isArray(v) ? v.map(clone) : v && typeof v === "object" && !JSON.isRawJSON(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, clone(x)])) : v);
+
 /** Scales every point and handle of a path in place. */
 function scalePath(path, k) {
   for (const sub of path?.subpaths ?? []) {
     for (const a of sub.anchors ?? []) {
-      for (const key of ["p", "in", "out"]) if (Array.isArray(a[key])) a[key] = a[key].map((v) => v * k);
+      for (const key of ["p", "in", "out"]) if (Array.isArray(a[key])) a[key] = a[key].map((v) => num(v) * k);
     }
   }
 }
+
+/** Scales a path, or every piece of a compound path (its pieces are unnamed children). */
+function scaleNode(node, k) {
+  if (node.kind?.path) scalePath(node.kind.path, k);
+  for (const child of node.kind?.children ?? []) scaleNode(child, k);
+}
+
+/** Does this node, or anything inside it, have a name that is not a generated one? */
+const holdsUserObjects = (node) => (node.kind?.children ?? []).some((c) => (typeof c.name === "string" && !c.name.startsWith("gen.")) || holdsUserObjects(c));
 
 /**
  * Converts a parsed document. Returns `{file, report}`: a converted copy (the input is not changed) and plain-words lines saying what was done.
  * A document with nothing to convert comes back equal with a report that says so. Throws when it already has Cartographer data.
  */
 export function migrateDocument(input) {
-  const file = structuredClone(input);
+  const file = clone(input);
   const data = file.document?.unknown?.pluginData ?? {};
   if (data[IDS.cartographer]) throw new Error("This document already has Cartographer data. Migrate a copy of the original file, not one that was migrated already.");
   const [rb, tl] = [data[IDS.roadbuilder], data[IDS.tracklayer]];
@@ -72,31 +87,37 @@ export function migrateDocument(input) {
     if (!old) continue;
     const found = counts(old);
     report.push(`${label}: ${found || "no features stored"}.`);
-    if (typeof old.version === "number" && old.version > KNOWN_VERSION) report.push(`${label} record version ${old.version} is newer than this tool knows (${KNOWN_VERSION}); it was copied as it is, check the result.`);
+    if (typeof num(old.version) === "number" && num(old.version) > KNOWN_VERSION) report.push(`${label} record version ${old.version} is newer than this tool knows (${KNOWN_VERSION}); it was copied as it is, check the result.`);
     const unknown = Object.keys(old).filter((key) => !KNOWN_KEYS.has(key));
     if (unknown.length) report.push(`Kept but not used by Cartographer (from ${label}): ${unknown.join(", ")}.`);
     for (const [key, value] of Object.entries(old)) {
       if (key === "schema" || key === "version") continue;
       if (key === "notes") notes.push(...(Array.isArray(value) ? value : []));
-      else record[key] = structuredClone(value);
+      else record[key] = clone(value);
     }
+  }
+  if (rb && tl) {
+    const shared = Object.keys(rb).filter((k) => k in tl && !["notes", "version", "schema"].includes(k));
+    if (shared.length) report.push(`Found in both records: ${shared.join(", ")}; Track Layer's was kept. Check the result.`);
+    report.push("This document has both Road Builder and Track Layer data: the track lines are scaled about the page origin and the roads are not, so their positions relative to each other change. Check the result.");
   }
   record.notes = notes;
   data[IDS.cartographer] = record;
 
   // Walk the layers: scale Track Layer's lines, drop what the old plug-ins generated (the first Build draws it again).
   let scaled = 0;
-  let dropped = 0;
+  const dropped = [];
   const walk = (nodes) => {
     for (let i = nodes.length - 1; i >= 0; i--) {
       const node = nodes[i];
-      if (typeof node?.name === "string" && node.name.startsWith("gen.")) {
+      const name = typeof node?.name === "string" ? node.name : "";
+      if (name.startsWith("gen.") && !holdsUserObjects(node)) {
         nodes.splice(i, 1);
-        dropped++;
+        dropped.push(name);
         continue;
       }
-      if (tl && /^track\..+/.test(node?.name ?? "") && node.kind?.path) {
-        scalePath(node.kind.path, TRACK_SCALE);
+      if (tl && /^track\..+/.test(name)) {
+        scaleNode(node, TRACK_SCALE);
         scaled++;
       }
       if (Array.isArray(node?.kind?.children)) walk(node.kind.children);
@@ -104,7 +125,11 @@ export function migrateDocument(input) {
   };
   walk(file.document.layers ?? []);
   if (scaled) report.push(`${plural(scaled, ["track line", "track lines"])} scaled to Cartographer's 0.16 points per millimetre (factor ${TRACK_SCALE.toFixed(7)}).`);
-  if (dropped) report.push(`Removed ${plural(dropped, ["generated object", "generated objects"])}; select all and press Build in VectorCraft to draw them again.`);
+  if (dropped.length) {
+    report.push(`Removed ${plural(dropped.length, ["generated object", "generated objects"])}; select all and press Build in VectorCraft to draw them again.`);
+    const shown = dropped.slice(0, 8).join(", ");
+    report.push(`Removed by name: ${shown}${dropped.length > 8 ? ` and ${dropped.length - 8} more` : ""}.`);
+  }
   report.push("The old plug-in records were left in the file.");
   return { file, report };
 }
@@ -121,7 +146,8 @@ export function migrateBytes(bytes) {
   const end = (marker >= 0 ? raw.lastIndexOf(0x7d, marker) : raw.lastIndexOf(0x7d)) + 1;
   let file;
   try {
-    file = JSON.parse(raw.subarray(0, end).toString("utf8"));
+    // Numbers that a plain parse would change (beyond 2^53, or written like 1.0) are kept as their own text.
+    file = JSON.parse(raw.subarray(0, end).toString("utf8"), (k, v, ctx) => (typeof v === "number" && String(v) !== ctx?.source ? JSON.rawJSON(ctx.source) : v));
   } catch {
     throw new Error("This is not a VectorCraft document (its JSON cannot be read).");
   }

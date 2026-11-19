@@ -49,6 +49,11 @@ async function migrateAndOpen(name) {
   writeFileSync(`${out}/${name}.migrated.vectorcraft`, bytes);
   for (const l of report) say(`  ${l}`);
   await vc.call("app.open", { path: `${out}/${name}.migrated.vectorcraft` });
+  // The comparison is only worth something if the migrated copy is the document now being built.
+  const s = await vc.call("document.inspect", { depth: 0 });
+  assert.ok(`${s.title}`.includes(`${name}.migrated`), `the migrated copy is the active document: ${s.title}`);
+  const gen = ((await vc.call("document.inspect", { kind: "Path", limit: 100000 })).nodes ?? []).filter((n) => (n.name ?? "").startsWith("gen."));
+  assert.equal(gen.length, 0, "the migrated copy starts with no generated objects");
 }
 
 for (const [wasm, label] of [[roadWasm, "Road Builder"], [trackWasm, "Track Layer"], [`${root}/target/wasm32-unknown-unknown/release/cartographer_filter.wasm`, "Cartographer"]]) {
@@ -76,12 +81,15 @@ const newRoad = await exportSvg(`${out}/mig-road.new.svg`);
 const roads = compareSvg(oldRoad, newRoad);
 assert.ok(roads.same, `roads: ${roads.summary}`);
 assert.ok((oldRoad.match(/id="gen\./g) ?? []).length > 10, "the roads were really built");
+assert.ok((newRoad.match(/id="gen\./g) ?? []).length > 10, "and Cartographer rebuilt them");
 say("roads: the migrated document builds with Cartographer to the same SVG as Road Builder");
 
 // ---- track: a yard and a crossing track, in model millimetres at 72/25.4 points per mm, built by Track Layer
 await vc.run("file.new", {});
 const K = 72 / 25.4;
-const [L1, L2] = [await line(100 * K, 400 * K, 1700 * K, 400 * K), await line(900 * K, 200 * K, 900 * K, 600 * K)];
+// The crossing line is a Bezier curve, so the handles are scaled too.
+const L1 = await line(100 * K, 400 * K, 1700 * K, 400 * K);
+const L2 = (await vc.run("path.create", { anchors: [{ x: 900 * K, y: 200 * K, out: [1000 * K, 300 * K] }, { x: 900 * K, y: 600 * K, in: [800 * K, 500 * K] }] })).id;
 await select(L1);
 await vc.run(`plugin.${IDS.tracklayer}.set_yard`, { params: { description: JSON.stringify({ mains: 1, left: 2, ends: "stub" }) } });
 await select(L2);
@@ -100,6 +108,7 @@ const skipped = skipCollapsedRings(oldTrack, newTrack, TRACK_SCALE);
 const tracks = compareSvgScaled(skipped.old, skipped.new, { factor: TRACK_SCALE, tolerance: 0.001 });
 assert.ok(tracks.same, `tracks: ${tracks.summary}`);
 assert.ok((oldTrack.match(/id="gen\.track/g) ?? []).length > 5, "the track was really built");
+assert.ok((newTrack.match(/id="gen\.track/g) ?? []).length > 5, "and Cartographer rebuilt it");
 say(`tracks: the migrated document builds with Cartographer to the same SVG as Track Layer, scaled by ${TRACK_SCALE.toFixed(7)} (${skipped.skipped} collapsed ring(s) of Track Layer skipped)`);
 
 await vc.call("app.export", { path: `${out}/mig-track.new.png`, format: "png", ppi: 144, background: "white" });
