@@ -79,13 +79,18 @@ const SUBPATH = /M(-?[\d.]+) (-?[\d.]+)((?:(?!M)[^"Z])*)Z/g;
  * ring in `newText` that starts where it was (scaled by `factor`). `{old, new, skipped}`: the texts to compare and how many rings were skipped.
  */
 export function skipCollapsedRings(oldText, newText, factor, tolerance = 0.001) {
-  const points = [];
-  const old = oldText.replace(SUBPATH, (whole, x, y, rest) => {
-    if (rest.trim() !== `L${x} ${y}`) return whole;
-    points.push([Number(x) * factor, Number(y) * factor]);
-    return "";
-  });
-  if (!points.length) return { old: oldText, new: newText, skipped: 0 };
-  const now = newText.replace(SUBPATH, (whole, x, y) => (points.some(([px, py]) => Math.abs(px - Number(x)) <= tolerance && Math.abs(py - Number(y)) <= tolerance) ? "" : whole));
-  return { old, new: now, skipped: points.length };
+  const all = (text) => [...text.matchAll(SUBPATH)].map((m) => ({ at: m.index, len: m[0].length, x: Number(m[1]), y: Number(m[2]), rest: m[3].trim(), raw: m }));
+  const collapsed = all(oldText).filter((m) => m.rest === `L${m.raw[1]} ${m.raw[2]}`);
+  const rings = all(newText);
+  const used = new Set();
+  const pairs = [];
+  // Each collapsed ring is matched with exactly one new ring that starts where it was; an unmatched one stays, and so does any extra new ring.
+  for (const c of collapsed) {
+    const k = rings.findIndex((r, i) => !used.has(i) && Math.abs(r.x - c.x * factor) <= tolerance && Math.abs(r.y - c.y * factor) <= tolerance);
+    if (k < 0) continue;
+    used.add(k);
+    pairs.push([c, rings[k]]);
+  }
+  const cut = (text, spans) => spans.sort((p, q) => q.at - p.at).reduce((t, m) => t.slice(0, m.at) + t.slice(m.at + m.len), text);
+  return { old: cut(oldText, pairs.map((p) => p[0])), new: cut(newText, pairs.map((p) => p[1])), skipped: pairs.length };
 }

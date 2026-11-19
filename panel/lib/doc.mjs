@@ -84,7 +84,8 @@ export function classify(node) {
 
 export async function inspectState(control) {
   const r = await control.call("document.inspect", { depth: 0 });
-  return { revision: r.revision, title: r.fileInfoTitle ?? r.title ?? "", selection: r.selection ?? [] };
+  // `title` is the open file (two copies of one document differ there); `fileInfoTitle` is the name stored inside it (shared by copies).
+  return { revision: r.revision, title: r.title ?? r.fileInfoTitle ?? "", selection: r.selection ?? [] };
 }
 
 export async function nodes(control, ids) {

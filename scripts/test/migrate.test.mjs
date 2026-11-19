@@ -135,7 +135,7 @@ test("a file that is not a document says so plainly", () => {
 // ---- the command
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync as readdir, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -244,4 +244,75 @@ test("text written as a \\u escape comes back as valid UTF-8, and raw UTF-8 come
   const raw = Buffer.from(JSON.stringify(doc({ layers: [layer("Ünï } 名前 🚗", path("road.a", [anchor(0, 0), anchor(1, 1)]))], data: { [IDS.roadbuilder]: RB } }), null, 2), "utf8");
   const out = migrateBytes(raw).bytes;
   assert.match(new TextDecoder("utf-8", { fatal: true }).decode(out), /"name": "Ünï } 名前 🚗"/);
+});
+
+// ---- 1.5 (D13 to D18)
+
+import { symlinkSync, mkdirSync } from "node:fs";
+
+test("numbers the tool does not change come back exactly as written", () => {
+  const text = `{"format":"vectorcraft","document":{"next_id":18446744073709551615,"scale":1.0,"layers":[],"unknown":{"pluginData":{"${IDS.roadbuilder}":{"version":1,"segments":{}}}}}}`;
+  const { bytes } = migrateBytes(Buffer.from(text, "utf8"));
+  const out = bytes.toString("utf8");
+  assert.match(out, /"next_id": 18446744073709551615/);
+  assert.match(out, /"scale": 1\.0/);
+});
+
+test("keys found in both old records are reported", () => {
+  const { report } = migrateDocument(doc({ data: { [IDS.roadbuilder]: { ...RB, settings: { seed: 7 } }, [IDS.tracklayer]: { ...TL, settings: { seed: 9 } } } }));
+  assert.ok(report.some((l) => /settings/.test(l) && /both/.test(l)), report.join("\n"));
+});
+
+test("a document with both records warns that tracks and roads are scaled differently", () => {
+  const { report } = migrateDocument(doc({ data: { [IDS.roadbuilder]: RB, [IDS.tracklayer]: TL } }));
+  assert.ok(report.some((l) => /both/i.test(l) && /track/i.test(l) && /position/i.test(l)), report.join("\n"));
+});
+
+test("removed generated objects are named, and a gen layer keeps the user's objects in it", () => {
+  const input = doc({ layers: [layer("gen.stuff", path("road.a", [anchor(0, 0), anchor(5, 5)]), path("gen.road.a.1.line.0", [anchor(0, 0), anchor(1, 1)]))], data: { [IDS.roadbuilder]: RB } });
+  const { file, report } = migrateDocument(input);
+  assert.ok(names(file).includes("road.a"), "the user's line inside a gen.* layer survives");
+  assert.ok(names(file).includes("gen.stuff"), "and so does the layer holding it");
+  assert.ok(!names(file).includes("gen.road.a.1.line.0"));
+  assert.ok(report.some((l) => /gen\.road\.a\.1\.line\.0/.test(l)), report.join("\n"));
+});
+
+test("a compound track line is scaled piece by piece", () => {
+  const compound = { id: ++n, name: "track.t9", kind: { type: "compound", rule: "nonzero", children: [{ id: ++n, kind: { type: "path", path: { subpaths: [{ anchors: [anchor(0, 0), anchor(100, 0)], closed: false }] } } }, { id: ++n, kind: { type: "path", path: { subpaths: [{ anchors: [anchor(0, 50), anchor(100, 50, { in: [80, 70] })], closed: false }] } } }] } };
+  const { file } = migrateDocument(doc({ layers: [layer("L", compound)], data: { [IDS.tracklayer]: TL } }));
+  const kids = find(file, "track.t9").kind.children;
+  assert.deepEqual(kids[1].kind.path.subpaths[0].anchors[1].in, [80 * TRACK_SCALE, 70 * TRACK_SCALE]);
+  assert.deepEqual(kids[0].kind.path.subpaths[0].anchors[1].p, [100 * TRACK_SCALE, 0]);
+});
+
+test("the command refuses a dangling symlink as the output and a missing folder plainly, and leaves no temporary file", () => {
+  const { dir, input } = sandbox();
+  const link = join(dir, "link.vectorcraft");
+  symlinkSync(join(dir, "nowhere.vectorcraft"), link);
+  const r = run(input, link);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /already exists/);
+  assert.equal(existsSync(join(dir, "nowhere.vectorcraft")), false);
+  const r2 = run(input, join(dir, "no-such-folder", "out.vectorcraft"));
+  assert.equal(r2.status, 1);
+  assert.match(r2.stderr, /folder .* does not exist/);
+  assert.doesNotMatch(r2.stderr, /at .*\.mjs/, "no stack trace");
+  const ok = run(input, join(dir, "fine.vectorcraft"));
+  assert.equal(ok.status, 0, ok.stderr);
+  mkdirSync(join(dir, "check"), { recursive: true });
+  assert.deepEqual(readdir(dir).filter((f) => f.includes(".tmp")), [], "no temporary file is left");
+});
+
+// ---- WP2 review fixes
+
+test("an old record version written like 2.0 is reported, not a crash", () => {
+  const text = `{"document":{"layers":[],"unknown":{"pluginData":{"${IDS.roadbuilder}":{"version":2.0,"segments":{}}}}}}`;
+  const { report } = migrateBytes(Buffer.from(text, "utf8"));
+  assert.ok(report.some((l) => /version 2\.0 is newer/.test(l)), report.join("\n"));
+});
+
+test("an unnamed or empty-named piece does not keep a generated object", () => {
+  const generated = { id: ++n, name: "gen.road.a.1.surface", kind: { type: "compound", children: [{ id: ++n, name: "", kind: { type: "path", path: { subpaths: [] } } }, { id: ++n, kind: { type: "path", path: { subpaths: [] } } }] } };
+  const { file } = migrateDocument(doc({ layers: [layer("L", generated)], data: { [IDS.roadbuilder]: RB } }));
+  assert.ok(!names(file).includes("gen.road.a.1.surface"));
 });

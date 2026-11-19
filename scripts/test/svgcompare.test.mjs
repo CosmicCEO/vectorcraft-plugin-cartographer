@@ -95,3 +95,16 @@ test("only the new ring that starts where the old one collapsed is skipped", () 
   assert.match(r.new, /M30 30/);
   assert.doesNotMatch(r.new, /M10 4/);
 });
+
+test("a collapsed ring skips exactly one new ring, so an extra one at the same place is still seen", () => {
+  const r = skipCollapsedRings(ring("M50 20 L50 20 Z"), ring("M10 4 L12 4 L12 3 Z M10 4 L13 4 L13 2 Z"), 0.2);
+  assert.equal(r.skipped, 1);
+  assert.match(r.new, /M10 4 L13 4/, "the second ring at the same point stays and will differ");
+});
+
+test("a collapsed ring with no new ring to match is not skipped", () => {
+  const r = skipCollapsedRings(ring("M50 20 L50 20 Z"), ring("M1 1 L2 1 L2 2 Z"), 0.2);
+  assert.equal(r.skipped, 0);
+  assert.match(r.old, /M50 20 L50 20 Z/);
+});
+

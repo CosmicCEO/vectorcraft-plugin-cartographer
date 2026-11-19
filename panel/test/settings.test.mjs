@@ -207,3 +207,22 @@ test("Draw on the settings card rebuilds a document that has roads or tracks, an
   assert.ok(!steps(none.vc).includes("plugin.run"), "nothing to build, so no build and no error");
   assert.equal(none.panel.snapshot().message, "Drawn.");
 });
+
+test("an emptied number keeps the stored value instead of resetting it", async () => {
+  const { panel } = await setup({ paths: [{ id: 5, name: "" }], selection: [5], spec: { segments: {}, settings: { seed: 7 } } });
+  await panel.editSettings({ seed: null, style: "hand-drawn" });
+  const p = panel.snapshot().settingsPending;
+  assert.equal(p.settings.seed, 7);
+  assert.equal(p.settings.style, "hand-drawn");
+});
+
+test("settings stored but the rebuild failing says so and drops the proposal", async () => {
+  const { vc, panel } = await setup({ paths: [{ id: 2, name: "road.a" }], selection: [2], spec: { segments: { a: { cross_section: TWO, anchor: "auto" } } }, rejectBuild: "the host refused the build" });
+  await panel.editSettings({ style: "hand-drawn" });
+  await panel.drawSettings();
+  const s = panel.snapshot();
+  assert.equal(vc.doc.spec.settings.style, "hand-drawn", "the settings were stored");
+  assert.equal(s.settingsPending, null);
+  assert.match(s.message, /Settings saved; the rebuild failed: .*refused/);
+});
+
