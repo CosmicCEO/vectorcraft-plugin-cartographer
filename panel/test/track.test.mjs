@@ -321,7 +321,7 @@ test("a yard card edit keeps the yard and leaves an empty length out", async () 
   const stored = { mains: 2, left: 8, right: 4, ends: "merge", frog: 6, spacing: 3.9624, at: 0, ballast: true, ties: true };
   const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "track.t1" }], selection: [2], spec: { tracks: {}, yards: { t1: stored } } });
   const { panel, done } = await setup(vc);
-  assert.deepEqual(panel.snapshot().track.card.fields.map((f) => f.key), ["mains", "left", "right", "ends", "frog", "spacing", "at", "length", "ballast", "ties"]);
+  assert.deepEqual(panel.snapshot().track.card.fields.map((f) => f.key), ["mains", "left", "right", "ends", "frog", "spacing", "at", "length", "before_end", "ballast", "ties"]);
   await panel.editTrack({ left: 10, length: null });
   const p = panel.snapshot().pending;
   assert.deepEqual([p.kind, p.spec.left, "length" in p.spec], ["yard", 10, false]);

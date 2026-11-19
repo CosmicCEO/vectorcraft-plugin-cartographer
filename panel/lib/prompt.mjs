@@ -263,7 +263,7 @@ The track is built along a line the user drew. There are two kinds, chosen with 
 - mains: through tracks along the drawn line, 1 to 4. left, right: spurs on that side, 0 to 16, as seen travelling from the start of the line to its end.
 - ends: "merge" when the spurs join the mains again at the far end ("merge back", "come back together", "loop back"); "stub" when the spurs end in the yard (the default).
 - frog: turnout number, a whole number from 4 to 20 (6 is typical; "No. 8 turnouts" is 8). spacing as above.
-- at and length: where the yard starts and how long it is, in metres along the line or text such as "150m", "500ft". Leave them out to use the whole line.
+- at and length: where the yard starts and how long it is, in metres along the line or text such as "150m", "500ft". Leave them out to use the whole line. before_end: instead of length, how far before the end of the line the yard stops ("stop 50 m short of the end" is before_end: 50).
 - crossovers: a list of crossovers between neighbouring mains, [{"from": 1, "to": 2, "at": 150}]. Mains are numbered 1, 2, 3 ... from the left as seen travelling along the line. "from" is the main where the crossover starts as the line is followed, "to" the main it reaches. Leave out "at" to put it in the middle. A crossover needs at least two mains.
 
 Leave out every field the description does not mention (never write null). If it mentions a yard, spurs, sidings, a ladder, turnouts, switches or crossovers use "yard" (with mains = the number of through tracks); otherwise "tracks". "Double track" is tracks: 2; "triple track" is 3.

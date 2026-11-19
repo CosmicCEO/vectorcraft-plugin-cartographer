@@ -39,6 +39,8 @@ pub struct YardSpec {
     pub at: f64,
     /// How far the yard runs from `at`, mm; None: to the end of the drawn line.
     pub length: Option<f64>,
+    /// How far before the end of the drawn line the yard stops, mm (0: at the end). Not with `length`.
+    pub before_end: f64,
     /// Crossovers between neighbouring mains.
     pub crossovers: Vec<Crossover>,
     pub ballast: bool,
@@ -57,7 +59,7 @@ pub struct Crossover {
 
 impl Default for YardSpec {
     fn default() -> YardSpec {
-        YardSpec { mains: 1, left: 0, right: 0, merge: false, frog: 6, spacing: TRACK_CENTERS, at: 0.0, length: None, crossovers: vec![], ballast: true, ties: true }
+        YardSpec { mains: 1, left: 0, right: 0, merge: false, frog: 6, spacing: TRACK_CENTERS, at: 0.0, length: None, before_end: 0.0, crossovers: vec![], ballast: true, ties: true }
     }
 }
 
@@ -111,13 +113,17 @@ impl YardSpec {
                 }
                 "ballast" => s.ballast = val.as_bool().ok_or("`ballast` must be true or false.")?,
                 "ties" => s.ties = val.as_bool().ok_or("`ties` must be true or false.")?,
-                other => return Err(format!("Unknown yard field `{other}`. Use mains, left, right, ends, frog, spacing, at, length, crossovers, ballast, ties.")),
+                "before_end" => s.before_end = parse_length(val, "before_end").and_then(|x| if x >= 0.0 { Ok(x) } else { Err("`before_end` cannot be negative.".to_string()) })?,
+                other => return Err(format!("Unknown yard field `{other}`. Use mains, left, right, ends, frog, spacing, at, length, before_end, crossovers, ballast, ties.")),
             }
         }
         for c in &s.crossovers {
             if c.from > s.mains || c.to > s.mains {
                 return Err(format!("A crossover joins mains {} and {}, but there {} only {} main{}.", c.from, c.to, if s.mains == 1 { "is" } else { "are" }, s.mains, if s.mains == 1 { "" } else { "s" }));
             }
+        }
+        if s.length.is_some() && s.before_end > 0.0 {
+            return Err("Give the yard's `length` or `before_end` (how far before the end of the line it stops), not both.".into());
         }
         if !s.crossovers.is_empty() && Frog::new(s.frog).crossover_run(s.spacing).is_none() {
             return Err(format!("A No. {} crossover needs more than {:.1} mm between tracks (its two leads would overlap).", s.frog, 2.0 * Frog::new(s.frog).end()[1] + 1.0));
@@ -130,6 +136,9 @@ impl YardSpec {
         let mut v = json!({"mains": self.mains, "left": self.left, "right": self.right, "ends": if self.merge { "merge" } else { "stub" }, "frog": self.frog, "spacing": r(self.spacing), "at": r(self.at), "ballast": self.ballast, "ties": self.ties});
         if let Some(l) = self.length {
             v["length"] = json!(r(l));
+        }
+        if self.before_end > 0.0 {
+            v["before_end"] = json!(r(self.before_end));
         }
         if !self.crossovers.is_empty() {
             v["crossovers"] = json!(self.crossovers.iter().map(|c| match c.at {
@@ -494,7 +503,7 @@ pub fn build(id: &str, line: &[P], spec: &YardSpec, out: &mut Out, to_doc: impl 
         return notes;
     }
     let a0 = spec.at;
-    let a_end = a0 + spec.length.unwrap_or(total - a0);
+    let a_end = a0 + spec.length.unwrap_or(total - spec.before_end - a0);
     let (mut spec, mut a_end) = (spec.clone(), a_end);
     let need = spec.min_length();
     if a0 + need > total + 1e-6 || a_end > total + 1e-6 || a_end - a0 < need - 1e-6 {

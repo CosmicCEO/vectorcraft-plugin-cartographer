@@ -80,3 +80,27 @@ fn millimetres_and_inches_in_a_description_are_real_ones() {
     assert_eq!(m["at"].as_f64(), Some(6.25));
     assert!((m["length"].as_f64().unwrap() - 25.4 * 6.25).abs() < 1e-9);
 }
+
+#[test]
+fn a_yard_can_stop_short_of_the_end_of_its_line() {
+    let input = json!({"objects": [line(1, "track.t1", &[[0.0, 0.0], [600.0, 0.0]])]});
+    let out = set_yard_text(&input, &params(json!({}), r#"{"mains": 1, "left": 2, "ends": "merge", "at": 10, "before_end": 30}"#)).unwrap();
+    let d = stored(&out);
+    assert_eq!(d["yards"]["t1"]["before_end"].as_f64(), Some(30.0), "stored in metres: {}", d["yards"]["t1"]);
+    let v: Value = serde_json::from_str(&build_text(&input, &params(d, "")).unwrap()).unwrap();
+    let xs: Vec<f64> = v["objects"].as_array().unwrap().iter()
+        .filter(|o| o["name"].as_str().is_some_and(|n| n.starts_with("gen.track.t1.L")))
+        .flat_map(|o| o["path"]["subpaths"].as_array().unwrap().iter().flat_map(|s| s["anchors"].as_array().unwrap().iter().map(|a| a["p"][0].as_f64().unwrap())).collect::<Vec<_>>())
+        .collect();
+    assert!(!xs.is_empty(), "the spurs are drawn");
+    let (lo, hi) = (xs.iter().cloned().fold(f64::MAX, f64::min), xs.iter().cloned().fold(f64::MIN, f64::max));
+    assert!(lo > 9.0 && hi < 571.0 && hi > 560.0, "the spurs run from 10 m to 30 m before the end (570 m): {lo} .. {hi}");
+}
+
+#[test]
+fn before_end_and_length_cannot_both_be_given() {
+    let input = json!({"objects": [line(1, "track.t1", &[[0.0, 0.0], [600.0, 0.0]])]});
+    let e = set_yard_text(&input, &params(json!({}), r#"{"left": 1, "length": 300, "before_end": 30}"#)).unwrap_err();
+    assert!(e.contains("before_end") && e.contains("length") && e.contains("not both"), "{e}");
+    assert!(set_yard_text(&input, &params(json!({}), r#"{"left": 1, "before_end": -1}"#)).is_err());
+}

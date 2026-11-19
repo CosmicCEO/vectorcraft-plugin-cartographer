@@ -50,7 +50,8 @@ pub fn yard_schema() -> Value {
         {"key": "frog", "label": "Turnout number", "type": "integer", "min": 4, "max": 20, "default": d.frog, "help": "The frog number of every turnout, 4 to 20 (the numbers model turnouts are sold in)."},
         {"key": "spacing", "label": "Spacing (m)", "type": "number", "default": crate::rail_units::model_to_record(&d.to_json())["spacing"], "help": "Distance between track centres, in metres."},
         {"key": "at", "label": "Starts at (m)", "type": "number", "min": 0, "default": crate::rail_units::model_to_record(&d.to_json())["at"], "help": "Where the first turnout starts, metres along the line."},
-        {"key": "length", "label": "Length (m)", "type": "number", "min": 0, "default": Value::Null, "help": "How far the yard runs, metres; empty is to the end of the line."},
+        {"key": "length", "label": "Length (m)", "type": "number", "min": 0, "default": Value::Null, "help": "How far the yard runs, metres; empty is to the end of the line (less Stops before end)."},
+        {"key": "before_end", "label": "Stops before end (m)", "type": "number", "min": 0, "default": 0, "help": "How far before the end of the line the yard stops, metres; 0 is at the end. Leave Length empty when you use it."},
         on_off("ballast", "Roadbed", "Draws the roadbed under the yard."),
         on_off("ties", "Ties", "Draws the ties.")
     ]})

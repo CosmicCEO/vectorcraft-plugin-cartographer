@@ -5,7 +5,7 @@ A line named `track.<id>` becomes railroad track: rails, ties and roadbed to NMR
 | Scenario | Status | Description JSON |
 |---|---|---|
 | Parallel tracks | built | `{"tracks": 1..12, "spacing", "ballast", "ties"}` |
-| Yard with ladders, stub or merge | built | `{"mains": 1..4, "left": 0..16, "right": 0..16, "ends": "merge"|"stub", "frog": 4..20, "spacing", "at", "length"}` |
+| Yard with ladders, stub or merge | built | `{"mains": 1..4, "left": 0..16, "right": 0..16, "ends": "merge"|"stub", "frog": 4..20, "spacing", "at", "length" or "before_end"}` |
 | Words in a panel, and cards for tracks, yards and joints | built (`panel/`) | |
 | Crossover between neighbouring tracks | built | `"crossovers": [{"from", "to", "at"}]` in a yard (mains = the tracks) |
 | Single turnout, siding | built as a yard with one spur | |
@@ -25,6 +25,7 @@ A line named `track.<id>` becomes railroad track: rails, ties and roadbed to NMR
 - Mains lie along the drawn line, centred on it, one `spacing` apart (default 13 ft = 3.96 m, the RP-12 crossover basis).
 - Each side has a ladder off the outermost main. The ladder runs at the frog angle; spur *j* leaves it where the ladder is *j* spacings out, then runs parallel. The outermost spur is the ladder itself.
 - Each turnout is the NMRA RP-12.35 N straight switch turnout for the chosen frog number (4 to 20): straight switch rail, closure arc, then straight at the frog angle. A spur turns back to parallel with the same shape mirrored. With the lead's end at (x, y) from the point of switch, the frog angle a, and q = x sin(a) - y cos(a), spur *j* leaves the ladder at x + (j s - q - y) / tan(a) along the line, where *s* is the spacing. No. 6, 8 spurs: about 1.26 m of ladder. With `merge`, the same again at the far end.
+- The ladders start `at` metres from the start of the line and stop at the end of the line, `before_end` metres short of it, or after `length` metres (give `length` or `before_end`, not both); the mains always run the whole line.
 - The line needs `min_line_m` of length from `at`; otherwise only the mains are drawn and a note says so.
 - Ties of a spur start where it is a tie length clear of its parent; the parent's ties are lengthened over the turnout.
 - A crossover goes from main `from` to the neighbouring main `to` as the line is followed: the lead of a No. N turnout, a straight run at the frog angle of length (spacing - 2 y) / sin(a) (y is the sideways rise at the end of the lead), then the lead back the other way, arriving at the heel angle as a real switch rail does. It adds two turnouts. Without `at` it is centred on the yard. `core/tests/rail_turnouts.rs` checks the table's crossover column and that the closure rails end just short of the point of frog; every frog number 4 to 20 fits between tracks 13 ft or 12 ft apart.
