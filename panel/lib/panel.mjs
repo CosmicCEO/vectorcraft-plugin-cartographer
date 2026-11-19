@@ -142,6 +142,8 @@ export class Panel extends EventEmitter {
     else if (segments.length >= 3 && sel.every((n) => n.role === "road")) target = { kind: "hub", roads: [...segments].sort(), ids: sel.map((n) => n.id) };
     else if (sel.every((n) => n.role === "junction") && sel.length && new Set(sel.map((n) => n.segment)).size === 1) target = { kind: "junction", segment: sel[0].segment, ids: sel.map((n) => n.id) };
     else if (sel.length === 1 && sel[0].role === "line") target = { kind: "line", ids: [sel[0].id] };
+    // A plain line (or shape) with one track: the user wants a crossing, but the line must be a road first.
+    else if (trackIds.length === 1 && sel.every((n) => n.role === "track" || n.role === "line")) target = { kind: "other", plainWithTrack: true, ids: sel.map((n) => n.id) };
     else if (sel.length) target = { kind: "other", ids: sel.map((n) => n.id) };
 
     // A track (or a plain line described as one): what is stored for it, checked by the CLI, and the card built from the schema.
