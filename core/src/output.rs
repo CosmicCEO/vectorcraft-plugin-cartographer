@@ -93,9 +93,10 @@ impl Out {
         if !self.displace {
             return width;
         }
-        let w = width * self.style.stroke_factor(&marking_key(name));
+        // Only the hand-drawn style varies widths, and only a print scale sets a minimum: the plain build does no name work per stroke.
+        let w = if self.style.is_plain() { width } else { width * self.style.stroke_factor(&marking_key(name)) };
         // Crosswalk bars, arrows and culvert pipes are drawn at a pitch: widening them would fill the gaps, so they keep their true width.
-        if is_symbol(name) { w } else { w.max(self.min_stroke) }
+        if self.min_stroke > 0.0 && !is_symbol(name) { w.max(self.min_stroke) } else { w }
     }
 
     /// Puts the objects written from now on on the given stack.
@@ -210,28 +211,30 @@ impl Out {
         self.texts[self.layer].push_str("{\"name\":");
         self.texts[self.layer].push_str(&json_string(name));
         self.texts[self.layer].push_str(",\"path\":{\"subpaths\":[");
+        let (dec, tol) = (self.decimals, self.thin_tol);
+        let t = &mut self.texts[self.layer];
         for (i, mapped) in usable.iter().enumerate() {
             if i > 0 {
-                self.texts[self.layer].push(',');
+                t.push(',');
             }
-            self.texts[self.layer].push_str("{\"anchors\":[");
+            t.push_str("{\"anchors\":[");
             if smooth {
-                write_curve(&mut self.texts[self.layer], mapped, closed, self.decimals, self.thin_tol);
+                write_curve(t, mapped, closed, dec, tol);
             } else {
                 for (k, p) in mapped.iter().enumerate() {
                     if k > 0 {
-                        self.texts[self.layer].push(',');
+                        t.push(',');
                     }
-                    self.texts[self.layer].push_str("{\"p\":[");
-                    num_with(&mut self.texts[self.layer], p[0], self.decimals);
-                    self.texts[self.layer].push(',');
-                    num_with(&mut self.texts[self.layer], p[1], self.decimals);
-                    self.texts[self.layer].push_str("]}");
+                    t.push_str("{\"p\":[");
+                    num_with(t, p[0], dec);
+                    t.push(',');
+                    num_with(t, p[1], dec);
+                    t.push_str("]}");
                 }
             }
-            self.texts[self.layer].push_str(if closed { "],\"closed\":true}" } else { "],\"closed\":false}" });
+            t.push_str(if closed { "],\"closed\":true}" } else { "],\"closed\":false}" });
         }
-        self.texts[self.layer].push_str("]}");
+        t.push_str("]}");
         true
     }
 
@@ -276,24 +279,26 @@ impl Out {
         self.texts[self.layer].push_str(&json_string(name));
         self.texts[self.layer].push_str(",\"path\":{\"subpaths\":[");
         let mut first = true;
+        let dec = self.decimals;
+        let t = &mut self.texts[self.layer];
         for [a, b] in segs {
             let (a, b) = if on { (style.wobble(map(a)), style.wobble(map(b))) } else { (map(a), map(b)) };
-            if ![a[0], a[1], b[0], b[1]].iter().all(|c| c.is_finite()) {
+            if !(a[0] + a[1] + b[0] + b[1]).is_finite() {
                 continue; // a non-finite point would be written as 0 and draw a line to the origin
             }
             if !first {
-                self.texts[self.layer].push(',');
+                t.push(',');
             }
             first = false;
-            self.texts[self.layer].push_str("{\"anchors\":[{\"p\":[");
-            num_with(&mut self.texts[self.layer], a[0], self.decimals);
-            self.texts[self.layer].push(',');
-            num_with(&mut self.texts[self.layer], a[1], self.decimals);
-            self.texts[self.layer].push_str("]},{\"p\":[");
-            num_with(&mut self.texts[self.layer], b[0], self.decimals);
-            self.texts[self.layer].push(',');
-            num_with(&mut self.texts[self.layer], b[1], self.decimals);
-            self.texts[self.layer].push_str("]}],\"closed\":false}");
+            t.push_str("{\"anchors\":[{\"p\":[");
+            num_with(t, a[0], dec);
+            t.push(',');
+            num_with(t, a[1], dec);
+            t.push_str("]},{\"p\":[");
+            num_with(t, b[0], dec);
+            t.push(',');
+            num_with(t, b[1], dec);
+            t.push_str("]}],\"closed\":false}");
         }
         if first {
             // Every segment was skipped: take the half-written object back.
