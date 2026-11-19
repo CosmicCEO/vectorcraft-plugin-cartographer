@@ -60,11 +60,14 @@ Goal: no terminal. Double-click Cartographer and work.
 | 10 | Glacier | `natural=glacier` | pale blue-white, dashed blue outline |
 | 11 | Restricted (military) | `landuse=military`, `military=danger_area` (one kind: same pattern) | red diagonal hatching, red outline |
 
-- The key (legend) lists the roads, tracks, water and areas actually used, with the same swatches and line styles as the map.
+- **Road surface** (owner, 2026-11-19): paved, gravel or dirt, drawn as a texture across the road (ideas from the track grades on https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto/Lines; Cartographer keeps its own level of detail: roads at their real width).
+- **Paths:** footway, cycleway, bridleway, and steps drawn as short cross-bars (covers "trails").
+- The key (legend) lists the roads, tracks, water, areas and line variants actually used, with the same swatches and line styles as the map.
 
 ## Later (not scheduled)
 
-- Trails and estuaries (design section 6.3); more area kinds after the first ten (candidate: school grounds `amenity=school`).
+- Line variants (owner, 2026-11-19, ideas from OSM Carto Lines): road under construction (faded, dashed edge); private or local-access road (dotted edge); barriers (fence, wall, hedge, guard rail, retaining wall, jersey barrier); disused rail (ties only or faded rails); rail under construction (roadbed and ties, no rails); tram or light rail set into a road; intermittent stream or stream in a culvert (dashed blue); power line (pylons and a thin line); pipeline; tree row; cliff (teeth on the downhill side); administrative boundary (dash-dot). Each gets its own sample in the key.
+- Estuaries (design section 6.3); more area kinds after the first ten (candidate: school grounds `amenity=school`).
 - Half barriers and signals at level crossings.
 
 ## Open question
