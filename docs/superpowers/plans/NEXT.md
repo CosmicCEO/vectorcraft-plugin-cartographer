@@ -44,7 +44,7 @@ Goal: no terminal. Double-click Cartographer and work.
 - Labels, scale bar, legend and north arrow (the panel makes text through VectorCraft's own commands; a filter cannot, spike S4).
 - Junction radii and setbacks that grow with the print scale; minimum sizes for symbols.
 - Style defaults for high-contrast and black-white (owner, 1.6), and black-white hatching (spike S6: the panel creates the pattern swatches first).
-- **Areas with fill patterns and a key** (owner, 2026-11-19: "it's important to have a key and fill pattern for effectiveness"). A closed shape is named as an area in the panel, as a lake is today. One table gives every area kind its pattern swatch (colour and mark); the panel creates the swatches in the document before a build (spike S6), the plug-in fills with them, and the key shows the same swatch beside each kind used on the map, so map and key always match. Each kind also has a black-white hatching. Colours follow OpenStreetMap Carto (CC0). The ten kinds, from https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto/Areas:
+- **Areas with fill patterns and a key** (owner, 2026-11-19: "it's important to have a key and fill pattern for effectiveness"). A closed shape is named as an area in the panel, as a lake is today. One table gives every area kind its pattern swatch (colour and mark); the panel creates the swatches in the document before a build (spike S6), the plug-in fills with them, and the key shows the same swatch beside each kind used on the map, so map and key always match. Each kind also has a black-white hatching. Colours follow OpenStreetMap Carto (CC0). The eleven kinds, from https://wiki.openstreetmap.org/wiki/OpenStreetMap_Carto/Areas:
 
 | # | Area | OSM tag | Pattern |
 |---|---|---|---|
@@ -58,12 +58,13 @@ Goal: no terminal. Double-click Cartographer and work.
 | 8 | Land use | `landuse=residential/commercial/industrial` | three faint tints |
 | 9 | Railway station and platform | `railway=station`, `railway=platform` | station tint; platforms along the track |
 | 10 | Glacier | `natural=glacier` | pale blue-white, dashed blue outline |
+| 11 | Restricted (military) | `landuse=military`, `military=danger_area` (one kind: same pattern) | red diagonal hatching, red outline |
 
 - The key (legend) lists the roads, tracks, water and areas actually used, with the same swatches and line styles as the map.
 
 ## Later (not scheduled)
 
-- Trails and estuaries (design section 6.3); more area kinds after the first ten (candidates: military land `landuse=military` and danger area `military=danger_area`, red diagonal hatching; school grounds `amenity=school`).
+- Trails and estuaries (design section 6.3); more area kinds after the first ten (candidate: school grounds `amenity=school`).
 - Half barriers and signals at level crossings.
 
 ## Open question
