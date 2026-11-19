@@ -5,10 +5,16 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { appleHelperPlan } from "./lib/applefm.mjs";
 import { problems } from "./lib/checks.mjs";
+import { isPackaged } from "./lib/locate.mjs";
 import { rustEnv } from "./lib/env.mjs";
 import { probeRust } from "./lib/probe.mjs";
 
 const root = resolve(import.meta.dirname, "..");
+// A release package carries the built plug-in and helper: there is no source here to build.
+if (isPackaged(root)) {
+  console.log("This is a release package: the plug-in (cartographer_filter.wasm) and the helper (bin/cartographer-cli) are already built. Nothing to build.");
+  process.exit(0);
+}
 const env = rustEnv(process.platform, process.env, existsSync);
 const missing = problems({ nodeVersion: process.version, ...probeRust(env), hasCli: true, controlReachable: true });
 if (missing.length) {
