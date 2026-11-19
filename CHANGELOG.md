@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0
+- **Road meets track:** select a road line and a track line that cross (or use Make Level Crossing) to make a level crossing, plain or gated. The track's ties stop under the road, a crossing panel covers the ballast, the rails run across; gated adds crossbucks and gate arms. Roads drawn from one edge and roads drawn in pieces are handled.
+- **Small scales:** creeks and rivers get the band print minimum (bridges span the creek as drawn); crosswalk bars, arrows, culvert pipes, level-crossing ties and gore chevrons keep their true width instead of printing solid; in the hand-drawn style one marking keeps one width along every piece of a road.
+- **Cost:** rail builds are cheaper (1.20 to 1.23 times Track Layer, from 1.25 to 1.31). The real point limit was measured (a plain two-lane road builds to about 19,450 points); the note now starts at 12,000 points instead of 1,200.
+- **Fixes:** Describe Track no longer renames centreline, profile, flag, arrow or legacy junction lines; track notes are not crowded out by road notes; Draw says "Drawn."/"Rebuilt." after it finishes; clearing a settings number keeps the stored value; settings saved but not rebuilt say so; a second copy of a document is a different document in the panel.
+- **Migration:** numbers it does not touch come back exactly as written; collisions and both-records cases are reported; removed generated objects are named; compound track lines are scaled; the output is written safely (temporary file and rename; dangling links and missing folders refused plainly).
+- **Release:** v1.0.0 is marked "do not use"; use 1.0.1 or later.
+- Not in 1.5 (by ruling, see `docs/RELEASE-1.5.md`): black-white hatching, schema-built road cards, junction radii that grow with print scale, symbol minimum sizes, an overpass of a road over a track.
+
 ## 1.0.1 Package fix
 - The release package works: `scripts/install.mjs` and the panel looked for the plug-in and the native helper under `target/`, which only exists in a source checkout, so a downloaded package could not install or start the panel without hand-setting `CARTOGRAPHER_CLI`. They now also look where the package keeps them (`cartographer_filter.wasm`, `bin/cartographer-cli`).
 - `node scripts/check.mjs` in a package no longer asks for Rust (not needed to install and run a package).

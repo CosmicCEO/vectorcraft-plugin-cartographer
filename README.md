@@ -2,7 +2,7 @@
 
 One VectorCraft plug-in that draws roads, railway track and water from lines and shapes plus a description in plain words. It replaces the owner's two earlier plug-ins, Road Builder and Track Layer. Trails, forests, swamps and estuaries are planned for later.
 
-**Status: 1.0.0, the first release.**
+**Status: 1.5.0.** Since 1.0: a road can cross a track at a **level crossing** (plain or gated), print minimums for creeks and rivers, crosswalks and arrows that stay readable at small scales, cheaper rail builds, the real point limit measured (about 19,000 points for a plain road), and a sweep of small fixes ([CHANGELOG](CHANGELOG.md), [release notes](docs/RELEASE-1.5.md)).
 
 - **Roads** (a line named `road.<id>`): a cross-section written in words or shorthand; lane changes, junctions, intersections (lighted, stops, roundabout, overpass, ramps with gores, railroad, cloverleaf), hubs of three or more roads, water (lakes, creeks and rivers that blend where lines meet, shores), embankments, bridges, culverts and causeways. The output is identical to Road Builder's ([docs/PARITY.md](docs/PARITY.md): 15 scenarios, identical SVG, build cost within 5%).
 - **Railway track** (a line named `track.<id>`): N-scale rails, ties and roadbed; parallel tracks, yards with NMRA turnouts, crossovers, crossings, branches and joins, ported from Track Layer ([docs/RAIL.md](docs/RAIL.md), [gallery](docs/GALLERY.md), [parity](docs/PARITY-RAIL.md): 8 scenarios identical when scaled).
@@ -10,7 +10,7 @@ One VectorCraft plug-in that draws roads, railway track and water from lines and
 - **Migration**: `node scripts/migrate.mjs old.vectorcraft new.vectorcraft` converts a document made with Road Builder or Track Layer ([docs/MIGRATION.md](docs/MIGRATION.md), live-checked against both real plug-ins).
 - **The companion panel**: select a line in VectorCraft and describe it in words (an agent turns the words into a checked description), or use the cards; a **Document settings** card holds the target print scale, style, seed and north. It was tested against a stand-in for VectorCraft and, for rail, styles and migration, against a real VectorCraft on macOS; [docs/PANEL-CHECK.md](docs/PANEL-CHECK.md) is the check for the real application.
 
-Not in 1.0: a road meeting a track, the older centreline model, `.pmap` files and Add Junction (they stay in Road Builder; see [docs/MIGRATION.md](docs/MIGRATION.md)), hatch and stipple tones, labels. [docs/RELEASE-1.0.md](docs/RELEASE-1.0.md) is the release record.
+Not in 1.5: an overpass of a road over a track, the older centreline model, `.pmap` files and Add Junction (they stay in Road Builder; see [docs/MIGRATION.md](docs/MIGRATION.md)), hatch and stipple tones (see [spike S6](docs/spikes/S6-patterns.md)), labels. [docs/RELEASE-1.0.md](docs/RELEASE-1.0.md) is the release record.
 
 Under it is the shared base: one workspace, units and the target print scale, versioned document storage, the material library schema, a native helper, portable scripts, and tests on macOS and Linux.
 
@@ -44,7 +44,7 @@ cargo +stable test --release --workspace
 node --test panel/test/*.test.mjs scripts/test/*.test.mjs
 node scripts/standards.mjs check        # the standards database
 node scripts/parity.mjs <vectorcraft-cli> <road_builder_dir>   # macOS only; rail: see docs/PARITY-RAIL.md
-node scripts/package.mjs 1.0.1          # a release package in dist/
+node scripts/package.mjs 1.5.0          # a release package in dist/
 ```
 
 CI runs the same on Ubuntu and macOS. Headless renders need `vectorcraft-cli`, which exists for macOS only. Read [CLAUDE.md](CLAUDE.md) before changing anything.

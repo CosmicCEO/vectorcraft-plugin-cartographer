@@ -8,7 +8,7 @@ Write what you saw next to each step (`ok` or what went wrong) and send it back.
 
 1. `node scripts/check.mjs` ends with no `fix:` line.
 2. `node scripts/build.mjs`, then `node scripts/start-vectorcraft.mjs`. On Linux, set `VECTORCRAFT_APP` to the AppImage first if the script says it cannot find VectorCraft. If VectorCraft was already running, quit it first: the control port is set only at start.
-3. In VectorCraft create a new document, then `node scripts/install.mjs`. Expected: `installed Cartographer 1.0.1`.
+3. In VectorCraft create a new document, then `node scripts/install.mjs`. Expected: `installed Cartographer 1.5.0`.
 4. `node panel/server.mjs` and open http://127.0.0.1:8789 next to VectorCraft. Expected: a green dot in the header and the line "Nothing selected".
 
 ## Cards
