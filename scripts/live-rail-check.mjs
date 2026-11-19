@@ -54,7 +54,7 @@ await select(A);
 await vc.run(`plugin.${ID}.set_yard`, { params: { description: JSON.stringify({ mains: 1, left: 2, right: 1, ends: "stub" }) } });
 await post("draw");
 s = await until("a yard", (s) => s.track?.kind === "yard" && s.track.described);
-assert.ok(s.track.min_line_mm > 0 && s.track.card.fields.length === 10);
+assert.ok(s.track.min_line_m > 0 && s.track.card.fields.length === 10);
 say(`yard read back: ${s.track.summary}`);
 
 // 3. A second line, made track, crossing the first: two track lines are a joint.

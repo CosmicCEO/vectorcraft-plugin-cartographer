@@ -22,7 +22,7 @@ fn set_settings_keeps_objects_and_stores_data() {
     let out = run(r#"{"style":"hand-drawn","target_print_scale":"1:5000","seed":7,"north_deg":10}"#, json!({})).unwrap();
     let ids: Vec<i64> = out["objects"].as_array().unwrap().iter().map(|o| o["id"].as_i64().unwrap()).collect();
     assert_eq!(ids, vec![1, 2]);
-    assert_eq!(out["documentData"]["schema"], 1);
+    assert_eq!(out["documentData"]["schema"], 2);
     assert_eq!(out["documentData"]["settings"]["style"], "hand-drawn");
     assert_eq!(out["documentData"]["settings"]["target_print_scale"], "1:5000");
     assert_eq!(out["documentData"]["settings"]["seed"], 7);

@@ -123,7 +123,7 @@ const CROSS = [
   { id: 2, name: "track.a", geom: geom([[0, 0], [600, 0]]) },
   { id: 3, name: "track.b", geom: geom([[300, -200], [300, 200]]) },
 ];
-const YARD = { mains: 2, left: 4, right: 2, ends: "merge", frog: 6, spacing: 24.765, at: 0, ballast: true, ties: true };
+const YARD = { mains: 2, left: 4, right: 2, ends: "merge", frog: 6, spacing: 3.9624, at: 0, ballast: true, ties: true };
 
 test("the page renders a track, a yard, a joint and their proposals with the cards present", async () => {
   const page = runPage();

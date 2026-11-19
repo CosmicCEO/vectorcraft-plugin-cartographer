@@ -31,8 +31,8 @@ pub fn tracks_schema() -> Value {
     json!({"kind": "tracks", "fields": [
         {"key": "tracks", "label": "Tracks", "type": "integer", "min": 1, "max": crate::tracks::MAX_TRACKS, "default": d["tracks"],
          "help": "How many parallel tracks the line carries, 1 to 12."},
-        {"key": "spacing", "label": "Spacing (mm)", "type": "number", "default": d["spacing"],
-         "help": "Distance between track centres, in millimetres of model. Words such as 14ft or classic work in the words box."},
+        {"key": "spacing", "label": "Spacing (m)", "type": "number", "default": crate::rail_units::model_to_record(&d)["spacing"],
+         "help": "Distance between track centres, in metres. Words such as 14ft or classic work in the words box."},
         on_off("ballast", "Roadbed", "Draws the roadbed under the track."),
         on_off("ties", "Ties", "Draws the ties.")
     ]})
@@ -47,10 +47,10 @@ pub fn yard_schema() -> Value {
         {"key": "right", "label": "Spurs on the right", "type": "integer", "min": 0, "max": crate::yard::MAX_SPURS, "default": d.right, "help": "Spurs on the right as seen from the start of the line to its end."},
         {"key": "ends", "label": "Far end", "type": "choice", "options": ["merge", "stub"], "default": if d.merge { "merge" } else { "stub" },
          "help": "merge: the spurs join the mains again at the far end. stub: they end."},
-        {"key": "frog", "label": "Turnout number", "type": "integer", "min": 4, "max": 20, "default": d.frog, "help": "The frog number of every turnout, 4 to 20 (the numbers N scale turnouts are sold in)."},
-        {"key": "spacing", "label": "Spacing (mm)", "type": "number", "default": (d.spacing * 1000.0).round() / 1000.0, "help": "Distance between track centres, in millimetres of model."},
-        {"key": "at", "label": "Starts at (mm)", "type": "number", "min": 0, "default": d.at, "help": "Where the first turnout starts, millimetres along the line."},
-        {"key": "length", "label": "Length (mm)", "type": "number", "min": 0, "default": Value::Null, "help": "How far the yard runs; empty is to the end of the line."},
+        {"key": "frog", "label": "Turnout number", "type": "integer", "min": 4, "max": 20, "default": d.frog, "help": "The frog number of every turnout, 4 to 20 (the numbers model turnouts are sold in)."},
+        {"key": "spacing", "label": "Spacing (m)", "type": "number", "default": crate::rail_units::model_to_record(&d.to_json())["spacing"], "help": "Distance between track centres, in metres."},
+        {"key": "at", "label": "Starts at (m)", "type": "number", "min": 0, "default": crate::rail_units::model_to_record(&d.to_json())["at"], "help": "Where the first turnout starts, metres along the line."},
+        {"key": "length", "label": "Length (m)", "type": "number", "min": 0, "default": Value::Null, "help": "How far the yard runs, metres; empty is to the end of the line."},
         on_off("ballast", "Roadbed", "Draws the roadbed under the yard."),
         on_off("ties", "Ties", "Draws the ties.")
     ]})

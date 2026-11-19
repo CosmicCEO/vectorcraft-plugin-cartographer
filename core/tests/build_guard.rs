@@ -55,7 +55,7 @@ fn settings_and_unknown_data_survive_every_command() {
         assert_eq!(kept["settings"]["seed"], 7);
         assert_eq!(kept["settings"]["sheet"], json!({"size": "A0"}));
         assert_eq!(kept["extra"]["k"], 1);
-        assert_eq!(kept["schema"], 1);
+        assert_eq!(kept["schema"], 2);
     }
 }
 
@@ -115,7 +115,7 @@ fn a_build_and_the_commands_write_the_schema_even_when_the_document_had_none() {
     let d = data(json!({}));
     assert!(d.get("schema").is_none());
     for out in [parsed(build_text(&road(), &params(d.clone()))), parsed(set_cross_section_text(&road(), &params(d.clone())))] {
-        assert_eq!(out["documentData"]["schema"], 1);
+        assert_eq!(out["documentData"]["schema"], 2);
     }
 }
 

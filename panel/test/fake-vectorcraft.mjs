@@ -3,8 +3,9 @@ import { writeFileSync } from "node:fs";
 import net from "node:net";
 import { PLUGIN_ID, SET_SETTINGS, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_JUNCTION, SET_TRANSITION, SET_WATER, SET_WET, SET_JOINT, SET_LEVEL_CROSSING, SET_TRACKS, SET_YARD } from "../lib/doc.mjs";
 
+// A record is written by the current plug-in (schema 2) unless a test gives an older schema.
 export async function fakeVectorCraft({ paths = [], selection = [], spec = { segments: {} }, hasDocument = true, rejectYard = null, rejectJoint = null, rejectBuild = null } = {}) {
-  const doc = { paths: paths.map((p) => ({ kind: "Path", ...p })), selection: [...selection], spec: structuredClone(spec), revision: 1, title: "Untitled", calls: [], layers: [{ id: 1000, name: "Layer 1", visible: true, locked: false, parent: null }], nextLayer: 1001 };
+  const doc = { paths: paths.map((p) => ({ kind: "Path", ...p })), selection: [...selection], spec: { schema: 2, ...structuredClone(spec) }, revision: 1, title: "Untitled", calls: [], layers: [{ id: 1000, name: "Layer 1", visible: true, locked: false, parent: null }], nextLayer: 1001 };
   const tree = (parent = null) => doc.layers.filter((l) => l.parent === parent).map((l) => ({ id: l.id, kind: "Layer", name: l.name, visible: l.visible, locked: l.locked, children: [...tree(l.id), ...doc.paths.filter((p) => (p.path ?? [1000]).at(-1) === l.id).map((p) => ({ id: p.id, kind: p.kind, name: p.name }))] }));
   const reply = (socket, id, result) => socket.write(`${JSON.stringify({ id, ok: true, result })}\n`);
   const fail = (socket, id, error) => socket.write(`${JSON.stringify({ id, ok: false, error })}\n`);

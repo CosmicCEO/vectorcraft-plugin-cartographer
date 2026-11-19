@@ -153,7 +153,7 @@ export class Panel extends EventEmitter {
       const shown = stored ?? DEFAULT_TRACK;
       const parsed = await parseSpec(shown.kind, shown.spec);
       const spec = parsed.ok ? parsed.spec : shown.spec;
-      track = { id: target.id ?? null, described: !!stored, kind: shown.kind, spec, summary: parsed.ok ? parsed.summary : "", min_line_mm: parsed.min_line_mm ?? null, card: await this.#card(shown.kind, spec) };
+      track = { id: target.id ?? null, described: !!stored, kind: shown.kind, spec, summary: parsed.ok ? parsed.summary : "", min_line_m: parsed.min_line_m ?? null, card: await this.#card(shown.kind, spec) };
     }
     // Two track lines selected: how do they meet, and is there a joint stored for them?
     let joint = null;
@@ -299,7 +299,7 @@ export class Panel extends EventEmitter {
       const tr = this.state.track;
       const current = tr?.described ? { kind: tr.kind, spec: tr.spec } : null;
       const r = await proposeTrack({ description, current, provider });
-      return r.ok ? { pending: { kind: r.kind, spec: r.spec, summary: r.summary, min_line_mm: r.min_line_mm ?? null, changes: describeTrackChanges(current, r), ...base } } : { message: r.error };
+      return r.ok ? { pending: { kind: r.kind, spec: r.spec, summary: r.summary, min_line_m: r.min_line_m ?? null, changes: describeTrackChanges(current, r), ...base } } : { message: r.error };
     }
     if (t.kind === "joint") {
       const j = this.state.joint;
@@ -424,7 +424,7 @@ export class Panel extends EventEmitter {
       for (const [k, v] of Object.entries(patch)) next[k] = v === "on" ? true : v === "off" ? false : v;
       for (const k of Object.keys(next)) if (next[k] === null || next[k] === undefined || next[k] === "") delete next[k];
       const r = await parseSpec(base.kind, next);
-      this.#set(r.ok ? { pending: { kind: r.kind, spec: r.spec, summary: r.summary, min_line_mm: r.min_line_mm ?? null, source: "edit", changes: describeTrackChanges({ kind: tr.kind, spec: tr.spec }, r) }, message: null } : { message: r.error });
+      this.#set(r.ok ? { pending: { kind: r.kind, spec: r.spec, summary: r.summary, min_line_m: r.min_line_m ?? null, source: "edit", changes: describeTrackChanges({ kind: tr.kind, spec: tr.spec }, r) }, message: null } : { message: r.error });
     });
   }
 

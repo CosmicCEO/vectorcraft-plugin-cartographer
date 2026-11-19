@@ -125,8 +125,8 @@ fn set_yard_refuses_a_line_too_short_for_the_crossover() {
     let p = |d: &str| json!({"description": d, "_context": {"command": "set_yard", "documentData": {}}});
     let e = builder::set_yard_text(&line(120.0), &p("{\"mains\":2,\"crossovers\":[{\"from\":1,\"to\":2}]}")).unwrap_err();
     assert!(e.contains("crossover between mains 1 and 2 needs"), "{e}");
-    let e = builder::set_yard_text(&line(500.0), &p("{\"mains\":2,\"crossovers\":[{\"from\":1,\"to\":2,\"at\":450}]}")).unwrap_err();
-    assert!(e.contains("450"), "{e}");
+    let e = builder::set_yard_text(&line(500.0), &p("{\"mains\":2,\"crossovers\":[{\"from\":1,\"to\":2,\"at\":72}]}")).unwrap_err();
+    assert!(e.contains("450"), "a description in metres (72 m), checked in model mm (450): {e}");
     assert!(builder::set_yard_text(&line(900.0), &p("{\"mains\":2,\"crossovers\":[{\"from\":1,\"to\":2}]}")).is_ok());
 }
 

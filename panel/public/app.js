@@ -303,7 +303,7 @@ function show(s) {
     const pt2 = ["tracks", "yard"].includes(s.pending?.kind) ? s.pending : null;
     const tr = pt2 ?? s.track;
     $("tsummary").textContent = pt2 ? `Proposed: ${pt2.summary}` : s.track.described ? s.track.summary : "Not described yet: one track.";
-    const needs = tr.kind === "yard" && tr.min_line_mm ? `This yard needs at least ${(tr.min_line_mm / 1000).toFixed(2)} m of line.` : "";
+    const needs = tr.kind === "yard" && tr.min_line_m ? `This yard needs at least ${tr.min_line_m} m of line.` : "";
     $("tneeds").textContent = needs;
     $("tneeds").hidden = !needs;
     fillList("tchanges", pt2?.changes);

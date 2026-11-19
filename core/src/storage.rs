@@ -5,7 +5,7 @@ use crate::units::TargetScale;
 use serde_json::{Map, Value, json};
 
 /// The schema version this build reads and writes.
-pub const SCHEMA: u32 = 1;
+pub const SCHEMA: u32 = 2;
 
 const STYLE_IDS: [&str; 4] = ["black-white", "hand-drawn", "high-contrast", "medium-contrast"];
 
@@ -128,9 +128,9 @@ pub struct Doc {
     raw: Map<String, Value>,
 }
 
-/// Brings an older record up to `SCHEMA` (only 0, meaning no `schema` key, exists so far). A newer record is an error.
+/// Brings an older record up to `SCHEMA` (0 means no `schema` key; 1 kept the railway in model millimetres). A newer record is an error.
 fn migrate(v: &Value) -> Result<Map<String, Value>, String> {
-    let mut raw = match v {
+    let raw = match v {
         Value::Null => Map::new(),
         Value::Object(m) => m.clone(),
         _ => return Err("the document's plug-in data is not an object".into()),
@@ -142,6 +142,11 @@ fn migrate(v: &Value) -> Result<Map<String, Value>, String> {
     if found > u64::from(SCHEMA) {
         return Err(format!("this document was saved by a newer Cartographer (schema {found}); update the plug-in before changing it"));
     }
+    // Schema 2: the railway is stored in metres (1 kept model millimetres).
+    let mut raw = match crate::rail_units::upgrade(&Value::Object(raw)) {
+        Value::Object(m) => m,
+        _ => Map::new(),
+    };
     raw.insert("schema".into(), json!(SCHEMA));
     Ok(raw)
 }

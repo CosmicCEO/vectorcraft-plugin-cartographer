@@ -51,7 +51,10 @@ async function build(sc, plugin, svgPath, pngPath) {
   }
   for (const st of sc.steps) {
     await h.run("select.set", { ids: st.select.map((i) => ids[i]) });
-    const params = Object.fromEntries(Object.entries(st.params).map(([k, v]) => [k, typeof v === "object" ? JSON.stringify(v) : v]));
+    // Scenario lengths are model millimetres; Cartographer's descriptions are metres of ground (1 mm of model = 0.16 m at 1:160).
+    const metres = (d) => !(plugin === NEW && factor !== null) || typeof d !== "object" ? d
+      : { ...d, ...Object.fromEntries(["spacing", "at", "length"].filter((k) => typeof d[k] === "number").map((k) => [k, d[k] * 0.16])), ...(d.crossovers ? { crossovers: d.crossovers.map(metres) } : {}) };
+    const params = Object.fromEntries(Object.entries(st.params).map(([k, v]) => [k, typeof v === "object" ? JSON.stringify(k === "description" ? metres(v) : v) : v]));
     await h.run(`plugin.${plugin.pid}.${st.command}`, { params });
   }
   await h.run("select.all");

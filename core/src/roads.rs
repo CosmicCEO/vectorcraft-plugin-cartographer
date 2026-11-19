@@ -84,7 +84,7 @@ impl Spec {
                 }
             }
         }
-        Spec { raw: if dd.is_object() { dd.clone() } else { json!({}) }, segments, library }
+        Spec { raw: if dd.is_object() { crate::rail_units::upgrade(dd) } else { json!({}) }, segments, library }
     }
 
     /// The data to store: the original with our parts updated (other keys are left alone).

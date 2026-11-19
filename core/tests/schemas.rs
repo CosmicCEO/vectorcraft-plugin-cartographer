@@ -50,7 +50,7 @@ fn every_default_is_what_the_parser_defaults_to() {
     let t = TrackSpec::default().to_json();
     let s = tracks_schema();
     assert_eq!(field(&s, "tracks")["default"], t["tracks"]);
-    assert_eq!(field(&s, "spacing")["default"], t["spacing"]);
+    assert_eq!(field(&s, "spacing")["default"], cartographer_core::rail_units::model_to_record(&t)["spacing"], "the card is in metres");
     let y = yard_schema();
     let d = YardSpec::default();
     assert_eq!(field(&y, "mains")["default"], d.mains);
