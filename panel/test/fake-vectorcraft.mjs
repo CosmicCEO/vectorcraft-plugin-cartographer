@@ -20,7 +20,7 @@ export async function fakeVectorCraft({ paths = [], selection = [], spec = { seg
         if (!hasDocument && method === "document.inspect") return fail(socket, id, "no active document");
         if (method === "document.inspect") {
           if (params.ids) return reply(socket, id, { nodes: doc.paths.filter((p) => params.ids.includes(p.id)) });
-          if (params.kind) return reply(socket, id, { nodes: doc.paths.map((p) => ({ ...p, path: p.path ?? [1000] })) });
+          if (params.kind) return reply(socket, id, { nodes: doc.paths.filter((p) => p.kind === params.kind).map((p) => ({ ...p, path: p.path ?? [1000] })) });
           return reply(socket, id, { revision: doc.revision, fileInfoTitle: doc.title, title: doc.fileName ?? doc.title, selection: doc.selection, layers: tree() });
         }
         if (method !== "engine.execute") return fail(socket, id, `unknown method ${method}`);

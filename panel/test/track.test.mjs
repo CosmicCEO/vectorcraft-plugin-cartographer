@@ -395,3 +395,19 @@ test("track layers are kept above road layers, so rails run over a road at a lev
   done();
 });
 
+test("lines drawn with the shape tools count as lines: a Line becomes a track, an Ellipse is offered as a plain line", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "", kind: "Line" }, { id: 6, name: "", kind: "Ellipse" }], selection: [5] });
+  const { panel, done } = await setup(vc, '{"tracks": 1}');
+  assert.equal(panel.snapshot().target.kind, "line", "a shape-tool line is a plain line");
+  await trackMode(panel);
+  await panel.draw();
+  assert.equal(vc.doc.paths.find((p) => p.id === 5).name, "track.t1");
+  const layers = vc.doc.layers.map((l) => l.name);
+  assert.ok(layers.includes("track t1 spine"), `the shape-tool line is sorted into its layer: ${layers}`);
+  await vc.doc.selection.splice(0, 9, 6);
+  vc.doc.revision++;
+  await panel.tick(true);
+  assert.equal(panel.snapshot().target.kind, "line", "an ellipse is a plain line too");
+  done();
+});
+

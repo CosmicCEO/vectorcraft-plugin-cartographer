@@ -170,8 +170,9 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
         if job.treatment == "gated" {
             out.layer(Layer::Rails); // signs and gates stand above everything on the track
             let clear = ht / det.abs() + 3.0;
-            for (sign, edge, tag) in [(-1.0, job.lo - 1.0, "before"), (1.0, job.hi + 1.0, "after")] {
-                // On the approach, beside the road's edge; the arm reaches across to the road's line.
+            // Right-hand traffic: a driver approaching from behind the crossing (heading along the road line) has the gate on the right of
+            // travel (`hi`); one approaching from ahead has it on the other side. The arm reaches across that driver's lanes to the road's line.
+            for (sign, edge, tag) in [(-1.0, job.hi + 1.0, "before"), (1.0, job.lo - 1.0, "after")] {
                 let foot = [x[0] + rd[0] * sign * clear, x[1] + rd[1] * sign * clear];
                 let pole = [foot[0] + nr[0] * edge, foot[1] + nr[1] * edge];
                 let arm: Vec<P> = [0.7_f64, -0.7].iter().map(|a| a.sin_cos()).flat_map(|(s, c)| [[pole[0] - 0.7 * s, pole[1] - 0.7 * c], [pole[0] + 0.7 * s, pole[1] + 0.7 * c]]).collect();
@@ -188,3 +189,28 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
 pub fn record(road: &str, track: &str, treatment: &str) -> Value {
     json!({"road": road, "track": track, "treatment": treatment})
 }
+
+/// Notes for every road line and track line that cross with no level crossing stored for them (the track is then simply drawn over the road).
+pub fn missing_notes(items: &[Item], spec: &Spec) -> Vec<String> {
+    let mut roads: Vec<String> = items.iter().filter_map(|i| segment_id(&i.name)).collect();
+    let mut tracks: Vec<String> = items.iter().filter_map(|i| track_id(&i.name)).collect();
+    roads.sort();
+    roads.dedup();
+    tracks.sort();
+    tracks.dedup();
+    let stored = spec.level_crossings();
+    let mut notes = Vec::new();
+    for t in &tracks {
+        for r in &roads {
+            if stored.iter().any(|(_, v)| v["road"] == r.as_str() && v["track"] == t.as_str()) {
+                continue;
+            }
+            let (rls, tls) = (lines(items, |n| segment_id(n).as_deref() == Some(r.as_str())), lines(items, |n| track_id(n).as_deref() == Some(t.as_str())));
+            if find_crossing(&rls, &tls).is_some() {
+                notes.push(format!("track {t} crosses road {r} with no level crossing: select both and make one (Make Level Crossing), or the track is drawn over the road."));
+            }
+        }
+    }
+    notes
+}
+

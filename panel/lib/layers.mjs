@@ -4,7 +4,7 @@
 //
 // A rebuild only sees objects that are visible and unlocked, so a hidden spine would make its road's drawing vanish. `unlockOurs`
 // shows and unlocks our layers for the build and hands back a function that puts them back as the user had them.
-import { junctionId, segmentId, waterId } from "./doc.mjs";
+import { junctionId, lineNodes, segmentId, waterId } from "./doc.mjs";
 import { KINDS } from "./kinds.mjs";
 
 const OURS = /^(road|junction|crossing|water|wet|track) \S+( spine| drawing)?$/;
@@ -62,7 +62,7 @@ const idOf = (r) => r?.id ?? r?.ids?.[0];
 export async function organise(control) {
   const rows = await layerRows(control);
   const byName = new Map(rows.map((l) => [l.name, l.id]));
-  const paths = (await control.call("document.inspect", { kind: "Path", limit: 100000 })).nodes ?? [];
+  const paths = await lineNodes(control);
 
   const want = new Map(); // layer name -> {spine: [], drawing: []}
   for (const p of paths) {

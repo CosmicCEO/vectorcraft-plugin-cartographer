@@ -153,6 +153,9 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
         let data = params["_context"]["documentData"].as_object().cloned().unwrap_or_default();
         out.displace(false); // the panel and signs sit on the track, a model at true scale: never wobbled or thickened
         notes.extend(level::build(&items, &spec, &data, &mut out));
+        if has_track {
+            notes.extend(level::missing_notes(&items, &spec));
+        }
         out.displace(true);
     }
     // What the build had to say is kept with the document so the panel can show it; the rest of the stored data is carried over unchanged.
