@@ -99,12 +99,20 @@ export async function nodes(control, ids) {
  *  ellipse, rectangle and polygon tools keep their own kind. All of them can be roads, tracks or water. */
 export const LINE_KINDS = ["Path", "Line", "Ellipse", "Rectangle", "Polygon"];
 
-/** Every line-like object in the document (`document.inspect` filters by one kind at a time). */
+/** Every line-like object in the document, in document order (the order the plug-in numbers a road's pieces in), each with `path`: the ids of
+ *  the layers it sits in, outermost first. One walk of the layer tree. */
 export async function lineNodes(control) {
-  // One call at a time: the control connection answers in order.
-  const nodes = [];
-  for (const kind of LINE_KINDS) nodes.push(...((await control.call("document.inspect", { kind, limit: 100000 })).nodes ?? []));
-  return nodes;
+  const r = await control.call("document.inspect", { depth: 16 });
+  const out = [];
+  const walk = (list, layers) => {
+    for (const x of list ?? []) {
+      if (x.kind === "Layer") walk(x.children, [...layers, x.id]);
+      else if (LINE_KINDS.includes(x.kind)) out.push({ id: x.id, name: x.name ?? "", kind: x.kind, path: layers });
+      else walk(x.children, layers); // a group: its members belong to the same layer
+    }
+  };
+  walk(r.layers, []);
+  return out;
 }
 
 /** All paths in the document (id and name), for counting the pieces of a road. */
