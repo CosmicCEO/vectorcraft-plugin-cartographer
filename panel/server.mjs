@@ -56,6 +56,7 @@ export function createServer({ panel, port }) {
     removetransition: (b) => panel.removeTransition(Number(b.index)),
     track: (b) => panel.editTrack(b.patch ?? {}),
     joint: (b) => panel.editJoint(b.patch ?? {}),
+    level: (b) => panel.editLevel(b.patch ?? {}),
     water: (b) => panel.editWater(b.patch ?? {}),
     wet: (b) => panel.editWet(b.patch ?? {}),
     embank: (b) => panel.editEmbank(b.patch ?? {}),

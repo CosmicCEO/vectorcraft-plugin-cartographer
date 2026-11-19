@@ -6,7 +6,7 @@ import { diffCrossSection, editCrossSection, parseCrossSection, parseCrossing, p
 import { describeChanges, describeTrackChanges } from "./changes.mjs";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { PLUGIN_ID, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_SETTINGS, SET_TRANSITION, SET_JUNCTION, SET_JOINT, SET_TRACKS, SET_WATER, SET_WET, SET_YARD, allPaths, classify, inspectState, junctionId, nodes, readSpec, segmentId, trackId, waterId } from "./doc.mjs";
+import { PLUGIN_ID, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_SETTINGS, SET_TRANSITION, SET_JUNCTION, SET_JOINT, SET_LEVEL_CROSSING, SET_TRACKS, SET_WATER, SET_WET, SET_YARD, allPaths, classify, inspectState, junctionId, nodes, readSpec, segmentId, trackId, waterId } from "./doc.mjs";
 import { organise, unlockOurs } from "./layers.mjs";
 import { propose as proposeWith, proposeCrossing, proposeFeature, proposeHub, proposeJoint, proposeJunction, proposeTrack, proposeTransition } from "./providers.mjs";
 
@@ -34,7 +34,7 @@ export class Panel extends EventEmitter {
     this.control = control;
     this.providers = providers ?? { default: null, providers: {} };
     this.provider = this.providers.default;
-    this.state = { connected: false, error: null, doc: null, selection: [], notes: [], target: null, road: null, track: null, joint: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, mode: "road", pending: null, busy: null, message: null };
+    this.state = { connected: false, error: null, doc: null, selection: [], notes: [], target: null, road: null, track: null, joint: null, level: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, mode: "road", pending: null, busy: null, message: null };
     this.last = { revision: null, selection: "", title: null };
     this.schema = null;
     this.settingsOpen = false; // the settings card is read from a saved copy only while it is open
@@ -87,7 +87,7 @@ export class Panel extends EventEmitter {
     } catch (e) {
       const noDoc = /no (active )?document/i.test(e.message);
       this.last = { revision: null, selection: "", title: null };
-      return this.#set({ connected: !noDoc && this.control.connected, error: noDoc ? "Open or create a document in VectorCraft." : e.message, doc: null, selection: [], target: null, road: null, track: null, joint: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, pending: null });
+      return this.#set({ connected: !noDoc && this.control.connected, error: noDoc ? "Open or create a document in VectorCraft." : e.message, doc: null, selection: [], target: null, road: null, track: null, joint: null, level: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, pending: null });
     }
     const key = s.selection.join(",");
     // A different document (its title changed) is read again and drops every proposal made for the old one.
@@ -128,8 +128,12 @@ export class Panel extends EventEmitter {
     const trackIds = [...new Set(trackLines.map((n) => trackId(n.name)))];
     const allTrack = trackLines.length > 0 && trackLines.length === sel.length;
     // A track line mixed with a road, junction or water line is not something the panel can describe yet.
-    const mixed = trackLines.length > 0 && sel.some((n) => ["road", "junction", "water"].includes(n.role));
-    if (allTrack && trackIds.length === 1) target = { kind: "track", id: trackIds[0], ids: sel.map((n) => n.id) };
+    // One road line and one track line: a level crossing. Any other mix of tracks with roads, junctions or water is not supported yet.
+    const roadIds = [...new Set(sel.filter((n) => n.role === "road").map((n) => n.segment))];
+    const level = trackIds.length === 1 && roadIds.length === 1 && sel.every((n) => n.role === "road" || n.role === "track");
+    const mixed = !level && trackLines.length > 0 && sel.some((n) => ["road", "junction", "water"].includes(n.role));
+    if (level) target = { kind: "level", road: roadIds[0], track: trackIds[0], ids: sel.map((n) => n.id) };
+    else if (allTrack && trackIds.length === 1) target = { kind: "track", id: trackIds[0], ids: sel.map((n) => n.id) };
     else if (allTrack && trackIds.length === 2) target = { kind: "joint", lines: [...trackIds].sort(), ids: sel.map((n) => n.id) };
     else if (waters.length === 1 && !segments.length && sel.every((n) => n.role === "water")) target = { kind: "water", segment: waters[0], ids: sel.map((n) => n.id) };
     else if (waters.length === 1 && segments.length === 1 && sel.every((n) => n.role === "road" || n.role === "water")) target = { kind: "wet", road: segments[0], water: waters[0], ids: sel.map((n) => n.id) };
@@ -161,6 +165,14 @@ export class Panel extends EventEmitter {
       const parsed = stored ? await parseJoint(JSON.stringify(stored[1])) : null;
       const spec = parsed?.ok ? parsed.joint : { kind: found.ok ? found.kind : "crossing" };
       joint = { id: stored?.[0] ?? null, lines: [a, b], found, described: !!stored, spec, summary: parsed?.ok ? parsed.summary : "", card: await this.#card("joint", spec) };
+    }
+    // A road and a track: the stored level crossing between them, or the default, and its card.
+    let levelState = null;
+    if (target?.kind === "level") {
+      this.spec = await readSpec(this.control);
+      const stored = Object.entries(this.spec.level_crossings ?? {}).find(([, v]) => v.road === target.road && v.track === target.track);
+      const spec = { treatment: stored?.[1]?.treatment ?? "level" };
+      levelState = { id: stored?.[0] ?? null, road: target.road, track: target.track, described: !!stored, spec, card: await this.#card("level_crossing", spec) };
     }
     let road = null;
     if (target?.kind === "road") {
@@ -233,7 +245,7 @@ export class Panel extends EventEmitter {
     // A settings proposal is dropped when the stored settings are no longer the ones it was made from (another document, an undo).
     let settingsPending = switched ? null : this.state.settingsPending;
     if (reread && settingsPending && JSON.stringify(settings?.values) !== JSON.stringify(settingsPending.base)) settingsPending = null;
-    this.#set({ connected: true, error: null, doc: { title: s.title, revision: s.revision }, notes: this.spec?.notes ?? [], selection: sel, target, road, track, joint, junction, crossing, hub, water, wet, embank, settings, settingsPending, pending: keep ? this.state.pending : null, message: mixed ? NEEDS_MIX_NOTE : keep ? this.state.message : null });
+    this.#set({ connected: true, error: null, doc: { title: s.title, revision: s.revision }, notes: this.spec?.notes ?? [], selection: sel, target, road, track, joint, level: levelState, junction, crossing, hub, water, wet, embank, settings, settingsPending, pending: keep ? this.state.pending : null, message: mixed ? NEEDS_MIX_NOTE : keep ? this.state.message : null });
   }
 
   /** Words to a proposed cross-section (not applied until Draw). */
@@ -413,6 +425,20 @@ export class Panel extends EventEmitter {
       for (const k of Object.keys(next)) if (next[k] === null || next[k] === undefined || next[k] === "") delete next[k];
       const r = await parseSpec(base.kind, next);
       this.#set(r.ok ? { pending: { kind: r.kind, spec: r.spec, summary: r.summary, min_line_mm: r.min_line_mm ?? null, source: "edit", changes: describeTrackChanges({ kind: tr.kind, spec: tr.spec }, r) }, message: null } : { message: r.error });
+    });
+  }
+
+  /** The level crossing's card: {treatment}. Checked against the card's own choices; nothing is applied until Draw. */
+  editLevel(patch) {
+    return this.#serial(async () => {
+      const l = this.state.level;
+      if (!l || this.state.target?.kind !== "level") return this.#set({ message: "Select one road line and one track line first." });
+      const options = l.card.fields.find((f) => f.key === "treatment")?.options ?? [];
+      const treatment = patch.treatment ?? (this.state.pending?.kind === "level" ? this.state.pending.spec.treatment : l.spec.treatment);
+      if (!options.includes(treatment)) return this.#set({ message: `The crossing must be ${options.join(" or ")}.` });
+      const summary = treatment === "gated" ? "a gated level crossing" : "a level crossing";
+      const changes = l.described ? (treatment === l.spec.treatment ? ["no change"] : [`from ${l.spec.treatment} to ${treatment}`]) : [`new: ${summary}`];
+      this.#set({ pending: { kind: "level", spec: { treatment }, summary, source: "edit", changes }, message: null });
     });
   }
 
@@ -673,6 +699,13 @@ export class Panel extends EventEmitter {
           if (chosen) {
             await this.control.run("select.set", { ids: t.ids });
             await this.control.run(chosen.kind === "yard" ? SET_YARD : SET_TRACKS, { params: { description: JSON.stringify(chosen.spec) } });
+          }
+        } else if (t.kind === "level") {
+          // A proposal, else (for a road and track with nothing stored) what the card shows; a stored crossing is only rebuilt.
+          const spec = pending?.kind === "level" ? pending.spec : this.state.level.described ? null : this.state.level.spec;
+          if (spec) {
+            await this.control.run("select.set", { ids: t.ids });
+            await this.control.run(SET_LEVEL_CROSSING, { params: { description: JSON.stringify(spec) } });
           }
         } else if (t.kind === "joint") {
           // A proposal, else (for two lines with no stored joint) what the card shows; a stored joint is only rebuilt.

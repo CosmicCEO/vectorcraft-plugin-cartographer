@@ -13,7 +13,7 @@ use cartographer_core::junction::{Control, JunctionSpec};
 use cartographer_core::joint::{self, JointSpec};
 use cartographer_core::library::Library;
 use cartographer_core::rail_builder::to_mm;
-use cartographer_core::schema::{joint_schema, settings_schema, tracks_schema, yard_schema};
+use cartographer_core::schema::{joint_schema, level_crossing_schema, settings_schema, tracks_schema, yard_schema};
 use cartographer_core::storage::Settings;
 use cartographer_core::tracks::TrackSpec;
 use cartographer_core::vcdoc::subpaths_of;
@@ -261,16 +261,17 @@ fn run(args: &[String], lib: &Library) -> Value {
                 v["ok"] = json!(true);
                 v
             }
-            Some(kind @ ("tracks" | "yard" | "joint")) => {
+            Some(kind @ ("tracks" | "yard" | "joint" | "level_crossing")) => {
                 let mut v = match kind {
                     "tracks" => tracks_schema(),
                     "yard" => yard_schema(),
+                    "level_crossing" => level_crossing_schema(),
                     _ => joint_schema(),
                 };
                 v["ok"] = json!(true);
                 v
             }
-            _ => fail("usage: schema settings | tracks | yard | joint"),
+            _ => fail("usage: schema settings | tracks | yard | joint | level_crossing"),
         },
         Some("parse-tracks") => spec_reply(args, "parse-tracks", |v| TrackSpec::from_json(v).map(|s| json!({"ok": true, "tracks": s.to_json(), "summary": s.summary()}))),
         Some("parse-yard") => spec_reply(args, "parse-yard", |v| YardSpec::from_json(v).map(|s| json!({"ok": true, "yard": s.to_json(), "summary": s.summary(), "min_line_mm": (s.min_line() * 10.0).round() / 10.0}))),

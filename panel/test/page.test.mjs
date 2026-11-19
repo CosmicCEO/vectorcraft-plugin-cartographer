@@ -158,3 +158,15 @@ test("the page renders a track, a yard, a joint and their proposals with the car
   assert.equal(hiddenOf("trackCard"), false, "a plain line in track mode shows the track card");
   assert.equal(hiddenOf("modeCard"), false);
 });
+
+test("the page renders a road and a track as a level crossing card", async () => {
+  const page = runPage();
+  const { panel } = await start({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "track.b" }], selection: [2, 3] });
+  page.send(panel.snapshot());
+  assert.equal(page.byId.get("levelCard").hidden, false);
+  assert.match(page.byId.get("lsummary").textContent, /not stored yet/i);
+  await panel.editLevel({ treatment: "gated" });
+  page.send(panel.snapshot());
+  assert.match(page.byId.get("lsummary").textContent, /Proposed: a gated level crossing/);
+  assert.equal(page.byId.get("trackCard").hidden, true);
+});

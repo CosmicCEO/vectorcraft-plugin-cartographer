@@ -93,7 +93,8 @@ export async function organise(control) {
   const topLayers = now.filter((l) => l.top);
   const firstRoad = topLayers.find((l) => l.name.startsWith("road "));
   if (firstRoad) {
-    for (const l of topLayers.filter((x) => /^(junction|crossing|wet) /.test(x.name) && x.index > firstRoad.index)) {
+    // Tracks too: at a level crossing the rails run over the road.
+    for (const l of topLayers.filter((x) => /^(junction|crossing|wet|track) /.test(x.name) && x.index > firstRoad.index)) {
       await control.run("layer.move", { ids: [l.id], target: firstRoad.id, place: "above" });
     }
   }

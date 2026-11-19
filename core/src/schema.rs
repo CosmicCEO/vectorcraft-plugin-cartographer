@@ -65,3 +65,12 @@ pub fn joint_schema() -> Value {
         {"key": "frog", "label": "Turnout number", "type": "integer", "min": 4, "max": 20, "default": Value::Null, "help": "For a branch: the frog number, 4 to 20; empty is the one that makes the gentlest connection."}
     ]})
 }
+
+/// The fields of a level crossing (a road and a track; `set_level_crossing`).
+pub fn level_crossing_schema() -> Value {
+    json!({"kind": "level_crossing", "fields": [
+        {"key": "treatment", "label": "Crossing", "type": "choice", "options": crate::level::TREATMENTS, "default": "level",
+         "help": "level: the road crosses the track on a panel, the rails run across. gated: also a crossbuck and a gate arm on each approach."}
+    ]})
+}
+

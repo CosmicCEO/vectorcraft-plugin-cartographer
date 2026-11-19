@@ -1,7 +1,7 @@
 // A stand-in for VectorCraft's control port: just enough of the protocol for the panel, and it records every command it is sent.
 import { writeFileSync } from "node:fs";
 import net from "node:net";
-import { PLUGIN_ID, SET_SETTINGS, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_JUNCTION, SET_TRANSITION, SET_WATER, SET_WET, SET_JOINT, SET_TRACKS, SET_YARD } from "../lib/doc.mjs";
+import { PLUGIN_ID, SET_SETTINGS, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_JUNCTION, SET_TRANSITION, SET_WATER, SET_WET, SET_JOINT, SET_LEVEL_CROSSING, SET_TRACKS, SET_YARD } from "../lib/doc.mjs";
 
 export async function fakeVectorCraft({ paths = [], selection = [], spec = { segments: {} }, hasDocument = true, rejectYard = null, rejectJoint = null, rejectBuild = null } = {}) {
   const doc = { paths: paths.map((p) => ({ kind: "Path", ...p })), selection: [...selection], spec: structuredClone(spec), revision: 1, title: "Untitled", calls: [], layers: [{ id: 1000, name: "Layer 1", visible: true, locked: false, parent: null }], nextLayer: 1001 };
@@ -137,6 +137,14 @@ export async function fakeVectorCraft({ paths = [], selection = [], spec = { seg
           doc.spec.joints ??= {};
           const known = Object.entries(doc.spec.joints).find(([, j]) => lines.every((l) => j.lines.includes(l)))?.[0];
           doc.spec.joints[known ?? `j${Object.keys(doc.spec.joints).length + 1}`] = { ...JSON.parse(p.params.description), lines };
+          doc.revision++;
+        } else if (command === SET_LEVEL_CROSSING) {
+          const sel = doc.paths.filter((q) => doc.selection.includes(q.id));
+          const road = sel.find((q) => q.name.startsWith("road."))?.name.slice(5);
+          const track = sel.find((q) => q.name.startsWith("track."))?.name.slice(6);
+          doc.spec.level_crossings ??= {};
+          const known = Object.entries(doc.spec.level_crossings).find(([, v]) => v.road === road && v.track === track)?.[0];
+          doc.spec.level_crossings[known ?? `lc${Object.keys(doc.spec.level_crossings).length + 1}`] = { road, track, treatment: JSON.parse(p.params.description).treatment ?? "level" };
           doc.revision++;
         } else if (command === "file.saveCopy") {
           // The saved copy holds every path that has a geometry (the panel reads line geometry from it) and the plug-in's data.

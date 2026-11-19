@@ -10,6 +10,7 @@ use crate::rail_standards::{PT_PER_MM, TRACK_CENTERS};
 use crate::tracks::{self, TrackSpec};
 use crate::yard::{self, YardSpec};
 use crate::vcdoc::{Item, items_from_filter_input};
+use std::collections::HashMap;
 use serde_json::{Map, Value, json};
 
 pub const GEN_PREFIX: &str = "gen.";
@@ -81,12 +82,17 @@ pub fn spine_style() -> ([f64; 3], f64) {
 /// document's plug-in data. The output is written with the rail settings and put back to the defaults afterwards, so a road written next keeps its own.
 /// A stored description that cannot be read is an error (the whole build fails, as in Track Layer).
 pub fn build_into(items: &[Item], data: &Value, out: &mut Out) -> Result<Vec<String>, String> {
+    build_into_with(items, data, out, &HashMap::new())
+}
+
+/// `build_into`, with extra strips per track where its ties are left out (a road crossing it at a level crossing).
+pub fn build_into_with(items: &[Item], data: &Value, out: &mut Out, extra: &HashMap<String, Vec<crate::joint::Band>>) -> Result<Vec<String>, String> {
     let data = data.as_object().cloned().unwrap_or_default();
     let mut notes: Vec<String> = Vec::new();
     out.precision(RAIL_DECIMALS);
     out.thinning(RAIL_THINNING);
     out.displace(false); // a model at true scale: the style may colour it but never move it
-    let result = build_lines(items, &data, out, &mut notes);
+    let result = build_lines(items, &data, out, &mut notes, extra);
     out.displace(true);
     out.layer(crate::output::Layer::Roadbed); // the stack a road writes to
     out.precision(crate::output::DEFAULT_DECIMALS);
@@ -94,7 +100,7 @@ pub fn build_into(items: &[Item], data: &Value, out: &mut Out) -> Result<Vec<Str
     result.map(|()| notes)
 }
 
-fn build_lines(items: &[Item], data: &Map<String, Value>, out: &mut Out, notes: &mut Vec<String>) -> Result<(), String> {
+fn build_lines(items: &[Item], data: &Map<String, Value>, out: &mut Out, notes: &mut Vec<String>, extra: &HashMap<String, Vec<crate::joint::Band>>) -> Result<(), String> {
     // The drawn lines (millimetres, y up) and how wide a strip each one's track covers.
     let mut lines: Vec<(String, Vec<P>)> = Vec::new();
     for it in items {
@@ -105,7 +111,9 @@ fn build_lines(items: &[Item], data: &Map<String, Value>, out: &mut Out, notes: 
     let applied = apply_joints(data, &lines, notes);
     for (id, line) in &lines {
         let line = applied.replace.get(id).unwrap_or(line);
-        let bands = applied.avoid.get(id).map_or(&[][..], Vec::as_slice);
+        let mut joined: Vec<crate::joint::Band> = applied.avoid.get(id).cloned().unwrap_or_default();
+        joined.extend(extra.get(id).cloned().unwrap_or_default());
+        let bands = joined.as_slice();
         let taps = applied.taps.get(id).map_or(&[][..], Vec::as_slice);
         match data.get("yards").and_then(|y| y.get(id)) {
             Some(y) => notes.extend(yard::build(id, line, &YardSpec::from_json(y)?, out, to_doc, bands, taps)),
@@ -128,6 +136,14 @@ fn build_lines(items: &[Item], data: &Map<String, Value>, out: &mut Out, notes: 
 }
 
 /// Half the width of the strip the track described for line `id` covers (its mains, for a yard).
+/// The half width of everything a track line may carry where a road crosses it, model millimetres: a yard's spurs too (see `level`).
+pub(crate) fn crossing_half_mm(data: &Map<String, Value>, id: &str) -> f64 {
+    match data.get("yards").and_then(|y| y.get(id)).map(YardSpec::from_json) {
+        Some(Ok(y)) => ((y.mains as f64 - 1.0) / 2.0 + y.left.max(y.right) as f64) * y.spacing + crate::rail_standards::TIE_LENGTH / 2.0,
+        _ => footprint_half(data, id),
+    }
+}
+
 fn footprint_half(data: &Map<String, Value>, id: &str) -> f64 {
     match (data.get("yards").and_then(|y| y.get(id)), spec_for(data, id)) {
         (Some(y), _) => YardSpec::from_json(y).map_or(0.0, |s| s.footprint_half()),
