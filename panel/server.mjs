@@ -116,7 +116,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const w of providers.warnings ?? []) console.warn(`warning: ${w}`);
   if (arg("agent")) providers.default = arg("agent");
   const panel = new Panel({ control: new Control({ port: Number(arg("control", 7979)) }), providers });
-  createServer({ panel, port }).listen(port, "127.0.0.1", () => {
+  const server = createServer({ panel, port });
+  server.on("error", (e) => {
+    console.error(e.code === "EADDRINUSE" ? `fix: port ${port} is already in use (another panel is probably running). Stop it, or start this one with --port <another port>.` : `fix: the panel could not start: ${e.message}`);
+    process.exit(1);
+  });
+  server.listen(port, "127.0.0.1", () => {
     console.log(`Cartographer panel: http://127.0.0.1:${port}   (VectorCraft control port ${arg("control", 7979)}, agent ${providers.default})`);
     panel.start();
   });

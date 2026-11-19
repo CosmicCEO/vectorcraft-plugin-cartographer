@@ -7,7 +7,7 @@ Write what you saw next to each step (`ok` or what went wrong) and send it back.
 ## Set up
 
 1. `node scripts/check.mjs` ends with no `fix:` line.
-2. `node scripts/build.mjs`, then `node scripts/start-vectorcraft.mjs`. On Linux, set `VECTORCRAFT_APP` to the AppImage first if the script says it cannot find VectorCraft. If VectorCraft was already running, quit it first: the control port is set only at start.
+2. From a release package: skip the build (the package is already built). From a source checkout: `node scripts/build.mjs`. Then `node scripts/start-vectorcraft.mjs`: it waits until VectorCraft answers on its control port ("ready on control port 7979"). On a Mac it says at once when VectorCraft is already running without the port (quit it with Cmd-Q and run the script again); elsewhere, if nothing answers within 30 seconds, it says to quit VectorCraft and run it again. On Linux, set `VECTORCRAFT_APP` to the AppImage first if the script says it cannot find VectorCraft.
 3. In VectorCraft create a new document, then `node scripts/install.mjs`. Expected: `installed Cartographer 1.5.0`.
 4. `node panel/server.mjs` and open http://127.0.0.1:8789 next to VectorCraft. Expected: a green dot in the header and the line "Nothing selected".
 
