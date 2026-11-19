@@ -136,9 +136,12 @@ fn build_lines(items: &[Item], data: &Map<String, Value>, out: &mut Out, notes: 
 }
 
 /// Half the width of the strip the track described for line `id` covers (its mains, for a yard).
-/// The half width of the strip a track line covers, model millimetres (for a road crossing it: see `level`).
-pub(crate) fn footprint_half_mm(data: &Map<String, Value>, id: &str) -> f64 {
-    footprint_half(data, id)
+/// The half width of everything a track line may carry where a road crosses it, model millimetres: a yard's spurs too (see `level`).
+pub(crate) fn crossing_half_mm(data: &Map<String, Value>, id: &str) -> f64 {
+    match data.get("yards").and_then(|y| y.get(id)).map(YardSpec::from_json) {
+        Some(Ok(y)) => ((y.mains as f64 - 1.0) / 2.0 + y.left.max(y.right) as f64) * y.spacing + crate::rail_standards::TIE_LENGTH / 2.0,
+        _ => footprint_half(data, id),
+    }
 }
 
 fn footprint_half(data: &Map<String, Value>, id: &str) -> f64 {

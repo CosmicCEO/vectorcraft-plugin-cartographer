@@ -70,3 +70,11 @@ fn schema_prints_the_rail_cards() {
     let (out, code) = run(&["schema", "nothing"]);
     assert_eq!(code, 1, "{out}");
 }
+
+#[test]
+fn schema_prints_the_level_crossing_card() {
+    let (out, code) = run(&["schema", "level_crossing"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("\"treatment\"") && out.contains("gated"), "{out}");
+}
+

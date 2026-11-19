@@ -85,6 +85,7 @@ function show(s) {
   else if (t.kind === "hub") ctx.append(el("strong", {}, `${t.roads.length} roads meet: ${t.roads.join(", ")}`), el("p", { className: "muted" }, s.hub?.described ? "They form an intersection. Change it below, then Draw." : "Choose what happens where they meet, then Draw."));
   else if (t.kind === "crossing") ctx.append(el("strong", {}, `Roads ${t.roads[0]} and ${t.roads[1]} cross`), el("p", { className: "muted" }, s.crossing?.described ? "They form an intersection. Change it below, then Draw." : "Choose what happens where they cross, then Draw."));
   else if (t.kind === "track") ctx.append(el("strong", {}, `Track ${t.id}`), el("p", { className: "muted" }, s.track?.described ? "Railway track. Change it below, or describe the change in words." : "Not described yet: one track. Change it below or describe it in words."));
+  else if (t.kind === "level") ctx.append(el("strong", {}, `Road ${t.road} crosses track ${t.track}`), el("p", { className: "muted" }, s.level?.described ? "A level crossing. Change it below." : "A road and a track are selected: make it a level crossing (the road on a panel, the rails across)."));
   else if (t.kind === "joint") ctx.append(el("strong", {}, `Lines ${t.lines[0]} and ${t.lines[1]}`), el("p", { className: "muted" }, s.joint?.described ? "These two lines are joined. Change it below, or describe the change in words." : "Two track lines are selected: say how they meet."));
   else ctx.append(el("strong", {}, "Select one line or one road"), el("p", { className: "muted" }, "The selection holds something this panel does not describe."));
   if (t && (t.kind === "road" || t.kind === "junction" || t.kind === "track") && !s.busy) {
@@ -281,7 +282,7 @@ function show(s) {
   }
 
   $("road").hidden = !s.road || !!pj || !!cv || !!hv;
-  const pk = ["water", "wet", "embank", "tracks", "yard", "joint"].includes(s.pending?.kind); // a proposed water feature, crossing, embankment, track or joint
+  const pk = ["water", "wet", "embank", "tracks", "yard", "joint", "level"].includes(s.pending?.kind); // a proposed water feature, crossing, embankment, track or joint
   if (s.road && !pj) drawItems($("items"), $("bar"), $("total"), s.road, !s.pending);
 
   const pt = s.pending?.kind === "transition" ? s.pending : null; // a proposed lane change
@@ -309,6 +310,14 @@ function show(s) {
     showCard("t", $("tfields"), s.track.card, pt2?.spec ?? null, (patch) => act("track", { patch }));
     $("tcancel").hidden = !pt2;
   }
+  $("levelCard").hidden = !(s.level && t?.kind === "level");
+  if (s.level && t?.kind === "level") {
+    const pl = s.pending?.kind === "level" ? s.pending : null;
+    $("lsummary").textContent = pl ? `Proposed: ${pl.summary}` : s.level.described ? `Stored: ${s.level.spec.treatment === "gated" ? "a gated level crossing" : "a level crossing"}` : "Not stored yet: a level crossing.";
+    fillList("lchanges", pl?.changes);
+    showCard("l", $("lfields"), s.level.card, pl?.spec ?? null, (patch) => act("level", { patch }));
+    $("lcancel").hidden = !pl;
+  }
   $("jointCard").hidden = !(s.joint && t?.kind === "joint");
   if (s.joint && t?.kind === "joint") {
     const pj2 = s.pending?.kind === "joint" ? s.pending : null;
@@ -330,7 +339,7 @@ function show(s) {
   const canAct = !!t && t.kind !== "other" && !s.busy;
   $("propose").disabled = !canAct || !$("words").value.trim();
   $("draw").disabled = !canAct;
-  $("draw").textContent = s.busy === "drawing" ? "Drawing…" : s.pending ? "Draw this" : (t?.kind === "crossing" && !s.crossing?.described) || (t?.kind === "hub" && !s.hub?.described) ? "Draw this intersection" : (t?.kind === "water" && !s.water?.described) || (t?.kind === "line" && s.mode === "water") || (t?.kind === "wet" && !s.wet?.described) || (t?.kind === "line" && s.mode === "track") || (t?.kind === "track" && !s.track?.described) || (t?.kind === "joint" && !s.joint?.described) ? "Draw this" : "Redraw";
+  $("draw").textContent = s.busy === "drawing" ? "Drawing…" : s.pending ? "Draw this" : (t?.kind === "crossing" && !s.crossing?.described) || (t?.kind === "hub" && !s.hub?.described) ? "Draw this intersection" : (t?.kind === "water" && !s.water?.described) || (t?.kind === "line" && s.mode === "water") || (t?.kind === "wet" && !s.wet?.described) || (t?.kind === "line" && s.mode === "track") || (t?.kind === "track" && !s.track?.described) || (t?.kind === "joint" && !s.joint?.described) || (t?.kind === "level" && !s.level?.described) ? "Draw this" : "Redraw";
   $("thinking").hidden = s.busy !== "thinking";
   const msg = $("message");
   msg.textContent = s.message ?? "";
@@ -345,6 +354,7 @@ $("draw").onclick = () => act("draw", { scope: document.querySelector("input[nam
 $("cancel").onclick = () => act("cancel");
 $("jcancel").onclick = () => act("cancel");
 $("tcancel").onclick = () => act("cancel");
+$("lcancel").onclick = () => act("cancel");
 $("jcancel2").onclick = () => act("cancel");
 $("ccancel").onclick = () => act("cancel");
 const cpatch = (patch) => act("crossing", { patch });

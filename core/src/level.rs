@@ -1,13 +1,14 @@
 //! Level crossings: a road line and a track line that cross (the design's "road meets track"). The road stays on the ground and the track goes
 //! over it: the track's ties are left out under the road (`avoid_bands`, the same mechanism as a track crossing another track), a grey crossing
 //! panel is laid between the ballast and the rails, and the rails run across. `gated` adds a crossbuck and a gate arm on each approach.
-//! Stored as `level_crossings: {id: {road, track, treatment}}`; set with the command Make Level Crossing (`set_level_crossing`).
+//! Stored as `level_crossings: {id: {road, track, treatment}}`; set with the command Make Level Crossing (`set_level_crossing`). Objects are named
+//! `gen.track.<track>.level.<id>.*`.
 
 use crate::crosssection::{layout, parse};
 use crate::geom::P;
 use crate::joint::Band;
 use crate::output::{Layer, Out};
-use crate::rail_builder::{footprint_half_mm, to_mm, track_id};
+use crate::rail_builder::{crossing_half_mm, to_mm, track_id};
 use crate::rail_standards::PT_PER_MM;
 use crate::roads::{Spec, segment_id};
 use crate::vcdoc::Item;
@@ -16,7 +17,8 @@ use std::collections::HashMap;
 
 pub const TREATMENTS: [&str; 2] = ["level", "gated"];
 const PANEL: [f64; 3] = [0.72, 0.72, 0.72];
-const WHITE: [f64; 3] = [1.0, 1.0, 1.0];
+/// Crossbucks are dark so they show on a white page (the road is not under them: they stand beside it).
+const SIGN: [f64; 3] = [0.15, 0.15, 0.15];
 const RED: [f64; 3] = [0.85, 0.1, 0.1];
 /// Room left beyond the road edge before ties start again, metres.
 const MARGIN: f64 = 0.5;
@@ -124,15 +126,17 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
             notes.push(format!("Level crossing {}: the track runs nearly along the road; left out.", job.id));
             continue;
         }
-        let (hr, ht) = (job.half + MARGIN, footprint_half_mm(data, &job.track) * PT_PER_MM + 0.3);
+        let (hr, ht) = (job.half + MARGIN, crossing_half_mm(data, &job.track) * PT_PER_MM + 0.3);
         let x = job.found.at;
         // The panel is the parallelogram where the road strip and the track strip overlap.
         let corner = |a: f64, b: f64| [x[0] + (a * nt[1] - nr[1] * b) / det, x[1] + (nr[0] * b - a * nt[0]) / det];
         let ring = vec![corner(hr, ht), corner(hr, -ht), corner(-hr, -ht), corner(-hr, ht)];
-        let base = format!("gen.level.{}", job.id);
+        // Named under the track, so the panel lives in the track layer (between its ballast and its rails).
+        let base = format!("gen.track.{}.level.{}", job.track, job.id);
         out.layer(Layer::Ties);
         out.polygon(&format!("{base}.panel"), &ring, |p| p, PANEL);
         if job.treatment == "gated" {
+            out.layer(Layer::Rails); // signs and gates stand above everything on the track
             let clear = ht / det.abs() + 3.0;
             for (sign, tag) in [(-1.0, "before"), (1.0, "after")] {
                 // On the approach, at the road edge; the arm reaches across to the road's line.
@@ -140,7 +144,7 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
                 let foot = [x[0] + rd[0] * sign * clear, x[1] + rd[1] * sign * clear];
                 let pole = [foot[0] + nr[0] * side * (job.half + 1.0), foot[1] + nr[1] * side * (job.half + 1.0)];
                 let arm: Vec<P> = [0.7_f64, -0.7].iter().map(|a| a.sin_cos()).flat_map(|(s, c)| [[pole[0] - 0.7 * s, pole[1] - 0.7 * c], [pole[0] + 0.7 * s, pole[1] + 0.7 * c]]).collect();
-                out.path(&format!("{base}.crossbuck.{tag}"), &[arm[0..2].to_vec(), arm[2..4].to_vec()], |p| p, WHITE, 0.25, false);
+                out.path(&format!("{base}.crossbuck.{tag}"), &[arm[0..2].to_vec(), arm[2..4].to_vec()], |p| p, SIGN, 0.25, false);
                 out.path(&format!("{base}.gate.{tag}"), &[vec![pole, foot]], |p| p, RED, 0.2, false);
             }
         }

@@ -17,6 +17,7 @@ export const SET_WET = `plugin.${PLUGIN_ID}.set_wet`;
 export const SET_TRACKS = `plugin.${PLUGIN_ID}.set_tracks`;
 export const SET_YARD = `plugin.${PLUGIN_ID}.set_yard`;
 export const SET_JOINT = `plugin.${PLUGIN_ID}.set_joint`;
+export const SET_LEVEL_CROSSING = `plugin.${PLUGIN_ID}.set_level_crossing`;
 
 /** The id of a track line (`track.a` is `a`), or null. Mirrors core/src/rail_builder.rs. */
 export function trackId(name = "") {
@@ -139,7 +140,7 @@ export async function readSpec(control) {
       await new Promise((r) => setTimeout(r, 50));
     }
     const doc = parseNativeFile(readFileSync(path)).document ?? {};
-    return { segments: {}, tracks: {}, yards: {}, joints: {}, ...(doc.unknown?.pluginData?.[PLUGIN_ID] ?? {}), lines: trackLines(doc) };
+    return { segments: {}, tracks: {}, yards: {}, joints: {}, level_crossings: {}, ...(doc.unknown?.pluginData?.[PLUGIN_ID] ?? {}), lines: trackLines(doc) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

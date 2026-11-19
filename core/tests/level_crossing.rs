@@ -64,7 +64,7 @@ fn the_command_refuses_lines_that_do_not_cross_and_a_wrong_selection() {
 fn a_level_crossing_draws_a_panel_cuts_the_ties_under_the_road_and_keeps_the_rails() {
     let plain = objects(&build_text(&input(), &params(data(json!({})), "")).unwrap());
     let lc = objects(&build_text(&input(), &params(data(json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "level"}}})), "")).unwrap());
-    assert_eq!(named(&lc, "gen.level.lc1.panel").len(), 1, "a crossing panel");
+    assert_eq!(named(&lc, "gen.track.t.level.lc1.panel").len(), 1, "a crossing panel");
     // Ties: none under the road (the road is 7.2 m wide about y = 100), some elsewhere.
     let ties: Vec<[f64; 2]> = named(&lc, "gen.track.t.").into_iter().filter(|o| o["name"].as_str().unwrap().contains("ties")).flat_map(points).collect();
     assert!(!ties.is_empty());
@@ -76,18 +76,18 @@ fn a_level_crossing_draws_a_panel_cuts_the_ties_under_the_road_and_keeps_the_rai
     assert_eq!(rails(&lc), rails(&plain));
     // The panel lies between the ballast and the rails: after every roadbed object and before the rails.
     let names: Vec<&str> = lc.iter().filter_map(|o| o["name"].as_str()).collect();
-    let panel = names.iter().position(|n| *n == "gen.level.lc1.panel").unwrap();
+    let panel = names.iter().position(|n| *n == "gen.track.t.level.lc1.panel").unwrap();
     let rail = names.iter().position(|n| n.contains("rails")).unwrap();
     let ballast = names.iter().position(|n| n.contains("ballast")).unwrap();
     assert!(ballast < panel && panel < rail, "{names:?}");
-    assert!(named(&lc, "gen.level.lc1.gate").is_empty(), "no gates on a plain level crossing");
+    assert!(named(&lc, "gen.track.t.level.lc1.gate").is_empty(), "no gates on a plain level crossing");
 }
 
 #[test]
 fn a_gated_crossing_adds_crossbucks_and_gates_on_both_approaches() {
     let lc = objects(&build_text(&input(), &params(data(json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "gated"}}})), "")).unwrap());
-    assert_eq!(named(&lc, "gen.level.lc1.crossbuck").len(), 2);
-    assert_eq!(named(&lc, "gen.level.lc1.gate").len(), 2);
+    assert_eq!(named(&lc, "gen.track.t.level.lc1.crossbuck").len(), 2);
+    assert_eq!(named(&lc, "gen.track.t.level.lc1.gate").len(), 2);
 }
 
 #[test]
@@ -97,3 +97,27 @@ fn a_level_crossing_whose_lines_are_gone_or_apart_is_left_out_with_a_note() {
     let notes = v["documentData"]["notes"].to_string();
     assert!(notes.contains("lc1"), "{notes}");
 }
+
+#[test]
+fn the_level_crossing_schema_offers_the_treatments() {
+    let s = cartographer_core::schema::level_crossing_schema();
+    assert_eq!(s["kind"], "level_crossing");
+    let f = &s["fields"][0];
+    assert_eq!(f["key"], "treatment");
+    assert_eq!(f["options"], json!(["level", "gated"]));
+    assert_eq!(f["default"], "level");
+}
+
+#[test]
+fn the_panel_covers_a_whole_yard_not_only_its_mains() {
+    let yard = json!({"yards": {"t": {"mains": 1, "left": 2, "right": 2}}, "level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "level"}}});
+    let mut d = data(yard);
+    d.as_object_mut().unwrap().remove("tracks");
+    let objs = objects(&build_text(&input(), &params(d, "")).unwrap());
+    let panel = named(&objs, "gen.track.t.level.lc1.panel")[0];
+    let xs: Vec<f64> = points(panel).iter().map(|p| p[0]).collect();
+    let width = xs.iter().cloned().fold(f64::MIN, f64::max) - xs.iter().cloned().fold(f64::MAX, f64::min);
+    // Two spurs each side of one main at 24.765 mm (0.16 points per mm) is about 4 spacings = 15.8 points, plus a tie.
+    assert!(width > 15.0, "the panel spans the yard: {width}");
+}
+

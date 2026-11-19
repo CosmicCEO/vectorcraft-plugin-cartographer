@@ -212,6 +212,19 @@ const MANIFEST: &str = r#"{
           "help": "kind: crossing (two tracks cross), branch (one line leaves the other with a turnout) or join (two lines continue into each other end to end); main (crossing): the id of the line whose track runs through (default: the wider one); frog (branch): turnout number 4 to 20 (default: the one that fits best). Select one line of each of the two tracks that meet."
         }
       }
+    },
+    {
+      "id": "set_level_crossing",
+      "label": "Make Level Crossing",
+      "params": {
+        "description": {
+          "type": "string",
+          "default": "{\"treatment\": \"level\"}",
+          "maxLength": 1000,
+          "label": "Level crossing (JSON)",
+          "help": "Select one road line and one track line that cross. treatment: level (a crossing panel, rails across) or gated (also crossbucks and gate arms)."
+        }
+      }
     }
   ]
 }"#;
@@ -229,6 +242,7 @@ fn run(input: &[u8], params: &Value) -> Result<Output, String> {
         Some("set_embankment") => builder::set_embankment_text(&input, params),
         Some("set_wet") => builder::set_wet_text(&input, params),
         Some("set_tracks") => builder::set_tracks_text(&input, params),
+        Some("set_level_crossing") => builder::set_level_crossing_text(&input, params),
         Some("set_yard") => builder::set_yard_text(&input, params),
         Some("set_joint") => builder::set_joint_text(&input, params),
         _ => builder::build_text(&input, params),

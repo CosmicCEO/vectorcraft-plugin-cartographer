@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { Control } from "../lib/control.mjs";
-import { PLUGIN_ID, SET_JOINT, SET_TRACKS, SET_YARD } from "../lib/doc.mjs";
+import { PLUGIN_ID, SET_JOINT, SET_LEVEL_CROSSING, SET_TRACKS, SET_YARD } from "../lib/doc.mjs";
 import { Panel } from "../lib/panel.mjs";
 import { fakeVectorCraft } from "./fake-vectorcraft.mjs";
 
@@ -243,12 +243,29 @@ test("a siding off a main: the panel reads it as a branch, and Draw applies a br
 
 // ---- the new ones: mixing kinds, switching documents, the schema-built cards
 
-test("a road line and a track line together get a plain note", async () => {
+test("a road line and a track line together are a level crossing, and Draw stores it", async () => {
   const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "track.b" }], selection: [2, 3] });
   const { panel, done } = await setup(vc);
   const s = panel.snapshot();
-  assert.equal(s.target.kind, "other");
-  assert.match(s.message, /not supported yet/);
+  assert.deepEqual([s.target.kind, s.target.road, s.target.track], ["level", "a", "b"]);
+  assert.equal(s.level.described, false);
+  assert.deepEqual(s.level.card.fields.map((f) => f.key), ["treatment"]);
+  await panel.editLevel({ treatment: "gated" });
+  assert.equal(panel.snapshot().pending.kind, "level");
+  await panel.editLevel({ treatment: "drawbridge" });
+  assert.match(panel.snapshot().message, /level or gated/);
+  await panel.draw();
+  assert.deepEqual(steps(vc), ["select.set", SET_LEVEL_CROSSING, "select.all", "plugin.run", "select.set"]);
+  assert.deepEqual(vc.doc.spec.level_crossings.lc1, { road: "a", track: "b", treatment: "gated" });
+  assert.equal(panel.snapshot().level.described, true);
+  done();
+});
+
+test("two roads and a track together still get a plain note", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 4, name: "road.c" }, { id: 3, name: "track.b" }], selection: [2, 3, 4] });
+  const { panel, done } = await setup(vc);
+  assert.equal(panel.snapshot().target.kind, "other");
+  assert.match(panel.snapshot().message, /not supported yet/);
   done();
 });
 
@@ -364,6 +381,17 @@ test("a second copy of the same document is a different document: proposals do n
   vc.doc.revision++;
   await panel.tick(true);
   assert.equal(panel.snapshot().pending, null);
+  done();
+});
+
+test("track layers are kept above road layers, so rails run over a road at a level crossing", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a" }, { id: 3, name: "track.b" }], selection: [3] });
+  vc.doc.layers.unshift({ id: 3001, name: "track b", visible: true, locked: false, parent: null });
+  vc.doc.layers.unshift({ id: 3000, name: "road a", visible: true, locked: false, parent: null });
+  const { panel, done } = await setup(vc);
+  await panel.draw();
+  const tops = vc.doc.layers.filter((l) => l.parent === null).map((l) => l.name);
+  assert.ok(tops.indexOf("track b") < tops.indexOf("road a"), `track above road: ${tops}`);
   done();
 });
 

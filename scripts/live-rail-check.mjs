@@ -77,14 +77,19 @@ await post("draw");
 s = await until("the joint with its main", (s) => s.joint?.described && s.joint.spec.main === "t1");
 say(`joint changed with the card: ${s.joint.summary}`);
 
-// 4. A road line with a track line is not supported yet, and says so.
-const R = await line(50, 520, 650, 520);
+// 4. A road line crossing a track line is a level crossing: the card makes it gated, Draw builds the panel, crossbucks and gates.
+const R = await line(450, 100, 450, 550);
 await select(R);
 await vc.run(`plugin.${ID}.set_cross_section`, { params: { cross_section: "lane back | lane fwd" } });
 await select(R, A);
-s = await until("the mixed note", (s) => /not supported yet/.test(s.message ?? ""));
-assert.equal(s.target.kind, "other");
-say("a road line and a track line together: the panel says not supported yet");
+s = await until("a level crossing", (s) => s.target?.kind === "level");
+s = await post("level", { patch: { treatment: "gated" } });
+assert.equal(s.pending?.kind, "level", s.message);
+await post("draw");
+s = await until("the stored level crossing", (s) => s.level?.described && s.level.spec.treatment === "gated");
+const lc = (await names()).filter((n) => n.includes(".level."));
+assert.ok(lc.some((n) => n.endsWith(".panel")) && lc.filter((n) => n.includes(".gate.")).length === 2, `level crossing objects: ${lc}`);
+say(`a road across a track: a gated level crossing (${lc.length} objects)`);
 
 // 5. One rebuild from the panel draws the road and the tracks together.
 await select(A);
