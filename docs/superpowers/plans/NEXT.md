@@ -1,16 +1,55 @@
-# Next: 2.0
+# Next: 1.7 to 2.5 (agreed with the owner, 2026-11-19)
 
-Written at the end of 1.5. The deferred and cut items are listed in `docs/RELEASE-1.5.md`; the bigger ones:
+Status: 1.6.0 released. Deferred minors from each release are in `docs/RELEASE-1.5.md` and `docs/RELEASE-1.6.md`. This page is the agreed order; each release gets its own plan before work starts.
 
-- **Black-white hatching** (spike S6: the panel must create the pattern swatches and the plug-in must know they exist; a missing swatch makes VectorCraft refuse the build).
-- **Schema-built road cards** and folding the per-kind commands into one `set_feature` (an API change, best once).
-- **Labels, scale bar, legend, north arrow** (a filter cannot make text, spike S4: the panel would create text through VectorCraft's own commands).
-- **Junction radii and setbacks that grow with the print scale; symbol minimum sizes.**
-- Half barriers and signals at level crossings (bridges, road over and track over, came in 1.6).
-- **Style defaults for high-contrast and black-white** (owner, 1.6 panel check: "medium-contrast and hand drawn work well enough for now").
-- **Areas:** trails, forests, swamps, estuaries (design section 6.3).
-- Rail cost: the shared output still copies each path (`docs/PARITY-RAIL.md`).
+## 1.7: small, soon
 
-## 1.7 (owner, 2026-11-19)
-- **Turnout ties in a yard ladder:** the first turnout of a ladder is drawn with all its ties, but the turnouts after it have none between the switch and the spur (the ladder runs bare). Every turnout in a ladder gets its ties.
+- **Turnout ties in a yard ladder** (owner): the first turnout of a ladder has all its ties; the turnouts after it have none between the switch and the spur. Every turnout gets its ties.
+- Already merged after 1.6.0, shipped in 1.7: the start script names the panel as the next step (#23); a plain line or shape selected with a track says to make it a road first (#25).
+- Bridge minors from 1.6 that show on paper: the road bridge deck stays straight under a hand-drawn road; a lopsided yard's rail-bridge parapets sit at the wider side's distance on both sides.
 
+## Owner decisions (2026-11-19)
+
+1. No Apple Developer ID: the Mac app is not signed. The first launch is opened once with right-click, Open (or allowed in System Settings); the guide says so.
+2. Linux in 2.1; 2.0 is the Mac app.
+3. The printed map is 2.5, after some optimization releases.
+4. The Ross Bridge Parkway map is no longer a reason for this work: Cartographer stands on its own.
+
+## 2.0: the Cartographer app (Mac)
+
+Goal: no terminal. Double-click Cartographer and work.
+
+- A Tauri app (Rust, the toolkit the plug-in already uses) with one window showing the panel.
+- The panel server ships inside the app as a single program with Node built in (Node's single executable application), so nothing else needs installing. The app picks the port; nobody types an address.
+- The app finds VectorCraft, starts it with its control port (or says plainly that a running VectorCraft must be quit once), and stops the panel when the app quits.
+- First run installs or updates the plug-in in VectorCraft and checks the setup (today's `install.mjs` and `check.mjs`, as buttons with plain results).
+- Menu: Check setup, Reinstall plug-in, Open the guide, About (version).
+- An unsigned `.dmg`, built and published by the release workflow like the packages today; the guide shows the one-time right-click, Open.
+- The terminal scripts stay for development and for anyone who prefers them.
+- With it, the API change best made once: one `set_feature` command instead of the per-kind commands, and cards built from the plug-in's schemas instead of hand-written ones. 1.x documents still open (records are not changed).
+- Risks: macOS may warn more strongly about an unsigned app in later versions; the app is about 100 MB (Node).
+
+## 2.1: Linux app
+
+- The same app as an AppImage; the panel tested in Tauri's Linux window (WebKitGTK), which differs a little from Safari's.
+
+## 2.2 to 2.4: optimization (to be detailed with the owner)
+
+- Rail cost: the shared output still copies each path (`docs/PARITY-RAIL.md`); rail builds are 1.2 to 1.27 times Track Layer's.
+- Larger drawings: the point limit (a plain road builds to about 19,450 points) and build time on big documents.
+- Deferred minors from `docs/RELEASE-1.5.md` and `docs/RELEASE-1.6.md`.
+
+## 2.5: a finished printed map
+
+- Labels, scale bar, legend and north arrow (the panel makes text through VectorCraft's own commands; a filter cannot, spike S4).
+- Junction radii and setbacks that grow with the print scale; minimum sizes for symbols.
+- Style defaults for high-contrast and black-white (owner, 1.6), and black-white hatching (spike S6: the panel creates the pattern swatches first).
+
+## Later (not scheduled)
+
+- Areas: trails, forests, swamps, estuaries (design section 6.3).
+- Half barriers and signals at level crossings.
+
+## Open question
+
+- Which optimization matters most to you for 2.2 to 2.4: build speed and cost, bigger drawings, or the panel's ease of use?
