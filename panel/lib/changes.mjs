@@ -35,7 +35,7 @@ const TRACK_LABEL = {
   ends: "far end", frog: "turnout number", crossovers: "crossovers", at: "starts at (mm)", length: "length (mm)",
 };
 const showTrack = (v) => (v === null || v === undefined ? "automatic" : v === true ? "on" : v === false ? "off" : Array.isArray(v) ? (v.length ? v.map(crossover).join("; ") : "none") : String(v));
-const crossover = (c) => `main ${c.from} to ${c.to}${c.at === undefined ? " in the middle" : ` at ${c.at} mm`}`;
+const crossover = (c) => `main ${c.from} to ${c.to}${c.at === undefined ? " in the middle" : ` at ${c.at} m`}`;
 const TRACK_KIND = { tracks: "parallel tracks", yard: "a yard" };
 
 /** Sentences for what changes from `before` ({kind, spec}, or null if nothing is stored) to `after`. */

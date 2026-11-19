@@ -21,7 +21,7 @@ test("each kind says its line, its generated shapes and its layer", () => {
 
 test("a card model from the tracks schema fills defaults, and true or false shows as on or off", async () => {
   const card = cardModel(await schema("tracks"), {});
-  assert.deepEqual(card.fields.map((f) => [f.key, f.value]), [["tracks", 1], ["spacing", 24.765], ["ballast", "on"], ["ties", "on"]]);
+  assert.deepEqual(card.fields.map((f) => [f.key, f.value]), [["tracks", 1], ["spacing", 3.9624], ["ballast", "on"], ["ties", "on"]]);
   const off = cardModel(await schema("tracks"), { ballast: false, ties: true });
   assert.deepEqual(off.fields.filter((f) => f.type === "choice").map((f) => f.value), ["off", "on"]);
 });

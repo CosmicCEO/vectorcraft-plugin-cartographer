@@ -17,6 +17,7 @@ pub mod materials;
 pub mod offset;
 pub mod output;
 pub mod rail_builder;
+pub mod rail_units;
 pub mod rail_standards;
 pub mod roads;
 pub mod scenarios;

@@ -148,19 +148,20 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
         if has_road {
             // A missing level crossing is said first: it is the note a user can act on. All of these share the track half of the 30 notes.
             let mut level_notes = level::missing_notes(&items, &spec);
-            let data = params["_context"]["documentData"].as_object().cloned().unwrap_or_default();
+            let data = crate::rail_units::model_data(&params["_context"]["documentData"]);
             out.displace(false); // the panel and signs sit on the track, a model at true scale: never wobbled or thickened
             level_notes.extend(level::build(&items, &spec, &data, &mut out));
             out.displace(true);
             level_notes.extend(track_notes);
             track_notes = level_notes;
         }
+        let track_notes: Vec<String> = track_notes.iter().map(|n| crate::rail_units::metres_text(n)).collect();
         // Only 30 notes are kept: share them between roads and tracks so a busy road network cannot hide every track warning.
         notes = fair_notes(notes, track_notes, MAX_NOTES);
     }
     if has_road && !has_track {
         // No track at all: stored level crossings only have notes to give (their track is gone).
-        let data = params["_context"]["documentData"].as_object().cloned().unwrap_or_default();
+        let data = crate::rail_units::model_data(&params["_context"]["documentData"]);
         notes.extend(level::build(&items, &spec, &data, &mut out));
     }
     // What the build had to say is kept with the document so the panel can show it; the rest of the stored data is carried over unchanged.
@@ -508,19 +509,19 @@ pub fn set_wet_text(input: &Value, params: &Value) -> Result<String, String> {
 /// Command "Set Tracks" (Describe Track): see `rail_builder::set_tracks_text`; a record from a newer schema is refused first.
 pub fn set_tracks_text(input: &Value, params: &Value) -> Result<String, String> {
     Doc::check_schema(&params["_context"]["documentData"])?;
-    rail_builder::set_tracks_text(input, params)
+    rail_builder::set_tracks_text(input, params).map_err(|e| crate::rail_units::metres_text(&e))
 }
 
 /// Command "Set Yard" (Describe Yard): see `rail_builder::set_yard_text`; a record from a newer schema is refused first.
 pub fn set_yard_text(input: &Value, params: &Value) -> Result<String, String> {
     Doc::check_schema(&params["_context"]["documentData"])?;
-    rail_builder::set_yard_text(input, params)
+    rail_builder::set_yard_text(input, params).map_err(|e| crate::rail_units::metres_text(&e))
 }
 
 /// Command "Set Joint" (Join Two Lines): see `rail_builder::set_joint_text`; a record from a newer schema is refused first.
 pub fn set_joint_text(input: &Value, params: &Value) -> Result<String, String> {
     Doc::check_schema(&params["_context"]["documentData"])?;
-    rail_builder::set_joint_text(input, params)
+    rail_builder::set_joint_text(input, params).map_err(|e| crate::rail_units::metres_text(&e))
 }
 
 /// Command "Set Level Crossing" (Make Level Crossing): one selected road line and one selected track line that cross; stores

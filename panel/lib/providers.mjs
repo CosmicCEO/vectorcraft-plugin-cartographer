@@ -289,7 +289,7 @@ export async function proposeFeature({ kind, description, current = null, extra 
 
 /**
  * Turns a description into a validated track or yard. The provider answers, the CLI checks the answer, and if it is not valid the provider
- * gets the exact error once to fix it. `current` is {kind, spec} when editing. Returns {ok: true, kind, spec, summary, min_line_mm?, attempts}
+ * gets the exact error once to fix it. `current` is {kind, spec} when editing. Returns {ok: true, kind, spec, summary, min_line_m?, attempts}
  * or {ok: false, error, attempts}.
  */
 export async function proposeTrack({ description, current = null, provider, maxAttempts = 2 }) {

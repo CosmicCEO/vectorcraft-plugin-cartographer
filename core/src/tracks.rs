@@ -31,12 +31,13 @@ impl Default for TrackSpec {
     }
 }
 
-/// A length as a number (mm) or text: `24mm`, `1in` (model inches) or `13ft` (prototype feet, scaled to 1:160).
+/// A length as a number (model mm: descriptions in metres are converted first, see `rail_units`) or text: `24mm`, `1in` (model inches) or
+/// `13ft` (feet of ground, scaled to 1:160).
 pub fn parse_length(v: &Value, name: &str) -> Result<f64, String> {
     if let Some(x) = v.as_f64() {
         return Ok(x);
     }
-    let bad = || format!("`{name}` must be a number of millimetres or text like 25mm, 1in or 13ft (prototype feet), not {v}.");
+    let bad = || format!("`{name}` must be a number of metres or text like 4m or 13ft, not {v}.");
     let t = v.as_str().ok_or_else(bad)?.trim().to_lowercase();
     let split = t.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(t.len());
     let n: f64 = t[..split].parse().map_err(|_| bad())?;

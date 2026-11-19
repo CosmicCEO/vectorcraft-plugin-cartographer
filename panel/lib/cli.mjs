@@ -38,12 +38,12 @@ export const schema = (kind) => runCli(["schema", kind]);
 
 /**
  * Checks a description (an object without `kind`) of kind "tracks" or "yard".
- * Returns {ok, kind, spec, summary, min_line_mm?} or {ok: false, error}.
+ * Returns {ok, kind, spec, summary, min_line_m?} or {ok: false, error}.
  */
 export async function parseSpec(kind, spec) {
   if (kind !== "tracks" && kind !== "yard") return { ok: false, error: `unknown kind "${kind}": use "tracks" or "yard"` };
   const r = await runCli([kind === "yard" ? "parse-yard" : "parse-tracks", JSON.stringify(spec)]);
-  return r.ok ? { ok: true, kind, spec: r[kind], summary: r.summary, ...(r.min_line_mm !== undefined ? { min_line_mm: r.min_line_mm } : {}) } : { ok: false, error: r.error };
+  return r.ok ? { ok: true, kind, spec: r[kind], summary: r.summary, ...(r.min_line_m !== undefined ? { min_line_m: r.min_line_m } : {}) } : { ok: false, error: r.error };
 }
 /** Checks a joint description (JSON text). {ok, joint, summary} or {ok: false, error}. */
 export const parseJoint = (jsonText) => runCli(["parse-joint", jsonText]);

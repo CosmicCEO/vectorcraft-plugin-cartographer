@@ -46,7 +46,7 @@ test("describe a yard in words, then Draw: the right commands, in order, and the
   assert.equal(s.pending.kind, "yard");
   assert.deepEqual([s.pending.spec.mains, s.pending.spec.left, s.pending.spec.right, s.pending.spec.ends], [2, 8, 4, "merge"]);
   assert.match(s.pending.summary, /2 mains, 8 spurs left, 4 spurs right, merging back/);
-  assert.ok(s.pending.min_line_mm > 2500 && s.pending.min_line_mm < 2550, `needs about 2.52 m of line: ${s.pending.min_line_mm}`);
+  assert.ok(s.pending.min_line_m > 400 && s.pending.min_line_m < 408, `needs about 404 m of line: ${s.pending.min_line_m}`);
   assert.deepEqual(s.pending.changes, ["new: a yard"]);
   assert.deepEqual(steps(vc), [], "nothing is applied until Draw");
 
@@ -56,7 +56,7 @@ test("describe a yard in words, then Draw: the right commands, in order, and the
   assert.ok(names.includes("track t1") && names.includes("track t1 spine") && names.includes("track t1 drawing"), `each track gets a layer with a spine and a drawing: ${names}`);
   assert.deepEqual(vc.doc.paths.find((x) => x.id === 5).path, [vc.doc.layers.find((l) => l.name === "track t1 spine").id], "the line is on its spine layer");
   // What is sent is the program's own checked form of the description, with the defaults filled in.
-  assert.deepEqual(JSON.parse(vc.doc.calls.find((c) => c.command === SET_YARD).params.params.description), { mains: 2, left: 8, right: 4, ends: "merge", frog: 6, spacing: 24.765, at: 0, ballast: true, ties: true });
+  assert.deepEqual(JSON.parse(vc.doc.calls.find((c) => c.command === SET_YARD).params.params.description), { mains: 2, left: 8, right: 4, ends: "merge", frog: 6, spacing: 3.9624, at: 0, ballast: true, ties: true });
   assert.deepEqual(vc.doc.calls.find((c) => c.command === "plugin.run").params, { id: PLUGIN_ID });
   assert.deepEqual(vc.doc.selection, [5], "the user's selection is restored");
   const after = panel.snapshot();
@@ -67,7 +67,7 @@ test("describe a yard in words, then Draw: the right commands, in order, and the
 });
 
 test("parallel tracks use Describe Track, and changing a yard to tracks is said in words", async () => {
-  const spec = { tracks: {}, yards: { t1: { mains: 1, left: 2, ends: "stub", frog: 6, spacing: 24.765, at: 0, ballast: true, ties: true } } };
+  const spec = { tracks: {}, yards: { t1: { mains: 1, left: 2, ends: "stub", frog: 6, spacing: 3.9624, at: 0, ballast: true, ties: true } } };
   const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "track.t1" }], selection: [2], spec });
   const { panel, done } = await setup(vc, '{"tracks": 3, "spacing": "14ft"}');
   assert.equal(panel.snapshot().track.kind, "yard", "a stored yard is shown as a yard");
@@ -83,7 +83,7 @@ test("parallel tracks use Describe Track, and changing a yard to tracks is said 
 });
 
 test("an edit shows what changed, field by field", async () => {
-  const stored = { mains: 2, left: 8, right: 4, ends: "merge", frog: 6, spacing: 24.765, at: 0, ballast: true, ties: true };
+  const stored = { mains: 2, left: 8, right: 4, ends: "merge", frog: 6, spacing: 3.9624, at: 0, ballast: true, ties: true };
   const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "track.t1" }], selection: [2], spec: { tracks: {}, yards: { t1: stored } } });
   const { panel, done } = await setup(vc, JSON.stringify({ kind: "yard", ...stored, left: 10 }));
   await panel.propose("two more spurs on the left", "fake");
@@ -165,7 +165,7 @@ test("two selected track lines are a joint, and the panel says how they meet", a
   assert.deepEqual([s.target.kind, s.target.lines], ["joint", ["a", "b"]]);
   assert.equal(s.joint.found.ok, true);
   assert.equal(s.joint.found.kind, "crossing");
-  assert.match(s.joint.found.summary, /lines a and b cross, 300 mm along a and 200 mm along b, at 90.0 degrees/);
+  assert.match(s.joint.found.summary, /lines a and b cross, 48 m along a and 32 m along b, at 90.0 degrees/);
   assert.equal(s.joint.described, false);
   done();
 });
@@ -233,7 +233,7 @@ test("a siding off a main: the panel reads it as a branch, and Draw applies a br
   const { panel, done } = await setup(vc, '{"kind": "branch", "frog": 8}');
   const f = panel.snapshot().joint.found;
   assert.deepEqual([f.ok, f.kind], [true, "branch"]);
-  assert.match(f.summary, /line b ends on line a, 700 mm along it/);
+  assert.match(f.summary, /line b ends on line a, 112 m along it/);
   await panel.propose("b is a siding off a with a number 8", "fake");
   assert.deepEqual(panel.snapshot().pending.changes, ["new: a branch with a No. 8 turnout"]);
   await panel.draw();
@@ -318,7 +318,7 @@ test("the track card is built from the schema, and an edit becomes a proposal th
 });
 
 test("a yard card edit keeps the yard and leaves an empty length out", async () => {
-  const stored = { mains: 2, left: 8, right: 4, ends: "merge", frog: 6, spacing: 24.765, at: 0, ballast: true, ties: true };
+  const stored = { mains: 2, left: 8, right: 4, ends: "merge", frog: 6, spacing: 3.9624, at: 0, ballast: true, ties: true };
   const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "track.t1" }], selection: [2], spec: { tracks: {}, yards: { t1: stored } } });
   const { panel, done } = await setup(vc);
   assert.deepEqual(panel.snapshot().track.card.fields.map((f) => f.key), ["mains", "left", "right", "ends", "frog", "spacing", "at", "length", "ballast", "ties"]);

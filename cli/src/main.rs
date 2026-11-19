@@ -11,6 +11,7 @@ use cartographer_core::builder::settings_summary;
 use cartographer_core::crosssection::{Item, Parsed, format, parse};
 use cartographer_core::junction::{Control, JunctionSpec};
 use cartographer_core::joint::{self, JointSpec};
+use cartographer_core::rail_units;
 use cartographer_core::library::Library;
 use cartographer_core::rail_builder::to_mm;
 use cartographer_core::schema::{joint_schema, level_crossing_schema, settings_schema, tracks_schema, yard_schema};
@@ -111,11 +112,25 @@ fn index(args: &[String], at: usize, what: &str) -> Result<usize, String> {
     args.get(at).and_then(|a| a.parse::<usize>().ok()).ok_or_else(|| format!("{what}: give a whole number (items are numbered from 0)"))
 }
 
-/// `<command> '<json>'`: checks a track, yard or joint description with `check`.
+/// `<command> '<json>'`: checks a track, yard or joint description with `check`. Descriptions, records and messages are in metres; the
+/// rail code in between works in model millimetres.
 fn spec_reply(args: &[String], name: &str, check: impl Fn(&Value) -> Result<Value, String>) -> Value {
     let Some(text) = args.get(1) else { return fail(format!("usage: {name} '<json>'")) };
     match serde_json::from_str::<Value>(text) {
-        Ok(v) => check(&v).unwrap_or_else(fail),
+        Ok(v) => match check(&rail_units::record_to_model(&v)) {
+            Ok(mut r) => {
+                for k in ["tracks", "yard"] {
+                    if r.get(k).is_some() {
+                        r[k] = rail_units::model_to_record(&r[k]);
+                    }
+                }
+                if let Some(s) = r["summary"].as_str() {
+                    r["summary"] = json!(rail_units::metres_text(s));
+                }
+                r
+            }
+            Err(e) => fail(rail_units::metres_text(&e)),
+        },
         Err(e) => fail(format!("not valid JSON: {e}")),
     }
 }
@@ -130,8 +145,8 @@ fn find_joint(args: &[String]) -> Value {
     };
     let (na, nb) = (args.get(3).map_or("a", String::as_str), args.get(4).map_or("b", String::as_str));
     match joint::find(&pa, &pb) {
-        Some(f) => json!({"ok": true, "found": f.to_json(), "kind": f.kind(), "summary": f.describe(na, nb)}),
-        None => fail(format!("Lines {na} and {nb} do not meet (nowhere do they come within {:.0} mm of each other).", joint::TOLERANCE)),
+        Some(f) => json!({"ok": true, "found": f.to_json(), "kind": f.kind(), "summary": rail_units::metres_text(&f.describe(na, nb))}),
+        None => fail(rail_units::metres_text(&format!("Lines {na} and {nb} do not meet (nowhere do they come within {:.0} mm of each other).", joint::TOLERANCE))),
     }
 }
 
@@ -274,7 +289,7 @@ fn run(args: &[String], lib: &Library) -> Value {
             _ => fail("usage: schema settings | tracks | yard | joint | level_crossing"),
         },
         Some("parse-tracks") => spec_reply(args, "parse-tracks", |v| TrackSpec::from_json(v).map(|s| json!({"ok": true, "tracks": s.to_json(), "summary": s.summary()}))),
-        Some("parse-yard") => spec_reply(args, "parse-yard", |v| YardSpec::from_json(v).map(|s| json!({"ok": true, "yard": s.to_json(), "summary": s.summary(), "min_line_mm": (s.min_line() * 10.0).round() / 10.0}))),
+        Some("parse-yard") => spec_reply(args, "parse-yard", |v| YardSpec::from_json(v).map(|s| json!({"ok": true, "yard": s.to_json(), "summary": s.summary(), "min_line_m": (s.min_line() / rail_units::MM_PER_M * 100.0).round() / 100.0}))),
         Some("parse-joint") => spec_reply(args, "parse-joint", |v| JointSpec::from_json(v).map(|s| json!({"ok": true, "joint": s.to_json(), "summary": s.summary()}))),
         Some("find-joint") => find_joint(args),
         Some("library") => {

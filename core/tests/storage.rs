@@ -3,11 +3,11 @@ use cartographer_core::units::TargetScale;
 use serde_json::{Value, json};
 
 #[test]
-fn empty_data_gets_defaults_and_schema_1() {
+fn empty_data_gets_defaults_and_schema_2() {
     for input in [json!({}), Value::Null] {
         let doc = Doc::from_document_data(&input).unwrap();
         let v = doc.to_value();
-        assert_eq!(v["schema"], 1);
+        assert_eq!(v["schema"], 2);
         assert_eq!(v["settings"]["style"], "medium-contrast");
         assert_eq!(v["settings"]["target_print_scale"], "true");
         assert_eq!(v["settings"]["seed"], 1);
@@ -15,7 +15,7 @@ fn empty_data_gets_defaults_and_schema_1() {
         assert_eq!(doc.settings.style, Style::MediumContrast);
         assert_eq!(doc.settings.target_print_scale, TargetScale::True);
     }
-    assert_eq!(SCHEMA, 1);
+    assert_eq!(SCHEMA, 2);
 }
 
 #[test]
@@ -29,15 +29,15 @@ fn unknown_keys_survive_a_round_trip() {
 
 #[test]
 fn a_newer_schema_is_refused_not_overwritten() {
-    let e = Doc::from_document_data(&json!({"schema": 2, "roads": {}})).err().unwrap();
-    assert!(e.contains("newer Cartographer") && e.contains("schema 2"), "{e}");
+    let e = Doc::from_document_data(&json!({"schema": 3, "roads": {}})).err().unwrap();
+    assert!(e.contains("newer Cartographer") && e.contains("schema 3"), "{e}");
 }
 
 #[test]
 fn schema_zero_or_missing_is_migrated() {
     for input in [json!({"roads": {"a": 1}}), json!({"schema": 0, "roads": {"a": 1}})] {
         let v = Doc::from_document_data(&input).unwrap().to_value();
-        assert_eq!(v["schema"], 1);
+        assert_eq!(v["schema"], 2);
         assert_eq!(v["roads"], json!({"a": 1}));
     }
 }

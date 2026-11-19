@@ -138,7 +138,7 @@ fn set_yard_checks_the_selected_line_and_the_words() {
     assert!(ok["documentData"]["tracks"].get("t1").is_none(), "a yard replaces the plain tracks on that line");
     let short = builder::set_yard_text(&input("track.t1", &[[0.0, 0.0], [500.0 * PT_PER_MM, 0.0]]), &p("{\"left\":8,\"ends\":\"merge\"}")).unwrap_err();
     assert!(short.contains("needs") && short.contains("longer"), "{short}");
-    for bad in ["{\"mains\":0}", "{\"left\":17}", "{\"ends\":\"loop\"}", "{\"frog\":3}", "{\"frog\":21}", "{\"frog\":6.5}", "{\"colour\":1}", "{\"spacing\":5}", "[1]"] {
+    for bad in ["{\"mains\":0}", "{\"left\":17}", "{\"ends\":\"loop\"}", "{\"frog\":3}", "{\"frog\":21}", "{\"frog\":6.5}", "{\"colour\":1}", "{\"spacing\":1}", "[1]"] {
         assert!(builder::set_yard_text(&line(2000.0), &p(bad)).is_err(), "{bad}");
     }
 }

@@ -34,7 +34,8 @@ fn to_doc(p: P) -> P {
 
 /// What the plug-in keeps with the document (an object; everything it does not know is carried over).
 fn data_of(params: &Value) -> Map<String, Value> {
-    let mut data = params["_context"]["documentData"].as_object().cloned().unwrap_or_default();
+    // The rail code works in model millimetres; the record is stored in metres (`stored`).
+    let mut data = crate::rail_units::model_data(&params["_context"]["documentData"]);
     data.insert("schema".into(), json!(crate::storage::SCHEMA));
     data
 }
@@ -63,9 +64,9 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
             out.keep(iid);
         }
     }
-    notes.extend(build_into(&items, &Value::Object(data.clone()), &mut out)?);
+    notes.extend(build_into(&items, &params["_context"]["documentData"], &mut out)?);
     data.insert("notes".into(), json!(notes));
-    Ok(out.finish_with(Some(&Value::Object(data))))
+    Ok(out.finish_with(Some(&Value::Object(crate::rail_units::stored_data(&data)))))
 }
 
 /// The drawn tracks' output settings: rail dimensions are model millimetres at 0.16 points each, so numbers are written with 4 decimals (0.0006 mm of
@@ -87,7 +88,7 @@ pub fn build_into(items: &[Item], data: &Value, out: &mut Out) -> Result<Vec<Str
 
 /// `build_into`, with extra strips per track where its ties are left out (a road crossing it at a level crossing).
 pub fn build_into_with(items: &[Item], data: &Value, out: &mut Out, extra: &HashMap<String, Vec<crate::joint::Band>>) -> Result<Vec<String>, String> {
-    let data = data.as_object().cloned().unwrap_or_default();
+    let data = crate::rail_units::model_data(data);
     let mut notes: Vec<String> = Vec::new();
     out.precision(RAIL_DECIMALS);
     out.thinning(RAIL_THINNING);
@@ -331,6 +332,7 @@ fn set_text(input: &Value, params: &Value, kind: &str, other: &str, check: impl 
     let mut data = data_of(params);
     let raw = params["description"].as_str().map(str::trim).filter(|t| !t.is_empty()).ok_or(ask.to_string())?;
     let value: Value = serde_json::from_str(raw).map_err(|e| format!("the description is not valid JSON: {e}"))?;
+    let value = crate::rail_units::record_to_model(&value);
     let known = |id: &str| ["tracks", "yards"].iter().any(|k| data.get(*k).and_then(|t| t.get(id)).is_some());
     let length_of = |id: &str| items.iter().find(|i| track_id(&i.name).as_deref() == Some(id)).or(None).and_then(|i| i.subs.first()).map(|s| crate::geom::Poly::new(s.iter().map(|&p| to_mm(p)).collect()).len());
 
@@ -377,7 +379,7 @@ fn set_text(input: &Value, params: &Value, kind: &str, other: &str, check: impl 
             }
         }
     }
-    Ok(out.finish_with(Some(&Value::Object(data))))
+    Ok(out.finish_with(Some(&Value::Object(crate::rail_units::stored_data(&data)))))
 }
 
 /// Command "Set Joint": the selected lines (one of each of two tracks) meet; stores the joint (see `joint`) in the document's plug-in data.
@@ -446,5 +448,5 @@ pub fn set_joint_text(input: &Value, params: &Value) -> Result<String, String> {
             out.keep(iid);
         }
     }
-    Ok(out.finish_with(Some(&Value::Object(data))))
+    Ok(out.finish_with(Some(&Value::Object(crate::rail_units::stored_data(&data)))))
 }

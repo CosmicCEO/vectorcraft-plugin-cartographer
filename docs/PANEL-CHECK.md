@@ -22,11 +22,11 @@ Write what you saw next to each step (`ok` or what went wrong) and send it back.
 
 ## Railway track
 
-A. Draw a line at least 400 document points long (about 2.5 m of model, enough for a small yard) and select it. In the mode box choose **Railway track (N scale)**. Expected: the panel shows a track card (tracks, spacing, roadbed, ties) and the Draw button says "Draw this".
+A. Draw a line at least 400 document points long (400 m of ground, enough for a small yard) and select it. In the mode box choose **Railway track**. Expected: the panel shows a track card (tracks, spacing, roadbed, ties) and the Draw button says "Draw this".
 B. Type "double track" and press Propose. Expected: "Proposed: 2 tracks, ..." with a list of what changes; Draw builds rails, ties and roadbed in a layer called "track t1" with a spine and a drawing part.
 C. Change Tracks to 3 in the card. Expected: a proposal; nothing in VectorCraft changes until Draw. Enter 99. Expected: a plain message about 1 to 12, and no change.
 D. Type "a yard with 4 spurs on the left and 2 on the right, merging back". Expected: a yard proposal that says how much line it needs; if the line is too short Draw shows the plug-in's refusal in the panel.
-E. Draw a second line that crosses the first, select both lines (they must both be tracks: select the second and describe it as track too). Expected: the joint card says "cross, ... mm along a ... at ... degrees". Choose a join or a branch for lines that meet end to end or in a T. Expected: the card says what it found; Draw builds the crossing, branch or join.
+E. Draw a second line that crosses the first, select both lines (they must both be tracks: select the second and describe it as track too). Expected: the joint card says "cross, ... m along a ... at ... degrees". Choose a join or a branch for lines that meet end to end or in a T. Expected: the card says what it found; Draw builds the crossing, branch or join.
 F. Select a road line and a track line together (a road line is named `road.<id>`). Expected: the panel says that is not supported yet and offers nothing to draw.
 G. Hide the "track t1 spine" layer and press Draw. Expected: the track is rebuilt and the spine is hidden again afterwards.
 

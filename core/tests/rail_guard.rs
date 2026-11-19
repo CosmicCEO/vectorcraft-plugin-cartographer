@@ -44,7 +44,7 @@ fn settings_road_data_and_unknown_keys_survive_a_rail_command() {
     assert_eq!(kept["segments"]["a"]["cross_section"], TWO);
     assert_eq!(kept["extra"]["k"], 1);
     assert_eq!(kept["tracks"]["b"]["tracks"], 2);
-    assert_eq!(kept["schema"], 1, "the schema is written even when the document had none");
+    assert_eq!(kept["schema"], 2, "the schema is written even when the document had none");
 }
 
 #[test]
