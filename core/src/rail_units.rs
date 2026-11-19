@@ -81,9 +81,13 @@ pub fn upgrade(data: &Value) -> Value {
 
 /// The plug-in data the rail code reads: upgraded, then its `tracks` and `yards` in model millimetres.
 pub fn model_data(data: &Value) -> Map<String, Value> {
-    match upgrade(data) {
-        Value::Object(m) => each_record(&m, true),
-        _ => Map::new(),
+    match data.as_object() {
+        Some(m) if m.get("schema").and_then(Value::as_u64).unwrap_or(0) >= 2 => each_record(m, true),
+        Some(_) => match upgrade(data) {
+            Value::Object(m) => each_record(&m, true),
+            _ => Map::new(),
+        },
+        None => Map::new(),
     }
 }
 

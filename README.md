@@ -2,7 +2,7 @@
 
 One VectorCraft plug-in that draws roads, railway track and water from lines and shapes plus a description in plain words. It replaces the owner's two earlier plug-ins, Road Builder and Track Layer. Trails, forests, swamps and estuaries are planned for later.
 
-**Status: 1.5.0.** Since 1.0: a road can cross a track at a **level crossing** (plain or gated), print minimums for creeks and rivers, crosswalks and arrows that stay readable at small scales, cheaper rail builds, the real point limit measured (about 19,000 points for a plain road), and a sweep of small fixes ([CHANGELOG](CHANGELOG.md), [release notes](docs/RELEASE-1.5.md)).
+**Status: 1.6.0.** Railway lengths in metres (no N-scale wording), road bridges over tracks and rail bridges over roads, shape-tool lines in the panel, setup fixes ([release notes](docs/RELEASE-1.6.md)). Since 1.0: a road can cross a track at a **level crossing** (plain or gated), print minimums for creeks and rivers, crosswalks and arrows that stay readable at small scales, cheaper rail builds, the real point limit measured (about 19,000 points for a plain road), and a sweep of small fixes ([CHANGELOG](CHANGELOG.md), [release notes](docs/RELEASE-1.5.md)).
 
 - **Roads** (a line named `road.<id>`): a cross-section written in words or shorthand; lane changes, junctions, intersections (lighted, stops, roundabout, overpass, ramps with gores, railroad, cloverleaf), hubs of three or more roads, water (lakes, creeks and rivers that blend where lines meet, shores), embankments, bridges, culverts and causeways. The output is identical to Road Builder's ([docs/PARITY.md](docs/PARITY.md): 15 scenarios, identical SVG, build cost within 5%).
 - **Railway track** (a line named `track.<id>`): rails, ties and roadbed to NMRA proportions, described in metres; parallel tracks, yards with NMRA turnouts, crossovers, crossings, branches and joins, ported from Track Layer ([docs/RAIL.md](docs/RAIL.md), [gallery](docs/GALLERY.md), [parity](docs/PARITY-RAIL.md): 8 scenarios identical when scaled).
@@ -44,7 +44,7 @@ cargo +stable test --release --workspace
 node --test panel/test/*.test.mjs scripts/test/*.test.mjs
 node scripts/standards.mjs check        # the standards database
 node scripts/parity.mjs <vectorcraft-cli> <road_builder_dir>   # macOS only; rail: see docs/PARITY-RAIL.md
-node scripts/package.mjs 1.5.0          # a release package in dist/
+node scripts/package.mjs 1.6.0          # a release package in dist/
 ```
 
 CI runs the same on Ubuntu and macOS. Headless renders need `vectorcraft-cli`, which exists for macOS only. Read [CLAUDE.md](CLAUDE.md) before changing anything.

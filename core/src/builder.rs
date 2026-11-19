@@ -159,7 +159,7 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
         // Only 30 notes are kept: share them between roads and tracks so a busy road network cannot hide every track warning.
         notes = fair_notes(notes, track_notes, MAX_NOTES);
     }
-    if has_road && !has_track {
+    if has_road && !has_track && !spec.level_crossings().is_empty() {
         // No track at all: stored level crossings only have notes to give (their track is gone).
         let data = crate::rail_units::model_data(&params["_context"]["documentData"]);
         notes.extend(level::build(&items, &spec, &data, &mut out));
