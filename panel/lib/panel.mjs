@@ -436,7 +436,7 @@ export class Panel extends EventEmitter {
       const options = l.card.fields.find((f) => f.key === "treatment")?.options ?? [];
       const treatment = patch.treatment ?? (this.state.pending?.kind === "level" ? this.state.pending.spec.treatment : l.spec.treatment);
       if (!options.includes(treatment)) return this.#set({ message: `The crossing must be ${options.join(" or ")}.` });
-      const summary = treatment === "gated" ? "a gated level crossing" : "a level crossing";
+      const summary = CROSSING_WORDS[treatment] ?? "a level crossing";
       const changes = l.described ? (treatment === l.spec.treatment ? ["no change"] : [`from ${l.spec.treatment} to ${treatment}`]) : [`new: ${summary}`];
       this.#set({ pending: { kind: "level", spec: { treatment }, summary, source: "edit", changes }, message: null });
     });
@@ -786,3 +786,7 @@ export class Panel extends EventEmitter {
     return true;
   }
 }
+
+/** How each treatment of a road meeting a track is said (the same words as panel/public/app.js). */
+const CROSSING_WORDS = { level: "a level crossing", gated: "a gated level crossing", "road over": "a road bridge over the track", "track over": "a rail bridge over the road" };
+

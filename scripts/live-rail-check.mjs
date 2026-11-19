@@ -90,6 +90,16 @@ s = await until("the stored level crossing", (s) => s.level?.described && s.leve
 const lc = (await names()).filter((n) => n.includes(".level."));
 assert.ok(lc.some((n) => n.endsWith(".panel")) && lc.filter((n) => n.includes(".gate.")).length === 2, `level crossing objects: ${lc}`);
 say(`a road across a track: a gated level crossing (${lc.length} objects)`);
+for (const [treatment, want] of [["road over", ".deck."], ["track over", ".bridge."]]) {
+  await select(R, A);
+  await until("the crossing again", (s) => s.target?.kind === "level");
+  s = await post("level", { patch: { treatment } });
+  await post("draw");
+  s = await until(`the crossing as ${treatment}`, (s) => s.level?.described && s.level.spec.treatment === treatment);
+  const b = (await names()).filter((n) => n.includes(".level."));
+  assert.ok(b.some((n) => n.includes(want)) && !b.some((n) => n.endsWith(".panel")), `${treatment}: ${b}`);
+  say(`the same crossing as ${treatment}: ${b.length} objects`);
+}
 
 // 5. One rebuild from the panel draws the road and the tracks together.
 await select(A);
