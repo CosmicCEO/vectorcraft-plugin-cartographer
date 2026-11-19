@@ -9,3 +9,6 @@ From the owner's panel check of 1.5.0 (2026-11-19). Same autonomy rules as `2026
 | P3 railway in metres | No N-scale or model-railroad wording; track, yard and joint values in metres (spacing 3.96 m, not 24.765 mm); stored records in metres with an automatic conversion of documents saved by 1.0 to 1.5 (record version bump); the rail code keeps working in millimetres inside so Track Layer parity holds; NMRA stays the cited source of the geometry. |
 | P4 grade separation | A third and fourth level-crossing treatment: `road over` (a road bridge over the track) and `track over` (a rail bridge over the road, the road in an underpass). |
 | P5 release 1.6.0 | Version, changelog, release notes (rulings and deferred), NEXT.md (style defaults for high-contrast and black-white go to the 2.0 list, by owner decision), tag, verify the published package. |
+
+**For 1.7 (owner, 2026-11-19):** in a yard ladder the first turnout is drawn with all its ties, but the turnouts after it have no ties between the switch and the spur (the ladder runs bare). Draw the ties of every turnout in a ladder.
+

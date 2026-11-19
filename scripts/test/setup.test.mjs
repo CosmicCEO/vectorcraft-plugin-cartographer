@@ -37,3 +37,13 @@ test("waitForPort answers true once something listens and false after the time i
   assert.equal(await waitForPort(free, 5000), true);
   late.close();
 });
+
+test("a VectorCraft already running is found on a Mac, and only there", async () => {
+  const { isRunning } = await import("../lib/vc.mjs");
+  const seen = [];
+  const fake = (status) => (cmd, args) => (seen.push([cmd, ...args]), { status });
+  assert.equal(isRunning("darwin", fake(0)), true);
+  assert.deepEqual(seen[0], ["pgrep", "-x", "VectorCraft"]);
+  assert.equal(isRunning("darwin", fake(1)), false);
+  assert.equal(isRunning("linux", fake(0)), false, "Linux AppImages have no fixed process name: not checked");
+});

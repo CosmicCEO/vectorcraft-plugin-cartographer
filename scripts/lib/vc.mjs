@@ -28,3 +28,9 @@ export async function waitForPort(port, ms) {
   }
 }
 
+/** Is VectorCraft running already? Checked on macOS only (`pgrep -x VectorCraft`); `run` is spawnSync, replaceable in tests. */
+export function isRunning(platform, run) {
+  if (platform !== "darwin") return false;
+  return run("pgrep", ["-x", "VectorCraft"]).status === 0;
+}
+
