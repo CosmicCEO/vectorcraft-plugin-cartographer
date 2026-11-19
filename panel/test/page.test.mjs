@@ -176,3 +176,12 @@ test("the page renders a road and a track as a level crossing card", async () =>
   page.send(panel.snapshot());
   assert.match(page.byId.get("lsummary").textContent, /Proposed: a rail bridge over the road/);
 });
+
+test("a plain shape selected with a track says to make the shape a road first", async () => {
+  const { panel } = await start({ paths: [{ id: 2, name: "", kind: "Ellipse" }, { id: 3, name: "track.b" }], selection: [2, 3] });
+  assert.equal(panel.snapshot().target.plainWithTrack, true);
+  // The test page does not keep appended text: check the words the page shows for it.
+  const app = (await import("node:fs")).readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /t\.plainWithTrack\) ctx\.append\(.*make it a road first/i);
+});
+
