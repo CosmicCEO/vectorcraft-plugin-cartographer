@@ -137,6 +137,19 @@ impl Spec {
         self.raw["crossings"].as_object().map(|m| m.iter().filter(|(_, v)| v.is_object()).map(|(k, v)| (k.clone(), v.clone())).collect()).unwrap_or_default()
     }
 
+    /// The stored level crossings (a road and a track): id and record.
+    pub fn level_crossings(&self) -> Vec<(String, Value)> {
+        self.raw["level_crossings"].as_object().map(|m| m.iter().filter(|(_, v)| v.is_object()).map(|(k, v)| (k.clone(), v.clone())).collect()).unwrap_or_default()
+    }
+
+    /// Stores a level crossing record.
+    pub fn set_level_crossing(&mut self, id: &str, record: Value) {
+        if !self.raw["level_crossings"].is_object() {
+            self.raw["level_crossings"] = json!({});
+        }
+        self.raw["level_crossings"][id] = record;
+    }
+
     /// The id of the stored crossing between these two roads, in either order.
     pub fn crossing_between(&self, a: &str, b: &str) -> Option<String> {
         self.crossings().into_iter().find(|(_, v)| {

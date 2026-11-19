@@ -6,6 +6,7 @@ use crate::embank;
 use crate::hub::{self, HubSpec};
 use crate::junction::{self, JunctionSpec, junction_id};
 use crate::output::Out;
+use crate::level;
 use crate::rail_builder;
 use crate::style::StyleKit;
 use crate::units::{TargetScale, ground_m_for_print_mm};
@@ -140,9 +141,16 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     }
     if has_track {
         // Tracks are built after the roads, so their ties and rails lie above the roads' paving; a stored description that cannot be read fails the build.
-        let track_notes = rail_builder::build_into(&items, &params["_context"]["documentData"], &mut out)?;
+        // A road crossing a track at a level crossing leaves the track's ties out under it.
+        let level_bands = if has_road { level::avoid_bands(&items, &spec) } else { Default::default() };
+        let track_notes = rail_builder::build_into_with(&items, &params["_context"]["documentData"], &mut out, &level_bands)?;
         // Only 30 notes are kept: share them between roads and tracks so a busy road network cannot hide every track warning.
         notes = fair_notes(notes, track_notes, MAX_NOTES);
+    }
+    if has_road {
+        // Level crossings are drawn after the tracks (their panel lies above the ballast, below the rails); a record whose track is gone says so.
+        let data = params["_context"]["documentData"].as_object().cloned().unwrap_or_default();
+        notes.extend(level::build(&items, &spec, &data, &mut out));
     }
     // What the build had to say is kept with the document so the panel can show it; the rest of the stored data is carried over unchanged.
     let mut spec = spec;
@@ -503,3 +511,37 @@ pub fn set_joint_text(input: &Value, params: &Value) -> Result<String, String> {
     Doc::check_schema(&params["_context"]["documentData"])?;
     rail_builder::set_joint_text(input, params)
 }
+
+/// Command "Set Level Crossing" (Make Level Crossing): one selected road line and one selected track line that cross; stores
+/// `level_crossings[id] = {road, track, treatment}` (see `level`). `description` is JSON: `{"treatment": "level" | "gated"}`.
+pub fn set_level_crossing_text(input: &Value, params: &Value) -> Result<String, String> {
+    let items = items_from_filter_input(input);
+    let mut spec = load_spec(params)?;
+    let roads: Vec<&Item> = items.iter().filter(|i| segment_id(&i.name).is_some()).collect();
+    let tracks: Vec<&Item> = items.iter().filter(|i| rail_builder::track_id(&i.name).is_some()).collect();
+    let (road, track) = match (roads.as_slice(), tracks.as_slice()) {
+        ([r], [t]) => (*r, *t),
+        _ => return Err(format!("Select one road line and one track line that cross ({} road line{} and {} track line{} selected).", roads.len(), if roads.len() == 1 { "" } else { "s" }, tracks.len(), if tracks.len() == 1 { "" } else { "s" })),
+    };
+    let value: Value = match params["description"].as_str().map(str::trim).filter(|t| !t.is_empty()) {
+        Some(raw) => serde_json::from_str(raw).map_err(|e| format!("the level crossing description is not valid JSON: {e}"))?,
+        None => json!({}),
+    };
+    let treatment = level::parse_treatment(&value)?;
+    let (r, t) = (segment_id(&road.name).unwrap_or_default(), rail_builder::track_id(&track.name).unwrap_or_default());
+    let (Some(rl), Some(tl)) = (road.subs.first(), track.subs.first()) else { return Err("the selected lines have no points".into()) };
+    if level::cross_point(rl, tl).is_none() {
+        return Err(format!("Road {r} and track {t} do not cross. Draw the track across the road, then select both."));
+    }
+    let id = spec.level_crossings().into_iter().find(|(_, v)| v["road"] == r.as_str() && v["track"] == t.as_str()).map(|(k, _)| k)
+        .unwrap_or_else(|| (1..).map(|n| format!("lc{n}")).find(|id| !spec.level_crossings().iter().any(|(k, _)| k == id)).unwrap_or_default());
+    spec.set_level_crossing(&id, level::record(&r, &t, &treatment));
+    let mut out = Out::new();
+    for it in &items {
+        if let Some(iid) = it.id {
+            out.keep(iid);
+        }
+    }
+    Ok(out.finish_with(Some(&spec.to_value())))
+}
+
