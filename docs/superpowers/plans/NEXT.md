@@ -57,13 +57,13 @@ Goal: no terminal. Double-click Cartographer and work.
 | 7 | Farmland (orchard optional) | `landuse=farmland`, `landuse=orchard` | pale; orchard in rows of dots |
 | 8 | Land use | `landuse=residential/commercial/industrial` | three faint tints |
 | 9 | Railway station and platform | `railway=station`, `railway=platform` | station tint; platforms along the track |
-| 10 | School grounds | `amenity=school` | pale, outlined |
+| 10 | Glacier | `natural=glacier` | pale blue-white, dashed blue outline |
 
 - The key (legend) lists the roads, tracks, water and areas actually used, with the same swatches and line styles as the map.
 
 ## Later (not scheduled)
 
-- Trails and estuaries (design section 6.3); more area kinds after the first ten.
+- Trails and estuaries (design section 6.3); more area kinds after the first ten (candidates: military land `landuse=military` and danger area `military=danger_area`, red diagonal hatching; school grounds `amenity=school`).
 - Half barriers and signals at level crossings.
 
 ## Open question
