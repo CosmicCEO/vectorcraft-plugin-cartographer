@@ -140,7 +140,9 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     }
     if has_track {
         // Tracks are built after the roads, so their ties and rails lie above the roads' paving; a stored description that cannot be read fails the build.
-        notes.extend(rail_builder::build_into(&items, &params["_context"]["documentData"], &mut out)?);
+        let track_notes = rail_builder::build_into(&items, &params["_context"]["documentData"], &mut out)?;
+        // Only 30 notes are kept: share them between roads and tracks so a busy road network cannot hide every track warning.
+        notes = fair_notes(notes, track_notes, MAX_NOTES);
     }
     // What the build had to say is kept with the document so the panel can show it; the rest of the stored data is carried over unchanged.
     let mut spec = spec;
@@ -159,8 +161,20 @@ fn is_junction_name(name: &str) -> bool {
     id.len() > 1 && id.starts_with(|c: char| c.is_ascii_uppercase()) && id[1..].chars().all(|c| c.is_ascii_digit())
 }
 
-/// Names that already mean something else, so a plain line must not be mistaken for them.
-fn is_reserved_name(name: &str) -> bool {
+/// How many build notes the document keeps.
+const MAX_NOTES: usize = 30;
+
+/// Up to `cap` notes from two lists, each list getting at least half when it has that many; the rest of the room goes to whichever has more. Road notes
+/// come first.
+pub fn fair_notes(a: Vec<String>, b: Vec<String>, cap: usize) -> Vec<String> {
+    let half = cap / 2;
+    let take_a = a.len().min(half.max(cap.saturating_sub(b.len())));
+    let take_b = b.len().min(cap - take_a);
+    a.into_iter().take(take_a).chain(b.into_iter().take(take_b)).collect()
+}
+
+/// Names that already mean something else, so a plain line must not be mistaken for them (shared by Describe Road and Describe Track).
+pub(crate) fn is_reserved_name(name: &str) -> bool {
     name == "centerline" || ["gen.", "profile.", "flag.", "arrow."].iter().any(|p| name.starts_with(p)) || is_junction_name(name) || junction_id(name).is_some() || water::water_id(name).is_some() || rail_builder::track_id(name).is_some()
 }
 

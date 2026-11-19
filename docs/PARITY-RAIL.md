@@ -21,7 +21,7 @@ wedge never showed. Cartographer's output code (from Road Builder) drops a repea
 The gate removes each collapsed ring from Track Layer's SVG and the ring that starts at the same place from Cartographer's, counts them, and prints
 the count (`station` 1, `turnouts` 5, `branch` 1). Nothing else is skipped. Also:
 
-- The highlight on the line you drew is 0.26 mm of model wide at any scale (0.0423 points here, 0.75 points in Track Layer).
+- The highlight on the line you drew is 0.26 mm of model wide at any scale (0.0423 points, written as 0.042 because the line you drew keeps 3 decimals; 0.75 points in Track Layer).
 - Rail numbers are written with 4 decimals (0.0006 mm of model) and curves thinned at 0.00677 points; roads keep 3 decimals and 0.12.
 
 ## Cost

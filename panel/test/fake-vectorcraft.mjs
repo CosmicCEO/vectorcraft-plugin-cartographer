@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import net from "node:net";
 import { PLUGIN_ID, SET_SETTINGS, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_JUNCTION, SET_TRANSITION, SET_WATER, SET_WET, SET_JOINT, SET_TRACKS, SET_YARD } from "../lib/doc.mjs";
 
-export async function fakeVectorCraft({ paths = [], selection = [], spec = { segments: {} }, hasDocument = true, rejectYard = null, rejectJoint = null } = {}) {
+export async function fakeVectorCraft({ paths = [], selection = [], spec = { segments: {} }, hasDocument = true, rejectYard = null, rejectJoint = null, rejectBuild = null } = {}) {
   const doc = { paths: paths.map((p) => ({ kind: "Path", ...p })), selection: [...selection], spec: structuredClone(spec), revision: 1, title: "Untitled", calls: [], layers: [{ id: 1000, name: "Layer 1", visible: true, locked: false, parent: null }], nextLayer: 1001 };
   const tree = (parent = null) => doc.layers.filter((l) => l.parent === parent).map((l) => ({ id: l.id, kind: "Layer", name: l.name, visible: l.visible, locked: l.locked, children: tree(l.id) }));
   const reply = (socket, id, result) => socket.write(`${JSON.stringify({ id, ok: true, result })}\n`);
@@ -21,7 +21,7 @@ export async function fakeVectorCraft({ paths = [], selection = [], spec = { seg
         if (method === "document.inspect") {
           if (params.ids) return reply(socket, id, { nodes: doc.paths.filter((p) => params.ids.includes(p.id)) });
           if (params.kind) return reply(socket, id, { nodes: doc.paths.map((p) => ({ ...p, path: p.path ?? [1000] })) });
-          return reply(socket, id, { revision: doc.revision, fileInfoTitle: doc.title, selection: doc.selection, layers: tree() });
+          return reply(socket, id, { revision: doc.revision, fileInfoTitle: doc.title, title: doc.fileName ?? doc.title, selection: doc.selection, layers: tree() });
         }
         if (method !== "engine.execute") return fail(socket, id, `unknown method ${method}`);
         const { command, params: p = {} } = params;
@@ -144,7 +144,10 @@ export async function fakeVectorCraft({ paths = [], selection = [], spec = { seg
           const body = JSON.stringify({ document: { layers: [{ kind: { type: "layer", children: nodes } }], unknown: { pluginData: { [PLUGIN_ID]: doc.spec } } } });
           writeFileSync(p.path, `${body}\n\u0000VCBLOBS\u0000%PDF-1.7 binary preview`, "latin1");
           return reply(socket, id, { path: p.path });
-        } else if (command === "plugin.run") doc.revision++;
+        } else if (command === "plugin.run") {
+          if (rejectBuild) return fail(socket, id, rejectBuild);
+          doc.revision++;
+        }
         reply(socket, id, { ok: true });
       }
     });

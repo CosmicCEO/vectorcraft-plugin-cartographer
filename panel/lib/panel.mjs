@@ -610,7 +610,9 @@ export class Panel extends EventEmitter {
     return this.#serial(async () => {
       const base = this.state.settingsPending?.settings ?? this.state.settings?.values;
       if (!base) return this.#set({ message: "Open or create a document in VectorCraft first." });
-      const r = await parseSettings(JSON.stringify({ ...base, ...patch }));
+      // An emptied field keeps the stored value (null would otherwise mean "back to the default").
+      const given = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== null && v !== undefined && v !== ""));
+      const r = await parseSettings(JSON.stringify({ ...base, ...given }));
       // `base` is what the proposal was made from; Draw sends only what differs from it.
       this.#set(r.ok ? { settingsPending: { settings: r.settings, summary: r.summary, base: this.state.settingsPending?.base ?? base }, message: null } : { message: r.error });
     });
@@ -630,16 +632,20 @@ export class Panel extends EventEmitter {
       const selected = this.state.selection.map((n) => n.id);
       this.#set({ busy: "drawing", message: null });
       let message = "Drawn.";
+      let saved = false;
       try {
         await this.control.run("select.all");
         await this.control.run(SET_SETTINGS, { params: { description: JSON.stringify(changed) } });
+        saved = true;
         // A new style or print scale is built at once (the design: changing it rebuilds everything), when there is anything to build.
         const paths = await allPaths(this.control);
         if (paths.some((p) => segmentId(p.name) || junctionId(p.name) || waterId(p.name) || trackId(p.name))) await this.#build(selected);
         else if (selected.length) await this.control.run("select.set", { ids: selected }); // the user's selection comes back
         this.#set({ settingsPending: null });
       } catch (e) {
-        message = `Could not draw: ${e.message}`;
+        // Stored but not rebuilt: the proposal is done with; say what happened to each half.
+        message = saved ? `Settings saved; the rebuild failed: ${e.message}` : `Could not draw: ${e.message}`;
+        if (saved) this.#set({ settingsPending: null });
       } finally {
         this.#set({ busy: null });
         await this.#refresh(true);
@@ -659,6 +665,7 @@ export class Panel extends EventEmitter {
       const pending = this.state.pending;
       if (!t || t.kind === "other") return this.#set({ message: "Select one line (or one road) first." });
       this.#set({ busy: "drawing", message: null });
+      let message = null;
       try {
         if (this.#isTrack(t)) {
           // A proposal, else (for a plain line, which must become a track) what the card shows; a track that is already described is only rebuilt.
@@ -707,12 +714,16 @@ export class Panel extends EventEmitter {
         }
         await this.#build(t.ids);
         this.spec = await readSpec(this.control);
-        this.#set({ pending: null, notes: this.spec.notes ?? [], message: pending || ["crossing", "hub", "water", "wet"].includes(t.kind) ? "Drawn." : "Rebuilt." });
+        message = pending || ["crossing", "hub", "water", "wet"].includes(t.kind) ? "Drawn." : "Rebuilt.";
+        this.#set({ pending: null, notes: this.spec.notes ?? [], message });
       } catch (e) {
-        this.#set({ message: `Could not draw: ${e.message}` });
+        message = `Could not draw: ${e.message}`;
+        this.#set({ message });
       } finally {
         this.#set({ busy: null });
         await this.#refresh(true);
+        // Reading the document again clears a message that belongs to an older selection; this one is the answer to Draw, so say it again.
+        if (message) this.#set({ message });
       }
     });
   }

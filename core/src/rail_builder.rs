@@ -88,6 +88,7 @@ pub fn build_into(items: &[Item], data: &Value, out: &mut Out) -> Result<Vec<Str
     out.displace(false); // a model at true scale: the style may colour it but never move it
     let result = build_lines(items, &data, out, &mut notes);
     out.displace(true);
+    out.layer(crate::output::Layer::Roadbed); // the stack a road writes to
     out.precision(crate::output::DEFAULT_DECIMALS);
     out.thinning(crate::output::DEFAULT_THINNING);
     result.map(|()| notes)
@@ -267,7 +268,8 @@ pub fn build(input: &Value, params: &Value) -> Result<Value, String> {
 
 /// Names that already mean something else, so a plain line must not be mistaken for them.
 fn is_reserved_name(name: &str) -> bool {
-    name.starts_with(GEN_PREFIX) || track_id(name).is_some() || crate::roads::segment_id(name).is_some() || crate::junction::junction_id(name).is_some() || crate::water::water_id(name).is_some()
+    // The same rule as Describe Road (centreline, profile, flag, arrow and legacy junction names too), plus road lines.
+    name.starts_with(GEN_PREFIX) || crate::builder::is_reserved_name(name) || crate::roads::segment_id(name).is_some()
 }
 
 fn clean_id(t: &str) -> String {
