@@ -119,11 +119,11 @@ fn a_road_line_is_never_turned_into_a_track_and_a_track_line_never_into_a_road()
 
 #[test]
 fn a_big_track_build_gets_the_point_note() {
-    let pts: Vec<[f64; 2]> = (0..1300).map(|i| [f64::from(i) * 5.0, 0.0]).collect();
+    let pts: Vec<[f64; 2]> = (0..12_500).map(|i| [f64::from(i) * 0.5, 0.0]).collect();
     let input = json!({"objects": [line(1, "track.a", &pts, false)]});
     let out = parsed(build_text(&input, &params(json!({}), "")));
     let notes: Vec<&str> = out["documentData"]["notes"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
-    assert!(notes.iter().any(|n| n.contains("1300") && n.contains("split")), "{notes:?}");
+    assert!(notes.iter().any(|n| n.contains("12500") && n.contains("split")), "{notes:?}");
 }
 
 #[test]

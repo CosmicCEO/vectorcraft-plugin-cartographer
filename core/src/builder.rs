@@ -19,8 +19,9 @@ use serde_json::{Value, json};
 
 pub const GEN_PREFIX: &str = "gen.";
 
-/// Above this many input points a build gets a note: VectorCraft refused a 2,000-point road and built a 1,500-point one (spike S1).
-const NEAR_LIMIT_POINTS: usize = 1_200;
+/// A note above this many input points. Measured 2026-11-19 on VectorCraft 0.24.1: a plain two-lane road builds up to about 19,450 points and is then
+/// refused for its instruction budget; junctions, water and hand-drawn styles cost more per point (not measured), so the note comes well before: 12,000 is an estimate.
+const NEAR_LIMIT_POINTS: usize = 12_000;
 
 /// The stored descriptions of the document, after checking the record is one this version may read (a newer schema is refused).
 fn load_spec(params: &Value) -> Result<Spec, String> {
@@ -109,7 +110,7 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
     let mut notes: Vec<String> = Settings::from_json_lenient(&params["_context"]["documentData"]["settings"]).1;
     let points: usize = items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)).map(|i| i.subs.iter().map(Vec::len).sum::<usize>()).sum();
     if points > NEAR_LIMIT_POINTS {
-        notes.push(format!("this build has {points} points; VectorCraft refuses a build of about 2,000 or more points, so split long roads"));
+        notes.push(format!("this build has {points} points; VectorCraft refuses a build that needs too many instructions (a plain two-lane road of about 19,000 points, less with junctions, water or the hand-drawn style), so split long roads"));
     }
     for it in items.iter().filter(|i| !i.name.starts_with(GEN_PREFIX)) {
         let Some(id) = it.id else { continue };
