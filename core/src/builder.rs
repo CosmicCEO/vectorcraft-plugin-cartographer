@@ -144,16 +144,24 @@ pub fn build_text(input: &Value, params: &Value) -> Result<String, String> {
         // Tracks are built after the roads, so their ties and rails lie above the roads' paving; a stored description that cannot be read fails the build.
         // A road crossing a track at a level crossing leaves the track's ties out under it.
         let level_bands = if has_road { level::avoid_bands(&items, &spec) } else { Default::default() };
-        let track_notes = rail_builder::build_into_with(&items, &params["_context"]["documentData"], &mut out, &level_bands)?;
+        let mut track_notes = rail_builder::build_into_with(&items, &params["_context"]["documentData"], &mut out, &level_bands)?;
+        if has_road {
+            // A missing level crossing is said first: it is the note a user can act on. All of these share the track half of the 30 notes.
+            let mut level_notes = level::missing_notes(&items, &spec);
+            let data = params["_context"]["documentData"].as_object().cloned().unwrap_or_default();
+            out.displace(false); // the panel and signs sit on the track, a model at true scale: never wobbled or thickened
+            level_notes.extend(level::build(&items, &spec, &data, &mut out));
+            out.displace(true);
+            level_notes.extend(track_notes);
+            track_notes = level_notes;
+        }
         // Only 30 notes are kept: share them between roads and tracks so a busy road network cannot hide every track warning.
         notes = fair_notes(notes, track_notes, MAX_NOTES);
     }
-    if has_road {
-        // Level crossings are drawn after the tracks (their panel lies above the ballast, below the rails); a record whose track is gone says so.
+    if has_road && !has_track {
+        // No track at all: stored level crossings only have notes to give (their track is gone).
         let data = params["_context"]["documentData"].as_object().cloned().unwrap_or_default();
-        out.displace(false); // the panel and signs sit on the track, a model at true scale: never wobbled or thickened
         notes.extend(level::build(&items, &spec, &data, &mut out));
-        out.displace(true);
     }
     // What the build had to say is kept with the document so the panel can show it; the rest of the stored data is carried over unchanged.
     let mut spec = spec;

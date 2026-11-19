@@ -159,3 +159,36 @@ fn the_hand_drawn_style_does_not_move_the_panel() {
     let b = objects(&build_text(&input(), &params(hand, "")).unwrap());
     assert_eq!(points(named(&a, "gen.track.t.level.lc1.panel")[0]), points(named(&b, "gen.track.t.level.lc1.panel")[0]));
 }
+
+#[test]
+fn a_track_crossing_a_road_with_no_level_crossing_gets_a_note() {
+    let v: Value = serde_json::from_str(&build_text(&input(), &params(data(json!({})), "")).unwrap()).unwrap();
+    let notes = v["documentData"]["notes"].to_string();
+    assert!(notes.contains("track t crosses road a") && notes.contains("level crossing"), "{notes}");
+    let with = json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "level"}}});
+    let v: Value = serde_json::from_str(&build_text(&input(), &params(data(with), "")).unwrap()).unwrap();
+    assert!(!v["documentData"]["notes"].to_string().contains("crosses road"), "no note once the crossing exists");
+}
+
+#[test]
+fn each_gate_stands_on_the_approaching_drivers_right() {
+    // The road runs along +x at y = 100 (y grows down the page); traffic heading +x has its right at larger y.
+    let objs = objects(&build_text(&input(), &params(data(json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "gated"}}})), "")).unwrap());
+    let pole = |tag: &str| points(named(&objs, &format!("gen.track.t.level.lc1.gate.{tag}"))[0])[0];
+    let (before, after) = (pole("before"), pole("after"));
+    assert!(before[0] < 300.0 && before[1] > 100.0, "traffic from the left (heading +x) has its gate below the road line: {before:?}");
+    assert!(after[0] > 300.0 && after[1] < 100.0, "traffic from the right (heading -x) has its gate above the road line: {after:?}");
+}
+
+#[test]
+fn the_missing_crossing_note_survives_a_busy_document() {
+    // 35 stored crossings whose roads are gone make 35 notes; the note about the real, unmade crossing must still be kept.
+    let mut many = serde_json::Map::new();
+    for i in 0..35 {
+        many.insert(format!("old{i}"), json!({"road": format!("gone{i}"), "track": "t", "treatment": "level"}));
+    }
+    let v: Value = serde_json::from_str(&build_text(&input(), &params(data(json!({"level_crossings": Value::Object(many)})), "")).unwrap()).unwrap();
+    let notes = v["documentData"]["notes"].to_string();
+    assert!(notes.contains("track t crosses road a"), "{notes}");
+}
+

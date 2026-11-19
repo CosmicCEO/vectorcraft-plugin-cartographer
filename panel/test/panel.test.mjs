@@ -663,3 +663,11 @@ test("water layers sit under the road layers after a rebuild", async () => {
   assert.ok(names.indexOf("wet x1") >= 0 && names.indexOf("wet x1") < names.indexOf("road a"), `${names}`);
   done();
 });
+
+test("a road drawn partly with the shape tool keeps its pieces in document order", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "road.a", kind: "Line" }, { id: 3, name: "road.a" }], selection: [3], spec: { segments: { a: TWO_LANE } } });
+  const { panel, done } = await setup(vc);
+  assert.equal(panel.snapshot().road.piece, 2, "the pen line drawn second is piece 2, as the plug-in counts");
+  done();
+});
+

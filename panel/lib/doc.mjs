@@ -68,7 +68,7 @@ const OWN = /^(gen\.|profile\.|flag\.|arrow\.)|^centerline$|^[A-Z]\d+\./;
 
 /** What a selected object is to the panel: a road piece, a plain line that could become a road, or something else. */
 export function classify(node) {
-  const isPath = node.kind === "Path";
+  const isPath = LINE_KINDS.includes(node.kind);
   const segment = isPath ? segmentId(node.name) : null;
   if (segment) return { role: "road", segment };
   const junction = isPath ? junctionId(node.name) : null;
@@ -95,10 +95,29 @@ export async function nodes(control, ids) {
   return r.nodes ?? [];
 }
 
+/** What VectorCraft calls the objects a user draws lines with: the pen and pencil make `Path`s (so do the star, spiral and arc tools); the line,
+ *  ellipse, rectangle and polygon tools keep their own kind. All of them can be roads, tracks or water. */
+export const LINE_KINDS = ["Path", "Line", "Ellipse", "Rectangle", "Polygon"];
+
+/** Every line-like object in the document, in document order (the order the plug-in numbers a road's pieces in), each with `path`: the ids of
+ *  the layers it sits in, outermost first. One walk of the layer tree. */
+export async function lineNodes(control) {
+  const r = await control.call("document.inspect", { depth: 16 });
+  const out = [];
+  const walk = (list, layers) => {
+    for (const x of list ?? []) {
+      if (x.kind === "Layer") walk(x.children, [...layers, x.id]);
+      else if (LINE_KINDS.includes(x.kind)) out.push({ id: x.id, name: x.name ?? "", kind: x.kind, path: layers });
+      else walk(x.children, layers); // a group: its members belong to the same layer
+    }
+  };
+  walk(r.layers, []);
+  return out;
+}
+
 /** All paths in the document (id and name), for counting the pieces of a road. */
 export async function allPaths(control) {
-  const r = await control.call("document.inspect", { kind: "Path", limit: 100000 });
-  return (r.nodes ?? []).map((n) => ({ id: n.id, name: n.name ?? "" }));
+  return (await lineNodes(control)).map((n) => ({ id: n.id, name: n.name ?? "" }));
 }
 
 /** The JSON part of a saved .vectorcraft file (a binary preview may follow it, after a NUL and VCBLOBS). */
