@@ -30,7 +30,7 @@ The same three inputs from the S1 spike go through both filters under `tools/fue
 | Road, 10 m creek and bridge | 1,941,285 | 1,739,525 | 0.896 |
 | Winding road, 2,001 points | 129,424,996 | 71,741,506 | 0.554 |
 
-On a long road Cartographer is cheaper than Road Builder because Plan 1's merged framework uses `Len2` (a plain square root) instead of `f64::hypot`, which is a slow software routine in WebAssembly. The near-limit note still triggers at 1,200 points; the real build limit of the new plug-in has not been re-measured (`scripts/spikes/s1-limit.mjs` measures it), so the threshold is deliberately the old, safe one.
+On a long road Cartographer is cheaper than Road Builder because Plan 1's merged framework uses `Len2` (a plain square root) instead of `f64::hypot`, which is a slow software routine in WebAssembly.The near-limit note now starts at 12,000 points (see the measured limit below).
 
 ## What was changed to reach parity
 

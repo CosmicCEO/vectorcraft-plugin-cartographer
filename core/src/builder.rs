@@ -19,9 +19,8 @@ use serde_json::{Value, json};
 
 pub const GEN_PREFIX: &str = "gen.";
 
-/// Above this many input points a build gets a note: VectorCraft refused a 2,000-point road and built a 1,500-point one (spike S1).
 /// A note above this many input points. Measured 2026-11-19 on VectorCraft 0.24.1: a plain two-lane road builds up to about 19,450 points and is then
-/// refused for its instruction budget; junctions, water and hand-drawn styles cost more per point, so the note comes well before.
+/// refused for its instruction budget; junctions, water and hand-drawn styles cost more per point (not measured), so the note comes well before: 12,000 is an estimate.
 const NEAR_LIMIT_POINTS: usize = 12_000;
 
 /// The stored descriptions of the document, after checking the record is one this version may read (a newer schema is refused).
