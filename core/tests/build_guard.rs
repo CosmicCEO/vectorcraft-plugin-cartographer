@@ -105,8 +105,9 @@ fn a_big_build_gets_a_note_naming_the_point_count() {
         out["documentData"]["notes"].as_array().map(|a| a.iter().map(|v| v.as_str().unwrap().to_string()).collect()).unwrap_or_default()
     };
     assert!(!notes(1199).iter().any(|n| n.contains("points")), "no note below the limit");
-    let big = notes(1300);
-    assert!(big.iter().any(|n| n.contains("1300") && n.contains("split") && n.contains("2,000")), "{big:?}");
+    // The note moved from 1,200 to 12,000 points in 1.5, after the limit was measured (about 19,450 for a plain two-lane road).
+    let big = notes(12_500);
+    assert!(big.iter().any(|n| n.contains("12500") && n.contains("split") && n.contains("19,000")), "{big:?}");
 }
 
 #[test]

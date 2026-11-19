@@ -30,12 +30,12 @@ the count (`station` 1, `turnouts` 5, `branch` 1). Nothing else is skipped. Also
 
 | Input | Old fuel | New fuel | Ratio | Limit |
 |---|---|---|---|---|
-| yard1 (2 mains, 4 + 2 spurs, 1.5 m of model) | 5,771,887 | 7,188,981 | 1.246 | 1.35 |
-| tracks2 (double track, 1.8 m of model) | 1,473,873 | 1,911,571 | 1.297 | 1.35 |
+| yard1 (2 mains, 4 + 2 spurs, 1.5 m of model) | 5,771,887 | 6,917,550 | 1.198 | 1.35 |
+| tracks2 (double track, 1.8 m of model) | 1,473,873 | 1,814,804 | 1.231 | 1.35 |
 
 The four gallery layouts (`docs/GALLERY.md`), measured the same way: oval 6,649,676 against 7,905,407 (1.19), station 8,809,221 against 10,557,210 (1.20), terminal 10,546,386 against 13,611,174 (1.29), turnouts 7,144,847 against 8,221,678 (1.15). The largest is about two thirds of the host's limit.
 
-Rail builds cost about 15 to 30% more than in Track Layer, so a rail build reaches the host's limit (about 21 M fuel) a little sooner. Where it
+Since 1.5 (one buffer borrow and one finite test per tie in the output writer) rail builds cost about 20 to 23% more than in Track Layer (they were 25 to 30%); the gallery figures below were measured before that and are a little high. Rail builds cost about 15 to 30% more than in Track Layer, so a rail build reaches the host's limit (about 21 M fuel) a little sooner. Where it
 comes from: 4 decimals instead of 3 digits per number (about 8%), and the shared output code (copies each path to check it, skips non-finite
 points: about 13%). Reading the road element library was another 0.7 M for every build; a build with no road in it no longer reads it. Roads keep
 the 1.05 limit (see `docs/PARITY.md`).
