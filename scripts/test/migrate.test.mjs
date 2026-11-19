@@ -302,3 +302,17 @@ test("the command refuses a dangling symlink as the output and a missing folder 
   mkdirSync(join(dir, "check"), { recursive: true });
   assert.deepEqual(readdir(dir).filter((f) => f.includes(".tmp")), [], "no temporary file is left");
 });
+
+// ---- WP2 review fixes
+
+test("an old record version written like 2.0 is reported, not a crash", () => {
+  const text = `{"document":{"layers":[],"unknown":{"pluginData":{"${IDS.roadbuilder}":{"version":2.0,"segments":{}}}}}}`;
+  const { report } = migrateBytes(Buffer.from(text, "utf8"));
+  assert.ok(report.some((l) => /version 2\.0 is newer/.test(l)), report.join("\n"));
+});
+
+test("an unnamed or empty-named piece does not keep a generated object", () => {
+  const generated = { id: ++n, name: "gen.road.a.1.surface", kind: { type: "compound", children: [{ id: ++n, name: "", kind: { type: "path", path: { subpaths: [] } } }, { id: ++n, kind: { type: "path", path: { subpaths: [] } } }] } };
+  const { file } = migrateDocument(doc({ layers: [layer("L", generated)], data: { [IDS.roadbuilder]: RB } }));
+  assert.ok(!names(file).includes("gen.road.a.1.surface"));
+});

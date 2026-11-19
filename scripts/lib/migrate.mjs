@@ -62,7 +62,7 @@ function scaleNode(node, k) {
 }
 
 /** Does this node, or anything inside it, have a name that is not a generated one? */
-const holdsUserObjects = (node) => (node.kind?.children ?? []).some((c) => (typeof c.name === "string" && !c.name.startsWith("gen.")) || holdsUserObjects(c));
+const holdsUserObjects = (node) => (node.kind?.children ?? []).some((c) => (typeof c.name === "string" && c.name !== "" && !c.name.startsWith("gen.")) || holdsUserObjects(c));
 
 /**
  * Converts a parsed document. Returns `{file, report}`: a converted copy (the input is not changed) and plain-words lines saying what was done.
@@ -87,7 +87,7 @@ export function migrateDocument(input) {
     if (!old) continue;
     const found = counts(old);
     report.push(`${label}: ${found || "no features stored"}.`);
-    if (typeof num(old.version) === "number" && num(old.version) > KNOWN_VERSION) report.push(`${label} record version ${old.version} is newer than this tool knows (${KNOWN_VERSION}); it was copied as it is, check the result.`);
+    if (typeof num(old.version) === "number" && num(old.version) > KNOWN_VERSION) report.push(`${label} record version ${JSON.isRawJSON(old.version) ? old.version.rawJSON : old.version} is newer than this tool knows (${KNOWN_VERSION}); it was copied as it is, check the result.`);
     const unknown = Object.keys(old).filter((key) => !KNOWN_KEYS.has(key));
     if (unknown.length) report.push(`Kept but not used by Cartographer (from ${label}): ${unknown.join(", ")}.`);
     for (const [key, value] of Object.entries(old)) {
