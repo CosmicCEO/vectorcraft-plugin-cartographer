@@ -601,7 +601,8 @@ fn marking_key(name: &str) -> String {
     }
 }
 
-/// Marks drawn at a pitch (crosswalk bars, arrows, culvert pipes).
+/// Marks drawn at a pitch (crosswalk bars, arrows, culvert pipes, level-crossing ties, gore chevrons): a whole name segment after the feature id
+/// (`gen.<kind>.<id>...`), so a road called `arrowhead` or `pipeline` is not one.
 fn is_symbol(name: &str) -> bool {
-    [".crosswalk", ".arrow", ".pipe"].iter().any(|s| name.contains(s))
+    name.split('.').skip(3).any(|seg| ["crosswalk", "arrow", "arrows", "pipe", "ties", "chevrons"].contains(&seg))
 }

@@ -234,6 +234,14 @@ impl Spec {
     }
 
     /// The stored description of a water feature, if any.
+    /// The water as it is drawn: the stored description (or the default for its shape), widened to the band print minimum. Water and the road
+    /// crossings over it both use this, so a bridge spans the creek as drawn.
+    pub fn water_drawn(&self, id: &str, closed: bool) -> crate::water::WaterSpec {
+        let mut ws = self.water(id).unwrap_or_else(|| crate::water::WaterSpec::default_for(closed));
+        ws.width = ws.width.max(self.library.min_width());
+        ws
+    }
+
     pub fn water(&self, id: &str) -> Option<crate::water::WaterSpec> {
         crate::water::WaterSpec::from_json(&self.raw["waters"][id]).ok()
     }
