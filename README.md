@@ -1,6 +1,6 @@
 # Cartographer for VectorCraft
 
-One VectorCraft plug-in that draws roads, railway track and water from lines and shapes plus a description in plain words. It replaces the owner's two earlier plug-ins, Road Builder and Track Layer. Trails, forests, swamps and estuaries are planned for later.
+One VectorCraft plug-in that draws roads, railway track and water from lines and shapes plus a description in plain words.  Trails, forests, swamps and estuaries are planned for later.
 
 **Status: 1.6.0.** Railway lengths in metres (no N-scale wording), road bridges over tracks and rail bridges over roads, shape-tool lines in the panel, setup fixes ([release notes](docs/RELEASE-1.6.md)). Since 1.0: a road can cross a track at a **level crossing** (plain or gated), print minimums for creeks and rivers, crosswalks and arrows that stay readable at small scales, cheaper rail builds, the real point limit measured (about 19,000 points for a plain road), and a sweep of small fixes ([CHANGELOG](CHANGELOG.md), [release notes](docs/RELEASE-1.5.md)).
 
