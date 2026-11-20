@@ -1,6 +1,7 @@
 # Changelog
 
 ## Next
+- Lines drawn with any drawing tool count as lines in the panel (a rounded rectangle did not); only layers, groups, text, images and compound paths do not (owner).
 - The panel shows the plug-in's name and release at the top (owner).
 
 ## 1.7.0

@@ -68,7 +68,7 @@ const OWN = /^(gen\.|profile\.|flag\.|arrow\.)|^centerline$|^[A-Z]\d+\./;
 
 /** What a selected object is to the panel: a road piece, a plain line that could become a road, or something else. */
 export function classify(node) {
-  const isPath = LINE_KINDS.includes(node.kind);
+  const isPath = isLineKind(node.kind);
   const segment = isPath ? segmentId(node.name) : null;
   if (segment) return { role: "road", segment };
   const junction = isPath ? junctionId(node.name) : null;
@@ -95,9 +95,11 @@ export async function nodes(control, ids) {
   return r.nodes ?? [];
 }
 
-/** What VectorCraft calls the objects a user draws lines with: the pen and pencil make `Path`s (so do the star, spiral and arc tools); the line,
- *  ellipse, rectangle and polygon tools keep their own kind. All of them can be roads, tracks or water. */
-export const LINE_KINDS = ["Path", "Line", "Ellipse", "Rectangle", "Polygon"];
+/** Kinds that cannot be a road, track or water line. Every other kind VectorCraft reports is one: the pen, pencil, star, spiral and arc
+ *  make `Path`s, and the shape tools keep their own kind (Line, Ellipse, Rectangle, Rounded Rectangle, Polygon, and any added later).
+ *  Groups (also the grid and flare tools) are looked into, not taken whole. */
+const NOT_LINES = new Set(["Layer", "Group", "Type", "Image", "Compound Path", "Symbol", "Mesh", "Graph"]);
+export const isLineKind = (kind) => typeof kind === "string" && !NOT_LINES.has(kind);
 
 /** Every line-like object in the document, in document order (the order the plug-in numbers a road's pieces in), each with `path`: the ids of
  *  the layers it sits in, outermost first. One walk of the layer tree. */
@@ -107,7 +109,7 @@ export async function lineNodes(control) {
   const walk = (list, layers) => {
     for (const x of list ?? []) {
       if (x.kind === "Layer") walk(x.children, [...layers, x.id]);
-      else if (LINE_KINDS.includes(x.kind)) out.push({ id: x.id, name: x.name ?? "", kind: x.kind, path: layers });
+      else if (isLineKind(x.kind)) out.push({ id: x.id, name: x.name ?? "", kind: x.kind, path: layers });
       else walk(x.children, layers); // a group: its members belong to the same layer
     }
   };

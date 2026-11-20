@@ -421,3 +421,14 @@ test("a yard saved by 1.5 (millimetres, schema 1) is shown and changed in metres
   assert.equal(s.crossovers[0].at, 80);
   done();
 });
+
+test("any drawing tool's line counts: a rounded rectangle is a line, a group or text is not", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "", kind: "Rounded Rectangle" }, { id: 6, name: "", kind: "Type" }], selection: [5] });
+  const { panel, done } = await setup(vc);
+  assert.equal(panel.snapshot().target.kind, "line", "a rounded rectangle is a line");
+  vc.doc.selection.splice(0, 9, 6);
+  vc.doc.revision++;
+  await panel.tick(true);
+  assert.notEqual(panel.snapshot().target?.kind, "line", "text is not a line");
+  done();
+});
