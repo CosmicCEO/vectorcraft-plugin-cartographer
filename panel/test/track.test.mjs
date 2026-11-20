@@ -432,3 +432,34 @@ test("any drawing tool's line counts: a rounded rectangle is a line, a group or 
   assert.notEqual(panel.snapshot().target?.kind, "line", "text is not a line");
   done();
 });
+
+test("after a build the panel dashes every tie line into ties", async () => {
+  const spec = { tracks: { t1: { tracks: 1 } }, yards: {} };
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "track.t1" }, { id: 7, name: "gen.track.t1.t1.ties" }, { id: 8, name: "gen.track.t1.t1.rails" }], selection: [2], spec });
+  const { panel, done } = await setup(vc, '{"tracks": 1}');
+  await panel.draw();
+  const call = vc.doc.calls.find((c) => c.command === "stroke.set");
+  assert.ok(call, `stroke.set was sent: ${vc.doc.calls.map((c) => c.command)}`);
+  assert.deepEqual(call.params.ids, [7], "only the tie lines");
+  // The dash comes from the plug-in's tie sizes (core/src/rail_standards.rs), in document points.
+  const rs = (await import("node:fs")).readFileSync(new URL("../../core/src/rail_standards.rs", import.meta.url), "utf8");
+  const k = (n) => Number(rs.match(new RegExp(`pub const ${n}: f64 = ([0-9.]+);`))[1]);
+  const pt = k("PT_PER_MM");
+  assert.deepEqual(call.params.dash.map((x) => +x.toFixed(6)), [k("TIE_WIDTH") * pt, (k("TIE_PITCH") - k("TIE_WIDTH")) * pt].map((x) => +x.toFixed(6)));
+  assert.equal(call.params.cap, "butt");
+  done();
+});
+
+test("tie lines built without the panel (the plug-in menu, an agent) are dashed when the panel sees them, once", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "track.t1" }], selection: [2], spec: { tracks: { t1: { tracks: 1 } }, yards: {} } });
+  const { panel, done } = await setup(vc);
+  vc.doc.paths.push({ id: 9, name: "gen.track.t1.t1.ties", kind: "Path" }); // a build the panel did not run
+  vc.doc.revision++;
+  await panel.tick(true);
+  const sets = () => vc.doc.calls.filter((c) => c.command === "stroke.set");
+  assert.deepEqual(sets().map((c) => c.params.ids), [[9]]);
+  vc.doc.revision++; // an undo of the dash, say: the same line again is left as the user made it
+  await panel.tick(true);
+  assert.equal(sets().length, 1, "a line already dashed once is not dashed again");
+  done();
+});

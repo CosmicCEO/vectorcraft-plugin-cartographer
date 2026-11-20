@@ -6,7 +6,7 @@ import { diffCrossSection, editCrossSection, parseCrossSection, parseCrossing, p
 import { describeChanges, describeTrackChanges } from "./changes.mjs";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { PLUGIN_ID, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_SETTINGS, SET_TRANSITION, SET_JUNCTION, SET_JOINT, SET_LEVEL_CROSSING, SET_TRACKS, SET_WATER, SET_WET, SET_YARD, allPaths, classify, inspectState, junctionId, nodes, readSpec, segmentId, trackId, waterId } from "./doc.mjs";
+import { allPaths, classify, dashTies, inspectState, junctionId, nodes, PLUGIN_ID, readSpec, segmentId, SET_CROSS_SECTION, SET_CROSSING, SET_EMBANKMENT, SET_HUB, SET_JOINT, SET_JUNCTION, SET_LEVEL_CROSSING, SET_SETTINGS, SET_TRACKS, SET_TRANSITION, SET_WATER, SET_WET, SET_YARD, trackId, waterId } from "./doc.mjs";
 import { organise, unlockOurs } from "./layers.mjs";
 import { propose as proposeWith, proposeCrossing, proposeFeature, proposeHub, proposeJoint, proposeJunction, proposeTrack, proposeTransition } from "./providers.mjs";
 
@@ -32,6 +32,9 @@ export class Panel extends EventEmitter {
   constructor({ control, providers }) {
     super();
     this.control = control;
+    // Tie lines this panel has dashed: a new one (a build run from VectorCraft's menu or by an agent) is dashed when the panel sees it; one
+    // already dashed is left alone, so undoing the dash is not fought.
+    this.dashed = new Set();
     this.providers = providers ?? { default: null, providers: {} };
     this.provider = this.providers.default;
     this.state = { connected: false, error: null, doc: null, selection: [], notes: [], target: null, road: null, track: null, joint: null, level: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, mode: "road", pending: null, busy: null, message: null };
@@ -98,7 +101,10 @@ export class Panel extends EventEmitter {
     const changed = force || switched || key !== this.last.selection || s.revision !== this.last.revision;
     if (!changed) return this.#set({ connected: true, error: null });
     const selectionChanged = key !== this.last.selection;
+    const revised = s.revision !== this.last.revision;
     this.last = { revision: s.revision, selection: key, title: s.title };
+    if (switched) this.dashed.clear();
+    if (revised || switched) for (const id of await dashTies(this.control, this.dashed)) this.dashed.add(id);
     if (switched) this.spec = null; // the old document's build notes must not show in the new one
 
     let sel = (await nodes(this.control, s.selection)).map((n) => ({ id: n.id, name: n.name ?? "", kind: n.kind, anchors: n.anchors, ...classify(n) }));
@@ -772,6 +778,7 @@ export class Panel extends EventEmitter {
     try {
       await this.control.run("select.all");
       await this.control.run("plugin.run", { id: PLUGIN_ID });
+      for (const id of await dashTies(this.control)) this.dashed.add(id);
       await organise(this.control);
     } finally {
       await restore();

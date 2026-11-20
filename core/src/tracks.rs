@@ -147,7 +147,6 @@ pub fn build(id: &str, line: &[P], spec: &TrackSpec, out: &mut Out, to_doc: impl
             out.curve_fills(&format!("gen.track.{id}.ballast"), std::slice::from_ref(&ring), to_doc, BALLAST_RGB);
         }
     }
-    let mut banded = 0;
     for k in 0..spec.count {
         let cl = offset_polyline(line, spec.offset(k), MITRE_LIMIT);
         if cl.len() < 2 {
@@ -157,21 +156,15 @@ pub fn build(id: &str, line: &[P], spec: &TrackSpec, out: &mut Out, to_doc: impl
         if spec.ties {
             out.layer(Layer::Ties);
             let len = ties::arc_lengths(&cl).last().copied().unwrap_or(0.0);
-            if ties::count(0.0, len) == 0 {
-                // too short for a tie
-            } else if out.take_ties(ties::count(0.0, len)) {
-                out.segments(&format!("{tag}.ties"), ties::marks(&cl, 0.0, len).filter(|t| !avoid.iter().any(|b| b.covers([(t[0][0] + t[1][0]) / 2.0, (t[0][1] + t[1][1]) / 2.0]))), to_doc, TIE_RGB, TIE_WIDTH * PT_PER_MM);
-            } else if let Some(ring) = ties::band(&cl, 0.0, len) {
-                out.polygon(&format!("{tag}.ties"), &ring, to_doc, TIE_RGB);
-                banded += 1;
+            let keep = |c: P| !avoid.iter().any(|b| b.covers(c));
+            let runs = ties::runs(&cl, 0.0, len, (!avoid.is_empty()).then_some(&keep as &dyn Fn(P) -> bool));
+            if !runs.is_empty() {
+                out.path(&format!("{tag}.ties"), &runs, to_doc, TIE_RGB, TIE_LENGTH * PT_PER_MM, false);
             }
         }
         out.layer(Layer::Rails);
         let rails = vec![offset_polyline(&cl, -GAUGE / 2.0, MITRE_LIMIT), offset_polyline(&cl, GAUGE / 2.0, MITRE_LIMIT)];
         out.curve(&format!("{tag}.rails"), &rails, to_doc, RAIL_RGB, RAIL_HEAD * PT_PER_MM);
-    }
-    if banded > 0 {
-        notes.push(banded_note(id, banded));
     }
     if spec.count > 1 && spec.spacing < 12.0 * FOOT - 1e-6 {
         notes.push(format!("Track {id}: {:.1} mm between centres is closer than the smallest NMRA tangent spacing (12 ft prototype = {:.1} mm).", spec.spacing, 12.0 * FOOT));
@@ -179,13 +172,9 @@ pub fn build(id: &str, line: &[P], spec: &TrackSpec, out: &mut Out, to_doc: impl
     if let Some(r) = min_radius(line) {
         let inner = r - half_span;
         if inner < MIN_RADIUS {
-            notes.push(format!("Track {id}: the tightest curve is {r:.0} mm radius on the drawn line ({inner:.0} mm on the inner track), under the {MIN_RADIUS:.0} mm that NMRA RP-11 lists as the smallest for N scale. Many locomotives will not run it."));
+            notes.push(format!("Track {id}: the tightest curve is {r:.0} mm radius on the drawn line ({inner:.0} mm on the inner track), under the {MIN_RADIUS:.0} mm that NMRA RP-11 lists as the smallest. Many locomotives will not run it."));
         }
     }
     notes
 }
 
-/// The note for tracks whose ties are drawn as a strip because a build can only write so many one by one.
-pub fn banded_note(id: &str, routes: usize) -> String {
-    format!("Track {id}: the ties of {routes} track{} are drawn as one solid strip each, because the plug-in can write only about {} ties at a time. Describe the long tracks as separate lines to get every tie.", if routes == 1 { "" } else { "s" }, ties::MAX_TIES)
-}

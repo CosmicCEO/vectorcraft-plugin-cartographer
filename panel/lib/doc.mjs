@@ -183,3 +183,15 @@ export function inMetres(data) {
   return { ...data, ...(data.tracks ? { tracks: table(data.tracks) } : {}), ...(data.yards ? { yards: table(data.yards) } : {}), schema: 2 };
 }
 
+/** The dash that turns a tie line into ties, in document points: a tie's width on, the rest of the pitch off (core/src/rail_standards.rs:
+ *  TIE_WIDTH 1.4 mm and TIE_PITCH 3.1 mm of model, 0.16 points per mm). The plug-in writes each route's ties as one line as wide as a tie is
+ *  long; VectorCraft ignores dashes in a plug-in's output, so the panel sets them after every build. */
+export const TIE_DASH = [1.4 * 0.16, (3.1 - 1.4) * 0.16];
+
+/** Dashes the tie lines in the document (`gen.track.*.ties`) that are not in `skip`, in one command. Returns their ids. */
+export async function dashTies(control, skip = new Set()) {
+  const ids = (await lineNodes(control)).filter((n) => /^gen\.track\..+\.ties$/.test(n.name) && !skip.has(n.id)).map((n) => n.id);
+  if (ids.length) await control.run("stroke.set", { ids, dash: TIE_DASH, cap: "butt" });
+  return ids;
+}
+

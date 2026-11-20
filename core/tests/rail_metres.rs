@@ -152,16 +152,70 @@ fn a_spur_leaving_the_ladder_is_not_tied_twice() {
     }
 }
 
+
+use cartographer_core::rail_standards::{PT_PER_MM, TIE_LENGTH, TIE_PITCH, TIE_WIDTH};
+
+/// A route's ties are one line, as wide as a tie is long; the panel dashes it (tie width on, the rest of the pitch off) after the build.
+fn tie_line<'a>(v: &'a Value, name: &str) -> &'a Value {
+    v["objects"].as_array().unwrap().iter().find(|o| o["name"] == name).unwrap_or_else(|| panic!("{name} missing"))
+}
+
 #[test]
-fn switch_ties_follow_the_tie_budget() {
-    // A big yard runs out of separate ties and draws some routes as a band: such a route gets no switch-tie strokes on top of its band.
-    let input = json!({"objects": [line(1, "track.t1", &[[0.0, 50.0], [3000.0, 50.0]])]});
-    let v: Value = serde_json::from_str(&build_text(&input, &params(json!({"schema": 2, "yards": {"t1": {"mains": 4, "left": 16, "right": 16}}}), "")).unwrap()).unwrap();
+fn a_routes_ties_are_one_line_that_the_dash_cuts_into_ties() {
+    let input = json!({"objects": [line(1, "track.t1", &[[0.0, 50.0], [200.0, 50.0]])]});
+    let v: Value = serde_json::from_str(&build_text(&input, &params(json!({"schema": 2, "tracks": {"t1": {"tracks": 1}}}), "")).unwrap()).unwrap();
+    let o = tie_line(&v, "gen.track.t1.t1.ties");
+    assert!((o["strokes"][0]["width"].as_f64().unwrap() - TIE_LENGTH * PT_PER_MM).abs() < 1e-3, "{}", o["strokes"]);
+    let subs = o["path"]["subpaths"].as_array().unwrap();
+    assert_eq!(subs.len(), 1, "one run of ties, no gap");
+    let xs: Vec<f64> = subs[0]["anchors"].as_array().unwrap().iter().map(|a| a["p"][0].as_f64().unwrap()).collect();
+    let (start, end) = (xs[0], *xs.last().unwrap());
+    // Tie k was centred at (PITCH / 2 + k PITCH) mm from the start: the line starts at the first tie's edge, so the dash k lands on tie k.
+    assert!((start - (TIE_PITCH / 2.0 - TIE_WIDTH / 2.0) * PT_PER_MM).abs() < 1e-3, "starts at {start}");
+    let n = ((200.0 / PT_PER_MM - TIE_PITCH) / TIE_PITCH + 1e-9).floor() + 1.0;
+    let want = start + ((n - 1.0) * TIE_PITCH + TIE_WIDTH) * PT_PER_MM;
+    assert!((end - want).abs() < 1e-3, "ends at {end}, want {want} ({n} ties)");
+}
+
+#[test]
+fn a_big_yard_draws_every_tie() {
+    // 600 m with four spurs a side ran out of separate ties in 1.7 (solid strips); as lines every route keeps its ties.
+    let input = json!({"objects": [line(1, "track.t1", &[[0.0, 50.0], [600.0, 50.0]])]});
+    let v: Value = serde_json::from_str(&build_text(&input, &params(json!({"schema": 2, "yards": {"t1": {"mains": 2, "left": 4, "right": 4, "ends": "merge"}}}), "")).unwrap()).unwrap();
+    let ties: Vec<&Value> = v["objects"].as_array().unwrap().iter().filter(|o| o["name"].as_str().is_some_and(|n| n.ends_with(".ties"))).collect();
+    assert_eq!(ties.len(), 2 + 8, "every route has its tie line");
+    assert!(ties.iter().all(|o| o["fills"].is_null() && o["strokes"].is_array()), "no solid strips");
+    assert!(!v["documentData"]["notes"].to_string().contains("solid strip"), "{}", v["documentData"]["notes"]);
+}
+
+mod common;
+
+#[test]
+fn on_a_curved_yard_every_switch_tie_meets_a_dash_and_runs_end_on_a_whole_tie() {
+    // A yard on a 480 m (3000 mm) radius arc: the dash runs along the drawn curve, so the ties must be placed along it too.
+    let (r, c) = (480.0, [300.0, 520.0]);
+    let pts: Vec<[f64; 2]> = (0..=60).map(|i| { let a = (-20.0 + 40.0 * i as f64 / 60.0_f64).to_radians(); [c[0] + r * a.sin(), c[1] - r * a.cos()] }).collect();
+    let input = json!({"objects": [line(1, "track.t1", &pts)]});
+    let v: Value = serde_json::from_str(&build_text(&input, &params(json!({"schema": 2, "yards": {"t1": {"mains": 1, "left": 4, "right": 4, "ends": "merge"}}}), "")).unwrap()).unwrap();
     let objs = v["objects"].as_array().unwrap();
-    let banded: Vec<&str> = objs.iter().filter(|o| o["name"].as_str().is_some_and(|n| n.ends_with(".ties")) && o["fills"].is_array()).map(|o| o["name"].as_str().unwrap()).collect();
-    assert!(!banded.is_empty(), "the budget is spent in this yard");
-    for b in banded {
-        let ext = b.replace(".ties", ".switch-ties");
-        assert!(!objs.iter().any(|o| o["name"] == ext.as_str()), "{ext} is drawn over a band");
+    let (w, p) = (TIE_WIDTH * PT_PER_MM, TIE_PITCH * PT_PER_MM);
+    for o in objs.iter().filter(|o| o["name"].as_str().is_some_and(|n| n.ends_with(".ties"))) {
+        for s in o["path"]["subpaths"].as_array().unwrap() {
+            let f = common::flatten(s);
+            let len: f64 = f.windows(2).map(|q| ((q[1][0] - q[0][0]).powi(2) + (q[1][1] - q[0][1]).powi(2)).sqrt()).sum();
+            let k = (len - w) / p;
+            assert!((k - k.round()).abs() < 0.02, "{}: a run of {len} pt is not a whole number of ties ({k})", o["name"]);
+        }
+    }
+    for route in ["m1", "L4", "R4"] {
+        let ties = common::tie_segments(objs.iter().find(|o| o["name"] == format!("gen.track.t1.{route}.ties")).unwrap());
+        let ends: Vec<[f64; 2]> = ties.iter().flat_map(|t| [t[0], t[1]]).collect();
+        let ext = objs.iter().find(|o| o["name"] == format!("gen.track.t1.{route}.switch-ties")).map(|o| common::tie_segments(o)).unwrap_or_default();
+        assert!(!ext.is_empty(), "{route} has switch ties");
+        for e in ext {
+            let d = ends.iter().map(|q| ((q[0] - e[0][0]).powi(2) + (q[1] - e[0][1]).powi(2)).sqrt()).fold(f64::MAX, f64::min);
+            // Within a quarter of a tie's width (before the fix: up to 3 mm, a whole gap off).
+            assert!(d < TIE_WIDTH / 4.0 * PT_PER_MM, "{route}: a switch tie starts {:.2} mm from the nearest tie end", d / PT_PER_MM);
+        }
     }
 }

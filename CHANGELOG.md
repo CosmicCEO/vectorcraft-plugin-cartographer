@@ -1,6 +1,7 @@
 # Changelog
 
 ## Next
+- **Every tie, in any yard:** a route's ties are one line that the panel dashes into ties after each build, so big yards no longer fall back to solid strips (owner, 2026-11-20). Rail builds cost a quarter to 0.85 of Track Layer's (were 1.27 to 1.64). Built without the panel (directly in VectorCraft), ties show as a solid strip until the next panel build.
 - Lines drawn with any drawing tool count as lines in the panel (a rounded rectangle did not); only layers, groups, text, images and compound paths do not (owner).
 - The panel shows the plug-in's name and release at the top (owner).
 

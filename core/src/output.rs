@@ -6,8 +6,6 @@ use crate::style::StyleKit;
 use serde_json::Value;
 use std::fmt::Write;
 
-/// How many ties one output may write one by one by default (Track Layer's `ties::MAX_TIES`); the rail module sets its own with `limit_ties`.
-const DEFAULT_MAX_TIES: usize = 9_000;
 
 /// A stroke needs a finite width above zero; VectorCraft would draw nothing, or refuse it.
 fn visible_width(width: f64) -> bool {
@@ -28,8 +26,6 @@ pub struct Out {
     /// Existing objects kept, in their original order.
     kept: String,
     first_kept: bool,
-    /// How many more ties this output may write one by one (see `ties::MAX_TIES`).
-    ties_left: usize,
     /// Decimals written for coordinates and widths (3 for roads; rail sets more, see `precision`).
     decimals: u8,
     /// Curve thinning tolerance in document points (see `thinning`).
@@ -70,7 +66,7 @@ impl Out {
     }
 
     pub fn new() -> Out {
-        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, ties_left: DEFAULT_MAX_TIES, decimals: DEFAULT_DECIMALS, thin_tol: THIN, style: StyleKit::plain(), displace: true, min_stroke: 0.0 }
+        Out { texts: [String::new(), String::new(), String::new()], firsts: [true; 3], layer: 0, kept: String::new(), first_kept: true, decimals: DEFAULT_DECIMALS, thin_tol: THIN, style: StyleKit::plain(), displace: true, min_stroke: 0.0 }
     }
 
     /// Sets how the objects written from now on are painted (colours through the style, hand-drawn displacement and stroke factor).
@@ -102,23 +98,6 @@ impl Out {
     /// Puts the objects written from now on on the given stack.
     pub fn layer(&mut self, l: Layer) {
         self.layer = l as usize;
-    }
-
-    /// Lowers the number of ties that may still be written one by one (never raises it).
-    pub fn limit_ties(&mut self, n: usize) {
-        self.ties_left = self.ties_left.min(n);
-    }
-
-    /// Asks to write `n` ties one by one; false if that would pass the budget (the caller draws a strip instead).
-    pub fn take_ties(&mut self, n: usize) -> bool {
-        if n <= self.ties_left {
-            self.ties_left -= n;
-            // About 100 bytes a tie: reserve now, so the text is not copied again and again as it grows.
-            self.texts[self.layer].reserve(n * 100);
-            true
-        } else {
-            false
-        }
     }
 
     fn sep(&mut self) {

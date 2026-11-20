@@ -1,3 +1,4 @@
+mod common;
 use serde_json::{Value, json};
 use cartographer_core::rail_builder as builder;
 use cartographer_core::rail_standards::*;
@@ -72,11 +73,7 @@ fn spurs_on_a_bezier_line_have_evenly_spaced_ties() {
     let out = builder::build(&input, &params).unwrap();
     for name in ["m1", "L1", "L2", "L3"] {
         let ties = out["objects"].as_array().unwrap().iter().find(|o| o["name"] == format!("gen.track.a.{name}.ties")).unwrap();
-        let mids: Vec<[f64; 2]> = ties["path"]["subpaths"].as_array().unwrap().iter().map(|s| {
-            let a = s["anchors"].as_array().unwrap();
-            let g = |i: usize, k: usize| a[i]["p"][k].as_f64().unwrap() / pt;
-            [(g(0, 0) + g(1, 0)) / 2.0, (g(0, 1) + g(1, 1)) / 2.0]
-        }).collect();
+        let mids: Vec<[f64; 2]> = common::tie_segments(ties).iter().map(|t| [(t[0][0] + t[1][0]) / 2.0 / pt, (t[0][1] + t[1][1]) / 2.0 / pt]).collect();
         assert!(mids.len() > 40, "{name}");
         for w in mids.windows(2) {
             let d = ((w[1][0] - w[0][0]).powi(2) + (w[1][1] - w[0][1]).powi(2)).sqrt();

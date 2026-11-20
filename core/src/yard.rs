@@ -11,7 +11,7 @@ use crate::offset::{MITRE_LIMIT, offset_polyline_raw as offset_polyline};
 use crate::output::{Layer, Out};
 use crate::rail_standards::*;
 use crate::ties;
-use crate::tracks::{banded_note, min_radius, parse_length, parse_spacing};
+use crate::tracks::{min_radius, parse_length, parse_spacing};
 use crate::turnout::{Frog, Pen};
 use serde_json::{Value, json};
 
@@ -398,8 +398,60 @@ fn reflect(sigma: f64, p: P) -> P {
 }
 
 /// The lengthened part of the ties near each branch: for every tie close to a branch, the piece beyond a normal tie's end on the branch's
-/// side (the normal ties are `ties::marks`). Only the ties inside a branch's zone are looked at.
+/// side (the normal ties are the dashed tie line, `ties::runs`). Only the ties inside a branch's zone are looked at.
+/// A route laid on a curved line: its unrolled (model) arc lengths and its drawn ones at the same points, to go from one to the other. The
+/// dash of a tie line runs along the drawn curve, which is longer or shorter than the model by the curve, so ties are placed along it.
+struct Along {
+    u: Vec<f64>,
+    m: Vec<f64>,
+    pts: Vec<P>,
+}
+
+impl Along {
+    fn new(mapper: &Mapper, route: &[P]) -> Along {
+        let d = mapper.dense(route);
+        let pts: Vec<P> = d.iter().map(|&p| mapper.map(p)).collect();
+        Along { u: ties::arc_lengths(&d), m: ties::arc_lengths(&pts), pts }
+    }
+
+    fn lerp(xs: &[f64], ys: &[f64], x: f64) -> f64 {
+        let i = xs.partition_point(|&v| v < x).clamp(1, xs.len() - 1);
+        let span = xs[i] - xs[i - 1];
+        ys[i - 1] + if span > 0.0 { (x - xs[i - 1]) / span * (ys[i] - ys[i - 1]) } else { 0.0 }
+    }
+
+    fn drawn(&self, u: f64) -> f64 {
+        Along::lerp(&self.u, &self.m, u)
+    }
+
+    fn model(&self, m: f64) -> f64 {
+        Along::lerp(&self.m, &self.u, m)
+    }
+
+    /// A run of ties (unrolled edges `a`..`b`) laid along the drawn curve as a whole number of ties from the same first edge.
+    fn run(&self, (a, b): (f64, f64)) -> (f64, f64) {
+        let (ma, mb) = (self.drawn(a), self.drawn(b));
+        // Rounded down (a hair of tolerance): a run never claims a tie past the end of the route.
+        let n = ((mb - ma - TIE_WIDTH) / TIE_PITCH + 1e-6).floor().max(0.0);
+        (ma, ma + TIE_WIDTH + n * TIE_PITCH)
+    }
+
+    /// The model arc length of the tie a lengthened switch tie at `s` belongs to: the dash nearest to it along the drawn curve.
+    fn snap(&self, spans: &[(f64, f64)], s: f64) -> f64 {
+        let Some(&(a, b)) = spans.iter().find(|(a, b)| s >= *a && s <= *b) else { return s };
+        let (ma, mb) = self.run((a, b));
+        let last = ((mb - ma - TIE_WIDTH) / TIE_PITCH).round();
+        let k = ((self.drawn(s) - ma - TIE_WIDTH / 2.0) / TIE_PITCH).round().clamp(0.0, last);
+        self.model(ma + TIE_WIDTH / 2.0 + k * TIE_PITCH)
+    }
+}
+
 fn extensions(r: &Route) -> Vec<Vec<P>> {
+    extensions_at(r, &|s| s)
+}
+
+/// `extensions`, each lengthened tie put at `place(s)` along the route (on a curved line: on its dash).
+fn extensions_at(r: &Route, place: &dyn Fn(f64) -> f64) -> Vec<Vec<P>> {
     let poly = Poly::new(r.pts.clone());
     let half = TIE_LENGTH / 2.0;
     let n = ties::count(r.tie_from, r.tie_to) as f64;
@@ -415,7 +467,7 @@ fn extensions(r: &Route) -> Vec<Vec<P>> {
             let u = b.dir * (s - b.s_toe);
             let lat = b.frog.lateral(u);
             if u > 0.0 && lat < TIE_LENGTH + TIE_GAP && lat > 0.0 {
-                let (p, t) = poly.at(s);
+                let (p, t) = poly.at(place(s));
                 let nrm = [-t[1], t[0]];
                 let (from, to) = if b.side > 0.0 { (half, lat + half) } else { (-half, -(lat + half)) };
                 out.push(vec![[p[0] + nrm[0] * from, p[1] + nrm[1] * from], [p[0] + nrm[0] * to, p[1] + nrm[1] * to]]);
@@ -606,29 +658,31 @@ pub fn build(id: &str, line: &[P], spec: &YardSpec, out: &mut Out, to_doc: impl 
     }
     if spec.ties {
         out.layer(Layer::Ties);
-        if !mapper.straight {
-            out.limit_ties(ties::MAX_TIES_CURVED);
-        }
-        let mut banded = 0;
         for r in &routes {
-            if ties::count(r.tie_from, r.tie_to) == 0 {
-                // a short route (the middle of a crossover, say) may have no room for a tie of its own
-            } else if out.take_ties(ties::count(r.tie_from, r.tie_to)) {
-                out.segments(&format!("gen.track.{id}.{}.ties", r.name), ties::marks(&r.pts, r.tie_from, r.tie_to).filter(|t| avoid.is_empty() || !avoid.iter().any(|b| b.covers(mapper.map([(t[0][0] + t[1][0]) / 2.0, (t[0][1] + t[1][1]) / 2.0])))), |p| to_doc(mapper.map(p)), TIE_RGB, TIE_WIDTH * PT_PER_MM);
-            } else if let Some(ring) = ties::band(&r.pts, r.tie_from, r.tie_to) {
-                out.polygon(&format!("gen.track.{id}.{}.ties", r.name), &mapper.dense(&ring), |p| to_doc(mapper.map(p)), TIE_RGB);
-                banded += 1;
-                continue; // a band stands for every tie, the lengthened ones too
+            let keep = |c: P| !avoid.iter().any(|b| b.covers(mapper.map(c)));
+            let spans = ties::spans(&r.pts, r.tie_from, r.tie_to, (!avoid.is_empty()).then_some(&keep as &dyn Fn(P) -> bool));
+            let name = format!("gen.track.{id}.{}.ties", r.name);
+            let along = (!mapper.straight && !spans.is_empty()).then(|| Along::new(&mapper, &r.pts));
+            match &along {
+                // Straight: the model is the drawing; each run as it is.
+                None if !spans.is_empty() => {
+                    let runs: Vec<Vec<P>> = spans.iter().map(|&(a, b)| ties::slice(&r.pts, a, b)).collect();
+                    out.path(&name, &runs, |p| to_doc(mapper.map(p)), TIE_RGB, TIE_LENGTH * PT_PER_MM, false);
+                }
+                None => {}
+                // Curved: each run cut from the drawn route, a whole number of ties long along it.
+                Some(al) => {
+                    let runs: Vec<Vec<P>> = spans.iter().map(|&sp| { let (a, b) = al.run(sp); ties::slice(&al.pts, a, b) }).collect();
+                    out.path(&name, &runs, to_doc, TIE_RGB, TIE_LENGTH * PT_PER_MM, false);
+                }
             }
             // The lengthened switch ties give way where another track or a road runs through, like the ordinary ones.
             let mid = |t: &Vec<P>| mapper.map([(t[0][0] + t[1][0]) / 2.0, (t[0][1] + t[1][1]) / 2.0]);
-            let ext: Vec<Vec<P>> = extensions(r).into_iter().filter(|t| avoid.is_empty() || !avoid.iter().any(|b| b.covers(mid(t)))).collect();
+            let placed = match &along { Some(al) => extensions_at(r, &|s| al.snap(&spans, s)), None => extensions(r) };
+            let ext: Vec<Vec<P>> = placed.into_iter().filter(|t| avoid.is_empty() || !avoid.iter().any(|b| b.covers(mid(t)))).collect();
             if !ext.is_empty() {
                 out.path(&format!("gen.track.{id}.{}.switch-ties", r.name), &ext, |p| to_doc(mapper.map(p)), TIE_RGB, TIE_WIDTH * PT_PER_MM, false);
             }
-        }
-        if banded > 0 {
-            notes.push(banded_note(id, banded));
         }
     }
     out.layer(Layer::Rails);

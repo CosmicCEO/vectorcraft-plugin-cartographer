@@ -1,3 +1,4 @@
+mod common;
 use serde_json::{Value, json};
 use cartographer_core::rail_builder as builder;
 use cartographer_core::joint::{Band, Found, JointSpec, TOLERANCE, find, nearest_frog};
@@ -102,11 +103,7 @@ fn params(data: Value) -> Value {
 fn ties_of(out: &Value, id: &str) -> Vec<[f64; 2]> {
     let name = format!("gen.track.{id}.t1.ties");
     let Some(o) = out["objects"].as_array().unwrap().iter().find(|o| o["name"] == name.as_str()) else { return vec![] };
-    o["path"]["subpaths"].as_array().unwrap().iter().map(|s| {
-        let a = s["anchors"].as_array().unwrap();
-        let g = |i: usize, k: usize| a[i]["p"][k].as_f64().unwrap() / PT_PER_MM;
-        [(g(0, 0) + g(1, 0)) / 2.0, -(g(0, 1) + g(1, 1)) / 2.0]
-    }).collect()
+    common::tie_segments(o).iter().map(|t| [(t[0][0] + t[1][0]) / 2.0 / PT_PER_MM, -(t[0][1] + t[1][1]) / 2.0 / PT_PER_MM]).collect()
 }
 
 #[test]
