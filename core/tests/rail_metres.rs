@@ -166,10 +166,14 @@ fn a_routes_ties_are_one_line_that_the_dash_cuts_into_ties() {
     let v: Value = serde_json::from_str(&build_text(&input, &params(json!({"schema": 2, "tracks": {"t1": {"tracks": 1}}}), "")).unwrap()).unwrap();
     let o = tie_line(&v, "gen.track.t1.t1.ties");
     assert!((o["strokes"][0]["width"].as_f64().unwrap() - TIE_LENGTH * PT_PER_MM).abs() < 1e-3, "{}", o["strokes"]);
+    // One run (no gap), written in pieces of at most `TIES_PER_PIECE` ties that meet across an ordinary gap between ties.
     let subs = o["path"]["subpaths"].as_array().unwrap();
-    assert_eq!(subs.len(), 1, "one run of ties, no gap");
-    let xs: Vec<f64> = subs[0]["anchors"].as_array().unwrap().iter().map(|a| a["p"][0].as_f64().unwrap()).collect();
-    let (start, end) = (xs[0], *xs.last().unwrap());
+    let xs = |i: usize| -> Vec<f64> { subs[i]["anchors"].as_array().unwrap().iter().map(|a| a["p"][0].as_f64().unwrap()).collect() };
+    for i in 1..subs.len() {
+        let gap = xs(i)[0] - *xs(i - 1).last().unwrap();
+        assert!((gap - (TIE_PITCH - TIE_WIDTH) * PT_PER_MM).abs() < 1e-3, "piece {i} starts {gap} pt after the last one ends");
+    }
+    let (start, end) = (xs(0)[0], *xs(subs.len() - 1).last().unwrap());
     // Tie k was centred at (PITCH / 2 + k PITCH) mm from the start: the line starts at the first tie's edge, so the dash k lands on tie k.
     assert!((start - (TIE_PITCH / 2.0 - TIE_WIDTH / 2.0) * PT_PER_MM).abs() < 1e-3, "starts at {start}");
     let n = ((200.0 / PT_PER_MM - TIE_PITCH) / TIE_PITCH + 1e-9).floor() + 1.0;
@@ -214,8 +218,19 @@ fn on_a_curved_yard_every_switch_tie_meets_a_dash_and_runs_end_on_a_whole_tie() 
         assert!(!ext.is_empty(), "{route} has switch ties");
         for e in ext {
             let d = ends.iter().map(|q| ((q[0] - e[0][0]).powi(2) + (q[1] - e[0][1]).powi(2)).sqrt()).fold(f64::MAX, f64::min);
-            // Within a quarter of a tie's width (before the fix: up to 3 mm, a whole gap off).
-            assert!(d < TIE_WIDTH / 4.0 * PT_PER_MM, "{route}: a switch tie starts {:.2} mm from the nearest tie end", d / PT_PER_MM);
+            // Within 0.3 of a tie's width (before the fix: up to 3 mm, a whole gap off). The tie line is a smooth curve fitted to the route,
+            // so a switch tie can sit up to about 0.36 mm from its dash at a turnout on a curve (measured; not visible in a render).
+            assert!(d < 0.3 * TIE_WIDTH * PT_PER_MM, "{route}: a switch tie starts {:.2} mm from the nearest tie end", d / PT_PER_MM);
         }
     }
+}
+
+#[test]
+fn on_a_curve_the_tie_line_is_as_smooth_as_its_rails() {
+    // Owner, 2026-11-20: on curves the dashed ties followed the line's corners while the rails ran smooth, so they drifted off the rails.
+    let input = json!({"objects": [{"id": 1, "name": "track.t1", "path": {"subpaths": [{"anchors": [{"p": [0.0, 100.0], "out": [60.0, 100.0]}, {"p": [120.0, 20.0], "in": [100.0, 60.0]}], "closed": false}]}}]});
+    let v: Value = serde_json::from_str(&build_text(&input, &params(json!({"schema": 2, "tracks": {"t1": {"tracks": 1}}}), "")).unwrap()).unwrap();
+    let smooth = |name: &str| v["objects"].as_array().unwrap().iter().find(|o| o["name"] == name).unwrap()["path"]["subpaths"][0]["anchors"].as_array().unwrap().iter().any(|a| a.get("out").is_some() || a.get("in").is_some());
+    assert!(smooth("gen.track.t1.t1.rails"), "the rails are smooth curves");
+    assert!(smooth("gen.track.t1.t1.ties"), "so is the tie line the ties are dashed from");
 }

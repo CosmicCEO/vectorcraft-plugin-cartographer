@@ -431,8 +431,12 @@ impl Along {
     /// A run of ties (unrolled edges `a`..`b`) laid along the drawn curve as a whole number of ties from the same first edge.
     fn run(&self, (a, b): (f64, f64)) -> (f64, f64) {
         let (ma, mb) = (self.drawn(a), self.drawn(b));
-        // Rounded down (a hair of tolerance): a run never claims a tie past the end of the route.
-        let n = ((mb - ma - TIE_WIDTH) / TIE_PITCH + 1e-6).floor().max(0.0);
+        // The nearest whole number of ties, but never a tie past the end of the route.
+        let end = *self.m.last().unwrap_or(&mb);
+        let mut n = ((mb - ma - TIE_WIDTH) / TIE_PITCH).round().max(0.0);
+        if n > 0.0 && ma + TIE_WIDTH + n * TIE_PITCH > end + 1e-9 {
+            n -= 1.0;
+        }
         (ma, ma + TIE_WIDTH + n * TIE_PITCH)
     }
 
@@ -660,20 +664,20 @@ pub fn build(id: &str, line: &[P], spec: &YardSpec, out: &mut Out, to_doc: impl 
         out.layer(Layer::Ties);
         for r in &routes {
             let keep = |c: P| !avoid.iter().any(|b| b.covers(mapper.map(c)));
-            let spans = ties::spans(&r.pts, r.tie_from, r.tie_to, (!avoid.is_empty()).then_some(&keep as &dyn Fn(P) -> bool));
+            let spans = ties::spans_whole(&r.pts, r.tie_from, r.tie_to, (!avoid.is_empty()).then_some(&keep as &dyn Fn(P) -> bool));
             let name = format!("gen.track.{id}.{}.ties", r.name);
             let along = (!mapper.straight && !spans.is_empty()).then(|| Along::new(&mapper, &r.pts));
             match &along {
                 // Straight: the model is the drawing; each run as it is.
                 None if !spans.is_empty() => {
-                    let runs: Vec<Vec<P>> = spans.iter().map(|&(a, b)| ties::slice(&r.pts, a, b)).collect();
-                    out.path(&name, &runs, |p| to_doc(mapper.map(p)), TIE_RGB, TIE_LENGTH * PT_PER_MM, false);
+                    let runs: Vec<Vec<P>> = spans.iter().flat_map(|&sp| ties::chunks(sp)).map(|(a, b)| ties::slice(&r.pts, a, b)).collect();
+                    out.curve(&name, &runs, |p| to_doc(mapper.map(p)), TIE_RGB, TIE_LENGTH * PT_PER_MM);
                 }
                 None => {}
                 // Curved: each run cut from the drawn route, a whole number of ties long along it.
                 Some(al) => {
-                    let runs: Vec<Vec<P>> = spans.iter().map(|&sp| { let (a, b) = al.run(sp); ties::slice(&al.pts, a, b) }).collect();
-                    out.path(&name, &runs, to_doc, TIE_RGB, TIE_LENGTH * PT_PER_MM, false);
+                    let runs: Vec<Vec<P>> = spans.iter().flat_map(|&sp| ties::chunks(al.run(sp))).map(|(a, b)| ties::slice(&al.pts, a, b)).collect();
+                    out.curve(&name, &runs, to_doc, TIE_RGB, TIE_LENGTH * PT_PER_MM);
                 }
             }
             // The lengthened switch ties give way where another track or a road runs through, like the ordinary ones.

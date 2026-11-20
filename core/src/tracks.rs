@@ -157,9 +157,10 @@ pub fn build(id: &str, line: &[P], spec: &TrackSpec, out: &mut Out, to_doc: impl
             out.layer(Layer::Ties);
             let len = ties::arc_lengths(&cl).last().copied().unwrap_or(0.0);
             let keep = |c: P| !avoid.iter().any(|b| b.covers(c));
+            // Written as a smooth curve, as the rails are (`curve`): a dash follows the curve, so the ties stay square to the rails.
             let runs = ties::runs(&cl, 0.0, len, (!avoid.is_empty()).then_some(&keep as &dyn Fn(P) -> bool));
             if !runs.is_empty() {
-                out.path(&format!("{tag}.ties"), &runs, to_doc, TIE_RGB, TIE_LENGTH * PT_PER_MM, false);
+                out.curve(&format!("{tag}.ties"), &runs, to_doc, TIE_RGB, TIE_LENGTH * PT_PER_MM);
             }
         }
         out.layer(Layer::Rails);
