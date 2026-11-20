@@ -33,6 +33,25 @@ pub fn runs(pts: &[P], from: f64, to: f64, keep: Option<&dyn Fn(P) -> bool>) -> 
 
 /// The arc lengths along `pts` where each run of `runs` starts and ends (the first tie's near edge, the last tie's far edge).
 pub fn spans(pts: &[P], from: f64, to: f64, keep: Option<&dyn Fn(P) -> bool>) -> Vec<(f64, f64)> {
+    spans_whole(pts, from, to, keep).into_iter().flat_map(chunks).collect()
+}
+
+/// At most this many ties in one piece of a tie line. The line is written as a smooth curve (as the rails are), whose length differs a
+/// little from the points it was fitted to; a piece restarts the dash on an exact tie edge, so that difference cannot add up along a long
+/// curve. Pieces meet across an ordinary gap between ties, so the ties look the same.
+pub const TIES_PER_PIECE: usize = 64;
+
+/// A run (edge to edge) cut into pieces of at most `TIES_PER_PIECE` ties on the same tie grid.
+pub fn chunks((a, b): (f64, f64)) -> Vec<(f64, f64)> {
+    let n = (((b - a - TIE_WIDTH) / TIE_PITCH).round() as usize) + 1;
+    (0..n).step_by(TIES_PER_PIECE).map(|k0| {
+        let k1 = (k0 + TIES_PER_PIECE).min(n) - 1;
+        (a + k0 as f64 * TIE_PITCH, a + k1 as f64 * TIE_PITCH + TIE_WIDTH)
+    }).collect()
+}
+
+/// `spans` before they are cut into pieces.
+pub fn spans_whole(pts: &[P], from: f64, to: f64, keep: Option<&dyn Fn(P) -> bool>) -> Vec<(f64, f64)> {
     let n = count(from, to);
     if n == 0 || pts.len() < 2 {
         return Vec::new();
@@ -73,7 +92,8 @@ pub fn expand(run: &[P], scale: f64) -> Vec<[P; 2]> {
     let half = TIE_LENGTH / 2.0 * scale;
     let mut out = Vec::new();
     let (mut s, mut i) = (TIE_WIDTH / 2.0 * scale, 1);
-    while s <= len - TIE_WIDTH / 2.0 * scale + 1e-6 && run.len() >= 2 {
+    // A dash cut a little short by the curve fit (at most a quarter of a tie's width) still shows its tie.
+    while s <= len - TIE_WIDTH / 4.0 * scale && run.len() >= 2 {
         while i < run.len() - 1 && cum[i] < s {
             i += 1;
         }
