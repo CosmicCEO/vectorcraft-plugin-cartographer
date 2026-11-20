@@ -44,7 +44,7 @@ cargo +stable test --release --workspace
 node --test panel/test/*.test.mjs scripts/test/*.test.mjs
 node scripts/standards.mjs check        # the standards database
 node scripts/parity.mjs <vectorcraft-cli> <road_builder_dir>   # macOS only; rail: see docs/PARITY-RAIL.md
-node scripts/package.mjs 1.6.0          # a release package in dist/
+node scripts/package.mjs 1.7.0          # a release package in dist/
 ```
 
 CI runs the same on Ubuntu and macOS. Headless renders need `vectorcraft-cli`, which exists for macOS only. Read [CLAUDE.md](CLAUDE.md) before changing anything.

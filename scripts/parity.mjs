@@ -70,10 +70,16 @@ for (const sc of scenarios) {
   try {
     await build(sc, OLD, files.old);
     await build(sc, NEW, files.new, flags.includes("--png") ? join(out, `${sc.name}.png`) : null);
-    const [a, b] = [readFileSync(files.old, "utf8"), readFileSync(files.new, "utf8")];
+    // `fixed`: objects Cartographer draws differently on purpose (a Track Layer bug fixed); they are left out of both drawings, the rest must match.
+    const drop = (svg) => (sc.fixed ?? []).reduce((t, id) => t.replace(new RegExp(`<path id="${id.replaceAll(".", "\\.")}"[^>]*/>`, "g"), ""), svg);
+    const raw = readFileSync(files.new, "utf8");
+    const gone = (sc.fixed ?? []).filter((id) => !raw.includes(`<path id="${id}"`));
+    if (gone.length) throw new Error(`the objects marked fixed on purpose are not drawn any more: ${gone.join(", ")} (update rail-scenarios.json)`);
+    const [a, b] = [drop(readFileSync(files.old, "utf8")), drop(raw)];
     const skip = factor === null ? { old: a, new: b, skipped: 0 } : skipCollapsedRings(a, b, factor);
     const r = factor === null ? compareSvg(a, b) : compareSvgScaled(skip.old, skip.new, { factor, tolerance: 0.001 });
     if (r.same && skip.skipped) r.summary = `identical (${skip.skipped} ring(s) Track Layer 0.9.1 collapsed to a point are skipped; Cartographer draws them)`;
+    if (r.same && sc.fixed?.length) r.summary += `; apart from ${sc.fixed.join(", ")} (fixed on purpose: ${sc.fixed_why})`;
     if (!r.same) failed++;
     line = r.summary;
   } catch (e) {

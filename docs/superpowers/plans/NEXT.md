@@ -1,12 +1,8 @@
 # Next: 1.7 to 2.5 (agreed with the owner, 2026-11-19)
 
-Status: 1.6.0 released. Deferred minors from each release are in `docs/RELEASE-1.5.md` and `docs/RELEASE-1.6.md`. This page is the agreed order; each release gets its own plan before work starts.
+Status: 1.7.0 released. Deferred minors from each release are in `docs/RELEASE-1.5.md` and `docs/RELEASE-1.6.md`. This page is the agreed order; each release gets its own plan before work starts.
 
-## 1.7: small, soon
-
-- **Turnout ties in a yard ladder** (owner): the first turnout of a ladder has all its ties; the turnouts after it have none between the switch and the spur. Every turnout gets its ties.
-- Already merged after 1.6.0, shipped in 1.7: the start script names the panel as the next step (#23); a plain line or shape selected with a track says to make it a road first (#25).
-- Bridge minors from 1.6 that show on paper: the road bridge deck stays straight under a hand-drawn road; a lopsided yard's rail-bridge parapets sit at the wider side's distance on both sides.
+## 1.7: released 2026-11-19 (`docs/RELEASE-1.7.md`)
 
 ## Owner decisions (2026-11-19)
 
@@ -34,6 +30,8 @@ Goal: no terminal. Double-click Cartographer and work.
 - The same app as an AppImage; the panel tested in Tauri's Linux window (WebKitGTK), which differs a little from Safari's.
 
 ## 2.2 to 2.4: optimization (to be detailed with the owner)
+
+- **Ties as one dashed line** (owner idea, 2026-11-19): ties are about 82% of a rail build's fuel (a yard: 9.5 M with ties, 1.7 M without). VectorCraft ignores dashes in a plug-in's output (design notes), but its `stroke.set` command takes a dash pattern, so the plug-in writes each route's ties as one line as wide as a tie is long and the panel sets the dash (tie width, pitch less width, butt caps) after each build. Expected: rail builds several times cheaper and no 9,000-tie limit. Spike first: dashes on curves and in PNG/SVG export, what a build without the panel shows (a solid strip), lengthened switch ties and gaps, and a parity gate that expands the dashes before comparing.
 
 - Rail cost: the shared output still copies each path (`docs/PARITY-RAIL.md`); rail builds are 1.2 to 1.27 times Track Layer's.
 - Larger drawings: the point limit (a plain road builds to about 19,450 points) and build time on big documents.

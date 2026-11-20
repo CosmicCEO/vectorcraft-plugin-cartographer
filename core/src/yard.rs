@@ -371,8 +371,17 @@ fn arc_len(pts: &[P]) -> Vec<f64> {
 /// Arc length at which `pts` first lies `dist` or more from the line through `t0` with unit direction `dir`.
 fn leaves(pts: &[P], t0: P, dir: P, dist: f64) -> f64 {
     let cum = arc_len(pts);
+    let off = |p: &P| ((p[0] - t0[0]) * dir[1] - (p[1] - t0[1]) * dir[0]).abs();
     for (i, p) in pts.iter().enumerate() {
-        if ((p[0] - t0[0]) * dir[1] - (p[1] - t0[1]) * dir[0]).abs() >= dist {
+        let d = off(p);
+        if d >= dist {
+            // Inside the segment that crosses the distance (a ladder's straight run is one long segment): the exact place, not its far end.
+            if i > 0 {
+                let d0 = off(&pts[i - 1]);
+                if d > d0 {
+                    return cum[i - 1] + (cum[i] - cum[i - 1]) * (dist - d0) / (d - d0);
+                }
+            }
             return cum[i];
         }
     }
@@ -468,7 +477,8 @@ fn side(sigma: f64, n: usize, y_out: f64, a0: f64, a_end: f64, spec: &YardSpec, 
         let toe = front[0];
         let y_end = y_out + *j as f64 * sp;
         let pts = finish(front, y_end);
-        let from = leaves(front, toe, ladder_dir, TIE_LENGTH + TIE_GAP);
+        // Measured along the whole spur: its closing curve gains less than a tie length on the ladder, the parallel run that follows does the rest.
+        let from = leaves(&pts, toe, ladder_dir, TIE_LENGTH + TIE_GAP);
         let len = *arc_len(&pts).last().unwrap();
         let to = if spec.merge { len - from } else { len };
         let s_front = ladder_poly.project(reflect(sigma, toe)).0;
@@ -608,8 +618,11 @@ pub fn build(id: &str, line: &[P], spec: &YardSpec, out: &mut Out, to_doc: impl 
             } else if let Some(ring) = ties::band(&r.pts, r.tie_from, r.tie_to) {
                 out.polygon(&format!("gen.track.{id}.{}.ties", r.name), &mapper.dense(&ring), |p| to_doc(mapper.map(p)), TIE_RGB);
                 banded += 1;
+                continue; // a band stands for every tie, the lengthened ones too
             }
-            let ext = extensions(r);
+            // The lengthened switch ties give way where another track or a road runs through, like the ordinary ones.
+            let mid = |t: &Vec<P>| mapper.map([(t[0][0] + t[1][0]) / 2.0, (t[0][1] + t[1][1]) / 2.0]);
+            let ext: Vec<Vec<P>> = extensions(r).into_iter().filter(|t| avoid.is_empty() || !avoid.iter().any(|b| b.covers(mid(t)))).collect();
             if !ext.is_empty() {
                 out.path(&format!("gen.track.{id}.{}.switch-ties", r.name), &ext, |p| to_doc(mapper.map(p)), TIE_RGB, TIE_WIDTH * PT_PER_MM, false);
             }

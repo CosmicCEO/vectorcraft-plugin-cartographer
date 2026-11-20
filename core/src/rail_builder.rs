@@ -145,6 +145,17 @@ pub(crate) fn crossing_half_mm(data: &Map<String, Value>, id: &str) -> f64 {
     }
 }
 
+/// The same, each side on its own (left and right of travel along the line), model millimetres: a yard's spurs may be on one side only.
+pub(crate) fn crossing_sides_mm(data: &Map<String, Value>, id: &str) -> (f64, f64) {
+    match data.get("yards").and_then(|y| y.get(id)).map(YardSpec::from_json) {
+        Some(Ok(y)) => {
+            let side = |spurs: usize| ((y.mains as f64 - 1.0) / 2.0 + spurs as f64) * y.spacing + crate::rail_standards::TIE_LENGTH / 2.0;
+            (side(y.left as usize), side(y.right as usize))
+        }
+        _ => (footprint_half(data, id), footprint_half(data, id)),
+    }
+}
+
 fn footprint_half(data: &Map<String, Value>, id: &str) -> f64 {
     match (data.get("yards").and_then(|y| y.get(id)), spec_for(data, id)) {
         (Some(y), _) => YardSpec::from_json(y).map_or(0.0, |s| s.footprint_half()),

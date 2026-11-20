@@ -104,3 +104,64 @@ fn before_end_and_length_cannot_both_be_given() {
     assert!(e.contains("before_end") && e.contains("length") && e.contains("not both"), "{e}");
     assert!(set_yard_text(&input, &params(json!({}), r#"{"left": 1, "before_end": -1}"#)).is_err());
 }
+
+#[test]
+fn every_turnout_in_a_ladder_stands_on_ties() {
+    // Owner, 1.6 check: after the first turnout the ladder ran bare. The ladder's own ties must start where it is clear of the main,
+    // before the first spur leaves it, so every turnout along it has ties under it.
+    let input = json!({"objects": [line(1, "track.t1", &[[5.0, 50.0], [255.0, 50.0]])]});
+    let d = json!({"schema": 2, "yards": {"t1": {"mains": 1, "left": 3, "frog": 6}}});
+    let v: Value = serde_json::from_str(&build_text(&input, &params(d, "")).unwrap()).unwrap();
+    let start = |name: &str| v["objects"].as_array().unwrap().iter().find(|o| o["name"] == name).unwrap()["path"]["subpaths"].as_array().unwrap()
+        .iter().map(|s| s["anchors"][0]["p"][0].as_f64().unwrap()).fold(f64::MAX, f64::min);
+    let (switch_end, ladder, spur1) = (
+        v["objects"].as_array().unwrap().iter().find(|o| o["name"] == "gen.track.t1.m1.switch-ties").unwrap()["path"]["subpaths"].as_array().unwrap()
+            .iter().map(|s| s["anchors"][0]["p"][0].as_f64().unwrap()).fold(f64::MIN, f64::max),
+        start("gen.track.t1.L3.ties"),
+        start("gen.track.t1.L1.ties"),
+    );
+    assert!(ladder < spur1, "the ladder has ties before the first spur leaves it: ladder from {ladder}, spur 1 from {spur1}");
+    assert!(ladder - switch_end < 3.0, "the ladder's ties take over where the main's switch ties end: {switch_end} then {ladder}");
+}
+
+fn segs(v: &Value, name: &str) -> Vec<[[f64; 2]; 2]> {
+    v["objects"].as_array().unwrap().iter().filter(|o| o["name"] == name).flat_map(|o| o["path"]["subpaths"].as_array().unwrap().iter().map(|s| {
+        let p = |i: usize| [s["anchors"][i]["p"][0].as_f64().unwrap(), s["anchors"][i]["p"][1].as_f64().unwrap()];
+        [p(0), p(1)]
+    }).collect::<Vec<_>>()).collect()
+}
+
+fn cross(a: [[f64; 2]; 2], b: [[f64; 2]; 2]) -> bool {
+    let o = |p: [f64; 2], q: [f64; 2], r: [f64; 2]| (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+    o(a[0], a[1], b[0]) * o(a[0], a[1], b[1]) < -1e-9 && o(b[0], b[1], a[0]) * o(b[0], b[1], a[1]) < -1e-9
+}
+
+#[test]
+fn a_spur_leaving_the_ladder_is_not_tied_twice() {
+    for desc in [json!({"mains": 1, "left": 3, "frog": 6}), json!({"mains": 1, "right": 3, "ends": "merge", "frog": 8})] {
+        let input = json!({"objects": [line(1, "track.t1", &[[0.0, 50.0], [350.0, 50.0]])]});
+        let v: Value = serde_json::from_str(&build_text(&input, &params(json!({"schema": 2, "yards": {"t1": desc}}), "")).unwrap()).unwrap();
+        let side = if desc.get("left").is_some() { "L" } else { "R" };
+        let ext = segs(&v, &format!("gen.track.t1.{side}3.switch-ties"));
+        assert!(!ext.is_empty());
+        for j in 1..3 {
+            let ties = segs(&v, &format!("gen.track.t1.{side}{j}.ties"));
+            let hits = ext.iter().filter(|e| ties.iter().any(|t| cross(**e, *t))).count();
+            assert_eq!(hits, 0, "{desc}: {hits} of the ladder's switch ties cross spur {j}'s own ties");
+        }
+    }
+}
+
+#[test]
+fn switch_ties_follow_the_tie_budget() {
+    // A big yard runs out of separate ties and draws some routes as a band: such a route gets no switch-tie strokes on top of its band.
+    let input = json!({"objects": [line(1, "track.t1", &[[0.0, 50.0], [3000.0, 50.0]])]});
+    let v: Value = serde_json::from_str(&build_text(&input, &params(json!({"schema": 2, "yards": {"t1": {"mains": 4, "left": 16, "right": 16}}}), "")).unwrap()).unwrap();
+    let objs = v["objects"].as_array().unwrap();
+    let banded: Vec<&str> = objs.iter().filter(|o| o["name"].as_str().is_some_and(|n| n.ends_with(".ties")) && o["fills"].is_array()).map(|o| o["name"].as_str().unwrap()).collect();
+    assert!(!banded.is_empty(), "the budget is spent in this yard");
+    for b in banded {
+        let ext = b.replace(".ties", ".switch-ties");
+        assert!(!objs.iter().any(|o| o["name"] == ext.as_str()), "{ext} is drawn over a band");
+    }
+}

@@ -32,7 +32,10 @@ const run = (wasm, tag) => {
 let failed = 0;
 const ROAD_LIMIT = 1.05;
 const RAIL_LIMIT = 1.35;
-const cases = [...["road600", "bridge", "road20km"].map((tag) => [tag, resolve(oldWasm), tag, ROAD_LIMIT]), ...(railWasm ? ["yard1", "tracks2"].map((tag) => [tag, resolve(railWasm), `${tag}.old`, RAIL_LIMIT]) : [])];
+// Since 1.7 a yard's ladders carry their own ties and a switch tie set under every turnout on them (Track Layer drew the ladders bare), so
+// yard1 draws more than Track Layer did; measured 1.643 times Track Layer, the limit leaves 3% for noise.
+const YARD_LIMIT = 1.7;
+const cases = [...["road600", "bridge", "road20km"].map((tag) => [tag, resolve(oldWasm), tag, ROAD_LIMIT]), ...(railWasm ? ["yard1", "tracks2"].map((tag) => [tag, resolve(railWasm), `${tag}.old`, tag === "yard1" ? YARD_LIMIT : RAIL_LIMIT]) : [])];
 for (const [tag, oldFile, oldTag, limit] of cases) {
   const [o, n] = [run(oldFile, oldTag), run(newWasm, tag)];
   const { ok, ratio } = withinParity(o, n, limit);

@@ -309,7 +309,11 @@
      }
     }
    }
-  ]
+  ],
+  "fixed": [
+   "gen.track.t1.R1.ties"
+  ],
+  "fixed_why": "the ladder's own ties start where it leaves the main, each turnout on it gets switch ties, and each spur's own ties start where it clears the ladder (1.7)"
  },
  {
   "name": "terminal",
@@ -347,7 +351,24 @@
      }
     }
    }
-  ]
+  ],
+  "fixed": [
+   "gen.track.t1.L1.ties",
+   "gen.track.t1.L2.ties",
+   "gen.track.t1.L3.ties",
+   "gen.track.t1.L4.ties",
+   "gen.track.t1.L5.ties",
+   "gen.track.t1.L6.ties",
+   "gen.track.t1.R1.ties",
+   "gen.track.t1.R2.ties",
+   "gen.track.t1.R3.ties",
+   "gen.track.t1.R4.ties",
+   "gen.track.t1.R5.ties",
+   "gen.track.t1.R6.ties",
+   "gen.track.t1.L6.switch-ties",
+   "gen.track.t1.R6.switch-ties"
+  ],
+  "fixed_why": "the ladder's own ties start where it leaves the main, each turnout on it gets switch ties, and each spur's own ties start where it clears the ladder (1.7)"
  },
  {
   "name": "turnouts",
