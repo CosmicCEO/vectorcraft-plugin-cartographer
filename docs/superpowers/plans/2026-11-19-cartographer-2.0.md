@@ -1,4 +1,4 @@
-# Cartographer 2.0 Plan: the Mac app (draft for the owner)
+# Cartographer 2.0 Plan: the Mac app (agreed with the owner, 2026-11-19)
 
 Goal (owner, 2026-11-19): no terminal. Double-click Cartographer and work. Mac only in 2.0 (Linux is 2.1), not signed (no Apple Developer ID). With it, the API change best made once. Agreed order: `docs/superpowers/plans/NEXT.md`.
 
@@ -17,7 +17,7 @@ Goal (owner, 2026-11-19): no terminal. Double-click Cartographer and work. Mac o
 | W2 app shell | `app/` (new Tauri crate, outside the plug-in workspace so plug-in builds stay as they are). Free-port choice; panel restarted if it stops; quitting the app stops it; one window, remembers its size. | Tests for the port choice and the restart; the app opens the panel on this Mac |
 | W3 VectorCraft and setup | On launch: is VectorCraft running with its control port? If not, start it with the port (today's `start-vectorcraft.mjs` logic, moved into a shared module the app's panel calls); if it runs without the port, say so plainly with a Quit-and-retry button. First run, and after an update: install the plug-in into VectorCraft and run the setup check; results shown on the page in plain words. Menu: Check setup, Reinstall plug-in, Open the guide, About (name and release). | Tests for each state (not running, running without port, ready, install failed); live check on this Mac |
 | W4 package and release | The release workflow builds the app on macOS and publishes an unsigned `Cartographer-2.0.0.dmg` beside today's packages. The guide shows the one-time right-click, Open (and what macOS says when it blocks an unsigned app). | Dry run of the workflow; the downloaded `.dmg` opens, installs, starts VectorCraft and draws a road on this Mac |
-| W5 one command | One `set_feature` command `{kind, ...}` replaces the per-kind describe commands for the panel and agents. Ruling: the old commands stay as aliases in 2.x, so scripts and agent prompts written for 1.x keep working; records do not change. | Tests: every kind through `set_feature` gives the same record as its old command; parity and fuel unchanged |
+| W5 one command | One `set_feature` command `{kind, ...}` replaces the per-kind describe commands for the panel and agents. Owner: a clean build, no backward compatibility, so the old commands are removed (scripts, parity scenarios and agent prompts move to `set_feature`); records do not change, so 1.x documents still open and build. | Tests: every kind through `set_feature` gives the same record the old command gave; parity and fuel unchanged |
 | W6 cards from schemas | The panel builds every card from the plug-in's own field lists (as tracks, yards and joints already are), so a field added to the plug-in shows on its card without panel code. | The panel's card tests pass on schema-built cards; a live panel check |
 | W7 release 2.0.0 | Version, changelog, release notes (rulings and deferred), guide, `NEXT.md`, tag, verify the published `.dmg`. | As every release |
 
@@ -30,7 +30,7 @@ Order: W1 first (it decides the rest), then W2 to W4 (the app), then W5 and W6 (
 - The bundled Node must be updated with security releases (the release workflow downloads a pinned version and checks its checksum).
 - The app is about 120 MB.
 
-## Questions for the owner
+## Owner decisions
 
-1. App name and icon: "Cartographer", with a simple placeholder icon until you have one?
-2. Keep the 1.x commands working as aliases in 2.x (my recommendation), or remove them in 2.0?
+1. The app is called Cartographer. Its icon for now is cut from a dense drawing sample (a yard beside a road crossing, rendered by the plug-in itself); made in W2.
+2. Clean build: the 1.x describe commands are removed in 2.0, no aliases.
