@@ -28,13 +28,18 @@ pub fn centres(from: f64, to: f64) -> impl Iterator<Item = f64> {
 /// covers tie k exactly; the panel sets that dash after a build (VectorCraft ignores dashes in a plug-in's output). Thousands of ties cost a
 /// handful of points, so a build never runs out of them.
 pub fn runs(pts: &[P], from: f64, to: f64, keep: Option<&dyn Fn(P) -> bool>) -> Vec<Vec<P>> {
+    spans(pts, from, to, keep).into_iter().map(|(a, b)| slice(pts, a, b)).collect()
+}
+
+/// The arc lengths along `pts` where each run of `runs` starts and ends (the first tie's near edge, the last tie's far edge).
+pub fn spans(pts: &[P], from: f64, to: f64, keep: Option<&dyn Fn(P) -> bool>) -> Vec<(f64, f64)> {
     let n = count(from, to);
     if n == 0 || pts.len() < 2 {
         return Vec::new();
     }
     let (first, last) = (from + TIE_PITCH / 2.0, from + TIE_PITCH / 2.0 + (n - 1) as f64 * TIE_PITCH);
     // No strip to give way to (the usual case): one line, without looking at each tie.
-    let Some(keep) = keep else { return vec![slice(pts, first - TIE_WIDTH / 2.0, last + TIE_WIDTH / 2.0)] };
+    let Some(keep) = keep else { return vec![(first - TIE_WIDTH / 2.0, last + TIE_WIDTH / 2.0)] };
     let cum = arc_lengths(pts);
     let mut i = 1;
     let mut at = |s: f64| -> P {
@@ -51,11 +56,11 @@ pub fn runs(pts: &[P], from: f64, to: f64, keep: Option<&dyn Fn(P) -> bool>) -> 
         if keep(at(c)) {
             run = Some(run.map_or((c, c), |(a, _)| (a, c)));
         } else if let Some((a, b)) = run.take() {
-            out.push(slice(pts, a - TIE_WIDTH / 2.0, b + TIE_WIDTH / 2.0));
+            out.push((a - TIE_WIDTH / 2.0, b + TIE_WIDTH / 2.0));
         }
     }
     if let Some((a, b)) = run {
-        out.push(slice(pts, a - TIE_WIDTH / 2.0, b + TIE_WIDTH / 2.0));
+        out.push((a - TIE_WIDTH / 2.0, b + TIE_WIDTH / 2.0));
     }
     out
 }

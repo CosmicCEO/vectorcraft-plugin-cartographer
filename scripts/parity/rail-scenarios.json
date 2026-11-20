@@ -309,7 +309,12 @@
      }
     }
    }
-  ]
+  ],
+  "fixed": [
+   "gen.track.t1.m1.switch-ties",
+   "gen.track.t1.m2.switch-ties"
+  ],
+  "fixed_why": "switch ties on a curved yard sit on the dashes along the drawn curve (2.0); on a ladder each turnout gets switch ties (1.7)"
  },
  {
   "name": "terminal",

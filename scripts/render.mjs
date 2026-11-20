@@ -4,6 +4,7 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { TIE_DASH } from "../panel/lib/doc.mjs";
 
 const [cli, scenarioPath, outArg, scale = "56"] = process.argv.slice(2);
 if (!cli || !scenarioPath || !outArg) {
@@ -59,6 +60,12 @@ try {
   await run("select.all");
   const built = await run("plugin.run", { id: PLUGIN });
   console.log("build:", JSON.stringify(built).slice(0, 300));
+  // The panel dashes each tie line into ties after a build (VectorCraft ignores dashes in a plug-in's output); do the same here.
+  const tree = JSON.parse((await run("document.inspect", { depth: 16 })).content[0].text);
+  const ties = [];
+  const walk = (list) => { for (const x of list ?? []) { if (/^gen\.track\..+\.ties$/.test(x.name ?? "")) ties.push(x.id); walk(x.children); } };
+  walk(tree.layers);
+  if (ties.length) await run("stroke.set", { ids: ties, dash: TIE_DASH, cap: "butt" });
   await run("select.all");
   await tool("export", { format: "png", path: out, selection: true, scale: Number(scale) });
   console.log("wrote", out);

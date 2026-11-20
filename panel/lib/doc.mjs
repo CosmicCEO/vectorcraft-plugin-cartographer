@@ -188,9 +188,10 @@ export function inMetres(data) {
  *  long; VectorCraft ignores dashes in a plug-in's output, so the panel sets them after every build. */
 export const TIE_DASH = [1.4 * 0.16, (3.1 - 1.4) * 0.16];
 
-/** Dashes every tie line in the document (`gen.track.*.ties`), in one command. */
-export async function dashTies(control) {
-  const ids = (await lineNodes(control)).filter((n) => /^gen\.track\..+\.ties$/.test(n.name)).map((n) => n.id);
+/** Dashes the tie lines in the document (`gen.track.*.ties`) that are not in `skip`, in one command. Returns their ids. */
+export async function dashTies(control, skip = new Set()) {
+  const ids = (await lineNodes(control)).filter((n) => /^gen\.track\..+\.ties$/.test(n.name) && !skip.has(n.id)).map((n) => n.id);
   if (ids.length) await control.run("stroke.set", { ids, dash: TIE_DASH, cap: "butt" });
+  return ids;
 }
 

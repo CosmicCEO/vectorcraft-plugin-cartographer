@@ -32,6 +32,9 @@ export class Panel extends EventEmitter {
   constructor({ control, providers }) {
     super();
     this.control = control;
+    // Tie lines this panel has dashed: a new one (a build run from VectorCraft's menu or by an agent) is dashed when the panel sees it; one
+    // already dashed is left alone, so undoing the dash is not fought.
+    this.dashed = new Set();
     this.providers = providers ?? { default: null, providers: {} };
     this.provider = this.providers.default;
     this.state = { connected: false, error: null, doc: null, selection: [], notes: [], target: null, road: null, track: null, joint: null, level: null, junction: null, crossing: null, hub: null, water: null, wet: null, embank: null, settings: null, settingsPending: null, mode: "road", pending: null, busy: null, message: null };
@@ -98,7 +101,10 @@ export class Panel extends EventEmitter {
     const changed = force || switched || key !== this.last.selection || s.revision !== this.last.revision;
     if (!changed) return this.#set({ connected: true, error: null });
     const selectionChanged = key !== this.last.selection;
+    const revised = s.revision !== this.last.revision;
     this.last = { revision: s.revision, selection: key, title: s.title };
+    if (switched) this.dashed.clear();
+    if (revised || switched) for (const id of await dashTies(this.control, this.dashed)) this.dashed.add(id);
     if (switched) this.spec = null; // the old document's build notes must not show in the new one
 
     let sel = (await nodes(this.control, s.selection)).map((n) => ({ id: n.id, name: n.name ?? "", kind: n.kind, anchors: n.anchors, ...classify(n) }));
@@ -772,7 +778,7 @@ export class Panel extends EventEmitter {
     try {
       await this.control.run("select.all");
       await this.control.run("plugin.run", { id: PLUGIN_ID });
-      await dashTies(this.control);
+      for (const id of await dashTies(this.control)) this.dashed.add(id);
       await organise(this.control);
     } finally {
       await restore();

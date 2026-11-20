@@ -449,3 +449,17 @@ test("after a build the panel dashes every tie line into ties", async () => {
   assert.equal(call.params.cap, "butt");
   done();
 });
+
+test("tie lines built without the panel (the plug-in menu, an agent) are dashed when the panel sees them, once", async () => {
+  const vc = await fakeVectorCraft({ paths: [{ id: 2, name: "track.t1" }], selection: [2], spec: { tracks: { t1: { tracks: 1 } }, yards: {} } });
+  const { panel, done } = await setup(vc);
+  vc.doc.paths.push({ id: 9, name: "gen.track.t1.t1.ties", kind: "Path" }); // a build the panel did not run
+  vc.doc.revision++;
+  await panel.tick(true);
+  const sets = () => vc.doc.calls.filter((c) => c.command === "stroke.set");
+  assert.deepEqual(sets().map((c) => c.params.ids), [[9]]);
+  vc.doc.revision++; // an undo of the dash, say: the same line again is left as the user made it
+  await panel.tick(true);
+  assert.equal(sets().length, 1, "a line already dashed once is not dashed again");
+  done();
+});

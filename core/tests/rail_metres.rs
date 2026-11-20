@@ -187,3 +187,35 @@ fn a_big_yard_draws_every_tie() {
     assert!(ties.iter().all(|o| o["fills"].is_null() && o["strokes"].is_array()), "no solid strips");
     assert!(!v["documentData"]["notes"].to_string().contains("solid strip"), "{}", v["documentData"]["notes"]);
 }
+
+mod common;
+
+#[test]
+fn on_a_curved_yard_every_switch_tie_meets_a_dash_and_runs_end_on_a_whole_tie() {
+    // A yard on a 480 m (3000 mm) radius arc: the dash runs along the drawn curve, so the ties must be placed along it too.
+    let (r, c) = (480.0, [300.0, 520.0]);
+    let pts: Vec<[f64; 2]> = (0..=60).map(|i| { let a = (-20.0 + 40.0 * i as f64 / 60.0_f64).to_radians(); [c[0] + r * a.sin(), c[1] - r * a.cos()] }).collect();
+    let input = json!({"objects": [line(1, "track.t1", &pts)]});
+    let v: Value = serde_json::from_str(&build_text(&input, &params(json!({"schema": 2, "yards": {"t1": {"mains": 1, "left": 4, "right": 4, "ends": "merge"}}}), "")).unwrap()).unwrap();
+    let objs = v["objects"].as_array().unwrap();
+    let (w, p) = (TIE_WIDTH * PT_PER_MM, TIE_PITCH * PT_PER_MM);
+    for o in objs.iter().filter(|o| o["name"].as_str().is_some_and(|n| n.ends_with(".ties"))) {
+        for s in o["path"]["subpaths"].as_array().unwrap() {
+            let f = common::flatten(s);
+            let len: f64 = f.windows(2).map(|q| ((q[1][0] - q[0][0]).powi(2) + (q[1][1] - q[0][1]).powi(2)).sqrt()).sum();
+            let k = (len - w) / p;
+            assert!((k - k.round()).abs() < 0.02, "{}: a run of {len} pt is not a whole number of ties ({k})", o["name"]);
+        }
+    }
+    for route in ["m1", "L4", "R4"] {
+        let ties = common::tie_segments(objs.iter().find(|o| o["name"] == format!("gen.track.t1.{route}.ties")).unwrap());
+        let ends: Vec<[f64; 2]> = ties.iter().flat_map(|t| [t[0], t[1]]).collect();
+        let ext = objs.iter().find(|o| o["name"] == format!("gen.track.t1.{route}.switch-ties")).map(|o| common::tie_segments(o)).unwrap_or_default();
+        assert!(!ext.is_empty(), "{route} has switch ties");
+        for e in ext {
+            let d = ends.iter().map(|q| ((q[0] - e[0][0]).powi(2) + (q[1] - e[0][1]).powi(2)).sqrt()).fold(f64::MAX, f64::min);
+            // Within a quarter of a tie's width (before the fix: up to 3 mm, a whole gap off).
+            assert!(d < TIE_WIDTH / 4.0 * PT_PER_MM, "{route}: a switch tie starts {:.2} mm from the nearest tie end", d / PT_PER_MM);
+        }
+    }
+}
