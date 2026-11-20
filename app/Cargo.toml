@@ -1,0 +1,15 @@
+[package]
+name = "cartographer-app"
+version = "2.0.0-dev"
+edition = "2021"
+description = "Cartographer: the panel in its own window, with VectorCraft started for you"
+publish = false
+
+# Not part of the plug-in workspace: the plug-in builds stay as they are.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
