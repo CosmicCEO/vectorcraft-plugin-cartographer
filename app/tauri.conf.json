@@ -3,7 +3,7 @@
   "productName": "Cartographer",
   "version": "2.0.0",
   "identifier": "com.cosmicceo.cartographer",
-  "build": { "frontendDist": "dist" },
+  "build": { "frontendDist": "start" },
   "app": {
     "windows": [{ "label": "main", "title": "Cartographer", "width": 460, "height": 900, "minWidth": 380, "minHeight": 500 }],
     "security": { "csp": null }
