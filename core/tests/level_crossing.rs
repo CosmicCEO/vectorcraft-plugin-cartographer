@@ -1,3 +1,4 @@
+mod common;
 use cartographer_core::builder::{build_text, set_level_crossing_text};
 use serde_json::{Value, json};
 
@@ -66,10 +67,10 @@ fn a_level_crossing_draws_a_panel_cuts_the_ties_under_the_road_and_keeps_the_rai
     let lc = objects(&build_text(&input(), &params(data(json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "level"}}})), "")).unwrap());
     assert_eq!(named(&lc, "gen.track.t.level.lc1.panel").len(), 1, "a crossing panel");
     // Ties: none under the road (the road is 7.2 m wide about y = 100), some elsewhere.
-    let ties: Vec<[f64; 2]> = named(&lc, "gen.track.t.").into_iter().filter(|o| o["name"].as_str().unwrap().contains("ties")).flat_map(points).collect();
+    let ties: Vec<[f64; 2]> = common::tie_points(&lc, "gen.track.t.");
     assert!(!ties.is_empty());
     assert!(ties.iter().all(|p| (p[1] - 100.0).abs() > 3.6), "a tie under the road: {:?}", ties.iter().find(|p| (p[1] - 100.0).abs() <= 3.6));
-    let plain_ties = named(&plain, "gen.track.t.").into_iter().filter(|o| o["name"].as_str().unwrap().contains("ties")).flat_map(points).count();
+    let plain_ties = common::tie_points(&plain, "gen.track.t.").len();
     assert!(ties.len() < plain_ties);
     // The rails are drawn across exactly as without the crossing.
     let rails = |objs: &[Value]| named(objs, "gen.track.t.").into_iter().filter(|o| o["name"].as_str().unwrap().contains("rails")).map(points).collect::<Vec<_>>();
@@ -137,7 +138,7 @@ fn a_road_drawn_from_one_edge_gets_a_crossing_only_where_the_road_is() {
     let (lo, hi) = (ys.iter().cloned().fold(f64::MAX, f64::min), ys.iter().cloned().fold(f64::MIN, f64::max));
     // The road covers y 100.0 to 107.2 (anchored at its left edge); the panel reaches 0.5 m past each edge, no more.
     assert!(lo > 99.0 && hi < 108.0, "panel from {lo} to {hi}");
-    let ties: Vec<[f64; 2]> = named(&objs, "gen.track.t.").into_iter().filter(|o| o["name"].as_str().unwrap().contains("ties")).flat_map(points).collect();
+    let ties: Vec<[f64; 2]> = common::tie_points(&objs, "gen.track.t.");
     assert!(ties.iter().any(|p| p[1] > 93.0 && p[1] < 99.0), "ties stay on the bare side of the road line");
 }
 
@@ -210,7 +211,7 @@ fn road_over_lays_the_road_deck_on_top_of_the_track() {
     let span = |v: Vec<f64>| (v.iter().cloned().fold(f64::MAX, f64::min), v.iter().cloned().fold(f64::MIN, f64::max));
     let (y0, y1) = span(deck.iter().flat_map(|d| points(d)).map(|p| p[1]).collect());
     let (x0, x1) = span(deck.iter().flat_map(|d| points(d)).map(|p| p[0]).collect());
-    let (t0, t1) = span(named(&objs, "gen.track.t").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".ties")).flat_map(|o| points(o)).map(|p| p[0]).collect());
+    let (t0, t1) = span(common::tie_points(&objs, "gen.track.t").iter().map(|p| p[0]).collect());
     assert!(y0 <= 96.5 && y1 >= 103.5, "{y0}..{y1}");
     assert!(x0 < t0 && x1 > t1, "deck {x0}..{x1}, ties {t0}..{t1}");
     assert_eq!(named(&objs, "gen.track.t.level.lc1.bridge").len(), 2, "a parapet on each side of the road");
@@ -220,7 +221,7 @@ fn road_over_lays_the_road_deck_on_top_of_the_track() {
 fn track_over_keeps_every_tie_and_draws_the_bridge_sides() {
     let objs = built("track over");
     assert!(named(&objs, "gen.track.t.level.lc1.panel").is_empty() && named(&objs, "gen.track.t.level.lc1.deck").is_empty());
-    let ties = |objs: &[Value]| named(objs, "gen.track.t").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".ties")).map(|o| o["path"]["subpaths"].as_array().unwrap().len()).sum::<usize>();
+    let ties = |objs: &[Value]| named(objs, "gen.track.t").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".ties")).map(|o| common::tie_segments(o).len()).sum::<usize>();
     let plain = objects(&build_text(&input(), &params(data(json!({})), "")).unwrap());
     assert_eq!(ties(&objs), ties(&plain), "the track runs on over the road with all its ties");
     let sides = named(&objs, "gen.track.t.level.lc1.bridge");
@@ -272,7 +273,7 @@ fn a_road_bridge_over_a_curving_track_covers_every_tie_under_the_road() {
     let rec = json!({"level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "road over"}}});
     let objs = objects(&build_text(&curved(), &params(data(rec), "")).unwrap());
     let decks: Vec<Vec<[f64; 2]>> = named(&objs, "gen.track.t.level.lc1.deck").iter().map(|d| points(d)).collect();
-    let ties: Vec<[f64; 2]> = named(&objs, "gen.track.t").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".ties")).flat_map(|o| points(o)).collect();
+    let ties: Vec<[f64; 2]> = common::tie_points(&objs, "gen.track.t");
     let under: Vec<_> = ties.iter().filter(|p| (p[1] - 100.0).abs() < 3.4).collect();
     assert!(!under.is_empty());
     let bare: Vec<_> = under.iter().filter(|p| !decks.iter().any(|d| inside(d, ***p))).collect();
@@ -298,7 +299,7 @@ fn a_rail_bridge_over_a_lopsided_yard_keeps_each_parapet_beside_its_own_side() {
     // A yard with three spurs on one side only crosses the road: the parapet on the spur side stands beyond the spurs, the other close to the main.
     let rec = json!({"tracks": {}, "yards": {"t": {"mains": 1, "left": 3}}, "level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "track over"}}});
     let objs = objects(&build_text(&input(), &params(data(rec), "")).unwrap());
-    let spur_x: Vec<f64> = named(&objs, "gen.track.t.L").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".ties")).flat_map(|o| points(o)).filter(|p| (p[1] - 100.0).abs() < 5.0).map(|p| p[0]).collect();
+    let spur_x: Vec<f64> = common::tie_points(&objs, "gen.track.t.L").into_iter().filter(|p| (p[1] - 100.0).abs() < 5.0).map(|p| p[0]).collect();
     assert!(!spur_x.is_empty(), "the spurs reach the road");
     let spur_side = (spur_x.iter().sum::<f64>() / spur_x.len() as f64 - 300.0).signum();
     let sides: Vec<f64> = named(&objs, "gen.track.t.level.lc1.bridge").iter().map(|o| points(o)[0][0] - 300.0).collect();

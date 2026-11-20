@@ -45,6 +45,15 @@ assert.equal(s.track.spec.tracks, 2);
 const built = (await names()).filter((n) => n.startsWith("gen.track.t1."));
 assert.ok(built.length >= 3, `rails, ties and roadbed were built: ${built}`);
 say(`double track drawn: ${built.length} objects, e.g. ${built[0]}`);
+{
+  // Since 2.0 each route's ties are one line that the panel dashes after the build.
+  const tree = (await vc.call("document.inspect", { depth: 8 })).layers;
+  const find = (l) => (l ?? []).flatMap((x) => [...(/^gen\.track\..+\.ties$/.test(x.name ?? "") ? [x.id] : []), ...find(x.children)]);
+  const ids = find(tree);
+  const nodes = (await vc.call("document.inspect", { ids })).nodes ?? [];
+  assert.ok(nodes.length > 0 && nodes.every((n) => Array.isArray(n.strokeOptions?.dash) && n.strokeOptions.cap === "butt"), `tie lines dashed: ${JSON.stringify(nodes.map((n) => n.strokeOptions?.dash))}`);
+  say(`ties: ${nodes.length} dashed tie lines`);
+}
 const layers = JSON.stringify((await vc.call("document.inspect", { depth: 8 })).layers);
 assert.ok(layers.includes("track t1 spine") && layers.includes("track t1 drawing"), "the track has its layers");
 say("layers: track t1 with a spine and a drawing part");

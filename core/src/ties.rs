@@ -1,9 +1,8 @@
 //! Ties along a route. Plug-ins run under an instruction budget and a yard has thousands of ties, so they are placed by one walk along the
-//! route (no search per tie) and written as plain two-point segments.
+//! route (no search per tie). Since 2.0 a route's ties are written as one line that the panel dashes (`runs`), so a build never runs out of them.
 
 use crate::geom::Len2;
 use crate::geom::P;
-use crate::offset::{MITRE_LIMIT, offset_polyline};
 use crate::rail_standards::*;
 
 pub fn arc_lengths(pts: &[P]) -> Vec<f64> {
@@ -24,33 +23,66 @@ pub fn centres(from: f64, to: f64) -> impl Iterator<Item = f64> {
     (0..count(from, to)).map(move |k| from + TIE_PITCH / 2.0 + k as f64 * TIE_PITCH)
 }
 
-/// One segment per tie, `TIE_LENGTH` long and square to the route, centred on it (computed one at a time, in order).
-pub fn marks<'a>(pts: &'a [P], from: f64, to: f64) -> impl Iterator<Item = [P; 2]> + 'a {
+/// The ties of a route as lines to be dashed: each run of kept ties (`keep` looks at a tie's centre) is the part of the route from the first
+/// tie's near edge to the last tie's far edge. Drawn `TIE_LENGTH` wide with the dash `[TIE_WIDTH, TIE_PITCH - TIE_WIDTH]` from its start, dash k
+/// covers tie k exactly; the panel sets that dash after a build (VectorCraft ignores dashes in a plug-in's output). Thousands of ties cost a
+/// handful of points, so a build never runs out of them.
+pub fn runs(pts: &[P], from: f64, to: f64, keep: Option<&dyn Fn(P) -> bool>) -> Vec<Vec<P>> {
+    let n = count(from, to);
+    if n == 0 || pts.len() < 2 {
+        return Vec::new();
+    }
+    let (first, last) = (from + TIE_PITCH / 2.0, from + TIE_PITCH / 2.0 + (n - 1) as f64 * TIE_PITCH);
+    // No strip to give way to (the usual case): one line, without looking at each tie.
+    let Some(keep) = keep else { return vec![slice(pts, first - TIE_WIDTH / 2.0, last + TIE_WIDTH / 2.0)] };
     let cum = arc_lengths(pts);
-    let half = TIE_LENGTH / 2.0;
     let mut i = 1;
-    centres(from, to).filter_map(move |s| {
+    let mut at = |s: f64| -> P {
         while i < pts.len() - 1 && cum[i] < s {
             i += 1;
         }
-        let (a, b) = (pts[i - 1], pts[i]);
         let span = cum[i] - cum[i - 1];
-        if span <= 0.0 {
-            return None;
+        let t = if span > 0.0 { (s - cum[i - 1]) / span } else { 0.0 };
+        [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t]
+    };
+    let mut out = Vec::new();
+    let mut run: Option<(f64, f64)> = None;
+    for c in centres(from, to) {
+        if keep(at(c)) {
+            run = Some(run.map_or((c, c), |(a, _)| (a, c)));
+        } else if let Some((a, b)) = run.take() {
+            out.push(slice(pts, a - TIE_WIDTH / 2.0, b + TIE_WIDTH / 2.0));
         }
+    }
+    if let Some((a, b)) = run {
+        out.push(slice(pts, a - TIE_WIDTH / 2.0, b + TIE_WIDTH / 2.0));
+    }
+    out
+}
+
+/// The ties a dashed tie line shows, as segments: the inverse of `runs`, for checks and tests. `run` is one subpath of a tie line, `scale`
+/// the drawing's units per model mm (document points: `PT_PER_MM`).
+pub fn expand(run: &[P], scale: f64) -> Vec<[P; 2]> {
+    let cum = arc_lengths(run);
+    let len = cum.last().copied().unwrap_or(0.0);
+    let half = TIE_LENGTH / 2.0 * scale;
+    let mut out = Vec::new();
+    let (mut s, mut i) = (TIE_WIDTH / 2.0 * scale, 1);
+    while s <= len - TIE_WIDTH / 2.0 * scale + 1e-6 && run.len() >= 2 {
+        while i < run.len() - 1 && cum[i] < s {
+            i += 1;
+        }
+        let (a, b) = (run[i - 1], run[i]);
+        let span = (cum[i] - cum[i - 1]).max(1e-12);
         let t = (s - cum[i - 1]) / span;
         let (dx, dy) = ((b[0] - a[0]) / span, (b[1] - a[1]) / span);
         let p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-        Some([[p[0] + dy * half, p[1] - dx * half], [p[0] - dy * half, p[1] + dx * half]])
-    })
+        out.push([[p[0] + dy * half, p[1] - dx * half], [p[0] - dy * half, p[1] + dx * half]]);
+        s += TIE_PITCH * scale;
+    }
+    out
 }
 
-/// Most ties one build can afford to write one by one. Measured with a fuel-counting interpreter against the host's limit (about 21 M
-/// of its units): a tie costs about 1,150, a yard without ties 6 to 9 M. Routes beyond this get `band`.
-pub const MAX_TIES: usize = 9000;
-
-/// The same for a layout on a curved line, where the rest of the build is dearer and every tie end is mapped through the curve.
-pub const MAX_TIES_CURVED: usize = 7000;
 
 /// The part of `pts` between arc lengths `a` and `b`.
 pub fn slice(pts: &[P], a: f64, b: f64) -> Vec<P> {
@@ -67,15 +99,3 @@ pub fn slice(pts: &[P], a: f64, b: f64) -> Vec<P> {
     out
 }
 
-/// The strip the ties of a route cover, as one polygon (used instead of the ties when a build has too many to write).
-pub fn band(pts: &[P], from: f64, to: f64) -> Option<Vec<P>> {
-    let n = count(from, to);
-    if n == 0 {
-        return None;
-    }
-    let first = from + TIE_PITCH / 2.0;
-    let mid = slice(pts, first - TIE_WIDTH / 2.0, first + (n - 1) as f64 * TIE_PITCH + TIE_WIDTH / 2.0);
-    let (l, r) = (offset_polyline(&mid, -TIE_LENGTH / 2.0, MITRE_LIMIT), offset_polyline(&mid, TIE_LENGTH / 2.0, MITRE_LIMIT));
-    let ring: Vec<P> = l.into_iter().chain(r.into_iter().rev()).collect();
-    (ring.len() >= 3).then_some(ring)
-}

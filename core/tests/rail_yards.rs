@@ -100,8 +100,8 @@ fn two_mains_eight_left_four_right_merge_back() {
     assert!(near(YardSpec::from_json(&spec).unwrap().turnouts() as f64, 2.0 * 12.0, 0.0));
 
     let out = builder::build(&line(need + 200.0), &yard(spec.clone())).unwrap();
-    // The only thing to say is that the ties of the long routes are drawn as strips (see `ties::MAX_TIES`).
-    assert!(out["documentData"]["notes"].as_array().unwrap().iter().all(|n| n.as_str().unwrap().contains("solid strip")), "{}", out["documentData"]["notes"]);
+    // Nothing to say: every route has its ties (since 2.0 a route's ties are one dashed line, so a build never runs out of them).
+    assert!(out["documentData"]["notes"].as_array().unwrap().is_empty(), "{}", out["documentData"]["notes"]);
     let names: Vec<String> = out["objects"].as_array().unwrap().iter().filter_map(|o| o["name"].as_str().map(str::to_string)).collect();
     for r in ["m1", "m2"].into_iter().map(String::from).chain((1..=8).map(|j| format!("L{j}"))).chain((1..=4).map(|j| format!("R{j}"))) {
         assert!(names.contains(&format!("gen.track.a.{r}.rails")) && names.contains(&format!("gen.track.a.{r}.ties")), "{r}");

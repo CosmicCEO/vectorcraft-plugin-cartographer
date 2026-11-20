@@ -6,7 +6,7 @@ import { diffCrossSection, editCrossSection, parseCrossSection, parseCrossing, p
 import { describeChanges, describeTrackChanges } from "./changes.mjs";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { PLUGIN_ID, SET_CROSSING, SET_CROSS_SECTION, SET_EMBANKMENT, SET_HUB, SET_SETTINGS, SET_TRANSITION, SET_JUNCTION, SET_JOINT, SET_LEVEL_CROSSING, SET_TRACKS, SET_WATER, SET_WET, SET_YARD, allPaths, classify, inspectState, junctionId, nodes, readSpec, segmentId, trackId, waterId } from "./doc.mjs";
+import { allPaths, classify, dashTies, inspectState, junctionId, nodes, PLUGIN_ID, readSpec, segmentId, SET_CROSS_SECTION, SET_CROSSING, SET_EMBANKMENT, SET_HUB, SET_JOINT, SET_JUNCTION, SET_LEVEL_CROSSING, SET_SETTINGS, SET_TRACKS, SET_TRANSITION, SET_WATER, SET_WET, SET_YARD, trackId, waterId } from "./doc.mjs";
 import { organise, unlockOurs } from "./layers.mjs";
 import { propose as proposeWith, proposeCrossing, proposeFeature, proposeHub, proposeJoint, proposeJunction, proposeTrack, proposeTransition } from "./providers.mjs";
 
@@ -772,6 +772,7 @@ export class Panel extends EventEmitter {
     try {
       await this.control.run("select.all");
       await this.control.run("plugin.run", { id: PLUGIN_ID });
+      await dashTies(this.control);
       await organise(this.control);
     } finally {
       await restore();

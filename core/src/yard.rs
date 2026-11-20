@@ -11,7 +11,7 @@ use crate::offset::{MITRE_LIMIT, offset_polyline_raw as offset_polyline};
 use crate::output::{Layer, Out};
 use crate::rail_standards::*;
 use crate::ties;
-use crate::tracks::{banded_note, min_radius, parse_length, parse_spacing};
+use crate::tracks::{min_radius, parse_length, parse_spacing};
 use crate::turnout::{Frog, Pen};
 use serde_json::{Value, json};
 
@@ -398,7 +398,7 @@ fn reflect(sigma: f64, p: P) -> P {
 }
 
 /// The lengthened part of the ties near each branch: for every tie close to a branch, the piece beyond a normal tie's end on the branch's
-/// side (the normal ties are `ties::marks`). Only the ties inside a branch's zone are looked at.
+/// side (the normal ties are the dashed tie line, `ties::runs`). Only the ties inside a branch's zone are looked at.
 fn extensions(r: &Route) -> Vec<Vec<P>> {
     let poly = Poly::new(r.pts.clone());
     let half = TIE_LENGTH / 2.0;
@@ -606,19 +606,11 @@ pub fn build(id: &str, line: &[P], spec: &YardSpec, out: &mut Out, to_doc: impl 
     }
     if spec.ties {
         out.layer(Layer::Ties);
-        if !mapper.straight {
-            out.limit_ties(ties::MAX_TIES_CURVED);
-        }
-        let mut banded = 0;
         for r in &routes {
-            if ties::count(r.tie_from, r.tie_to) == 0 {
-                // a short route (the middle of a crossover, say) may have no room for a tie of its own
-            } else if out.take_ties(ties::count(r.tie_from, r.tie_to)) {
-                out.segments(&format!("gen.track.{id}.{}.ties", r.name), ties::marks(&r.pts, r.tie_from, r.tie_to).filter(|t| avoid.is_empty() || !avoid.iter().any(|b| b.covers(mapper.map([(t[0][0] + t[1][0]) / 2.0, (t[0][1] + t[1][1]) / 2.0])))), |p| to_doc(mapper.map(p)), TIE_RGB, TIE_WIDTH * PT_PER_MM);
-            } else if let Some(ring) = ties::band(&r.pts, r.tie_from, r.tie_to) {
-                out.polygon(&format!("gen.track.{id}.{}.ties", r.name), &mapper.dense(&ring), |p| to_doc(mapper.map(p)), TIE_RGB);
-                banded += 1;
-                continue; // a band stands for every tie, the lengthened ones too
+            let keep = |c: P| !avoid.iter().any(|b| b.covers(mapper.map(c)));
+            let runs: Vec<Vec<P>> = ties::runs(&r.pts, r.tie_from, r.tie_to, (!avoid.is_empty()).then_some(&keep as &dyn Fn(P) -> bool)).iter().map(|run| mapper.dense(run)).collect();
+            if !runs.is_empty() {
+                out.path(&format!("gen.track.{id}.{}.ties", r.name), &runs, |p| to_doc(mapper.map(p)), TIE_RGB, TIE_LENGTH * PT_PER_MM, false);
             }
             // The lengthened switch ties give way where another track or a road runs through, like the ordinary ones.
             let mid = |t: &Vec<P>| mapper.map([(t[0][0] + t[1][0]) / 2.0, (t[0][1] + t[1][1]) / 2.0]);
@@ -626,9 +618,6 @@ pub fn build(id: &str, line: &[P], spec: &YardSpec, out: &mut Out, to_doc: impl 
             if !ext.is_empty() {
                 out.path(&format!("gen.track.{id}.{}.switch-ties", r.name), &ext, |p| to_doc(mapper.map(p)), TIE_RGB, TIE_WIDTH * PT_PER_MM, false);
             }
-        }
-        if banded > 0 {
-            notes.push(banded_note(id, banded));
         }
     }
     out.layer(Layer::Rails);

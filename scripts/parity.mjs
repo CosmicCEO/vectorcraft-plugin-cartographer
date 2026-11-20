@@ -71,9 +71,12 @@ for (const sc of scenarios) {
     await build(sc, OLD, files.old);
     await build(sc, NEW, files.new, flags.includes("--png") ? join(out, `${sc.name}.png`) : null);
     // `fixed`: objects Cartographer draws differently on purpose (a Track Layer bug fixed); they are left out of both drawings, the rest must match.
-    const drop = (svg) => (sc.fixed ?? []).reduce((t, id) => t.replace(new RegExp(`<path id="${id.replaceAll(".", "\\.")}"[^>]*/>`, "g"), ""), svg);
+    // Since 2.0 a route's ties are one dashed line (Track Layer drew one segment per tie): rail comparisons leave every `*.ties` object out;
+    // core tests (`ties::expand`) check the dashes land where Track Layer's ties were.
+    const tieLines = (svg) => (factor === null ? svg : svg.replace(/<[a-z]+ id="gen\.track\.[^"]*\.ties"[^>]*\/>/g, ""));
+    const drop = (svg) => (sc.fixed ?? []).reduce((t, id) => t.replace(new RegExp(`<[a-z]+ id="${id.replaceAll(".", "\\.")}"[^>]*/>`, "g"), ""), tieLines(svg));
     const raw = readFileSync(files.new, "utf8");
-    const gone = (sc.fixed ?? []).filter((id) => !raw.includes(`<path id="${id}"`));
+    const gone = (sc.fixed ?? []).filter((id) => !raw.includes(` id="${id}"`));
     if (gone.length) throw new Error(`the objects marked fixed on purpose are not drawn any more: ${gone.join(", ")} (update rail-scenarios.json)`);
     const [a, b] = [drop(readFileSync(files.old, "utf8")), drop(raw)];
     const skip = factor === null ? { old: a, new: b, skipped: 0 } : skipCollapsedRings(a, b, factor);

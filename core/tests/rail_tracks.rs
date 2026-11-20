@@ -1,3 +1,4 @@
+mod common;
 use serde_json::{Value, json};
 use cartographer_core::rail_builder as builder;
 use cartographer_core::rail_standards::*;
@@ -38,12 +39,12 @@ fn one_track_rails_sit_half_a_gauge_either_side() {
 #[test]
 fn ties_one_per_pitch_across_the_track() {
     let out = builder::build(&input("track.a", &[[0.0, 0.0], [LEN, 0.0]]), &params(json!({"tracks": 1}))).unwrap();
-    let ties = object(&out, "gen.track.a.t1.ties");
-    assert_eq!(ties["path"]["subpaths"].as_array().unwrap().len(), 32); // centres 1.55, 4.65, ... 97.65 mm
-    let first = sub(ties, 0);
+    let ties = common::tie_segments(object(&out, "gen.track.a.t1.ties"));
+    assert_eq!(ties.len(), 32); // centres 1.55, 4.65, ... 97.65 mm
+    let first = ties[0];
     assert!(((first[1][1] - first[0][1]).abs() / PT_PER_MM - TIE_LENGTH).abs() < 1e-3);
     assert!((first[0][0] / PT_PER_MM - TIE_PITCH / 2.0).abs() < 1e-3);
-    let last = sub(ties, 31);
+    let last = ties[31];
     assert!((last[0][0] / PT_PER_MM - (TIE_PITCH / 2.0 + 31.0 * TIE_PITCH)).abs() < 1e-3);
 }
 
