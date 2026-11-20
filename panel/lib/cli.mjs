@@ -33,6 +33,8 @@ export function runCli(args) {
 
 /** Checks document settings (JSON text). {ok, settings, summary} or {ok: false, error}. */
 export const parseSettings = (jsonText) => runCli(["parse-settings", jsonText]);
+/** The plug-in's release, from the helper built with it: {ok, version}. */
+export const version = () => runCli(["version"]);
 /** The fields of a kind of description ("settings", "tracks", "yard" or "joint"): {ok, kind, fields}. */
 export const schema = (kind) => runCli(["schema", kind]);
 

@@ -63,6 +63,7 @@ function fillList(id, items) {
 
 function show(s) {
   state = s;
+  $("version").textContent = s.version ? `Cartographer ${s.version}` : "";
   $("notesCard").hidden = !s.notes?.length;
   $("notes").replaceChildren(...(s.notes ?? []).map((n) => el("li", {}, n)));
   $("dot").classList.toggle("on", !!s.connected);
