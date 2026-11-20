@@ -2,7 +2,7 @@
 // change with an agent, and on Draw applies it (Describe Road, then Build Road) without losing the user's selection.
 import { EventEmitter } from "node:events";
 import { cardModel } from "./cards.mjs";
-import { diffCrossSection, editCrossSection, parseCrossSection, parseCrossing, parseEmbankment, parseHub, parseJoint, parseJunction, parseSettings, parseSpec, parseTransition, parseWater, parseWet, findJoint, schema } from "./cli.mjs";
+import { diffCrossSection, editCrossSection, parseCrossSection, parseCrossing, parseEmbankment, parseHub, parseJoint, parseJunction, parseSettings, parseSpec, parseTransition, parseWater, parseWet, findJoint, schema, version as cliVersion } from "./cli.mjs";
 import { describeChanges, describeTrackChanges } from "./changes.mjs";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -73,6 +73,8 @@ export class Panel extends EventEmitter {
   /** Reads the document again; a failure the page cannot show otherwise (the helper crashed) becomes its error line, and the next poll tries again. */
   async #refresh(force) {
     try {
+      // Shown at the top of the page: which release of the plug-in this panel belongs to (asked once).
+      if (this.state.version === undefined) this.state.version = (await cliVersion()).version ?? null;
       await this.#refreshInner(force);
     } catch (e) {
       this.last = { revision: null, selection: "", title: null };

@@ -1,5 +1,8 @@
 # Changelog
 
+## Next
+- The panel shows the plug-in's name and release at the top (owner).
+
 ## 1.7.0
 - **Yard ladders:** every turnout in a ladder now stands on ties. The ladder track has its own ties from where it leaves the main, each turnout on it has its lengthened switch ties, and each spur's own ties begin where it clears the ladder (no doubled ties). Before, the ladder ran bare after its first turnout.
 - **Yards:** `before_end` stops a yard's ladders that many metres before the end of its line (with `at`, metres from the start); card field "Stops before end (m)".

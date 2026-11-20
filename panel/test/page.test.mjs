@@ -185,3 +185,13 @@ test("a plain shape selected with a track says to make the shape a road first", 
   assert.match(app, /t\.plainWithTrack\) ctx\.append\(.*make it a road first/i);
 });
 
+test("the panel shows the plug-in's name and release at the top", async () => {
+  const page = runPage();
+  const { panel } = await start();
+  await panel.tick(true);
+  const want = (await import("node:fs")).readFileSync(new URL("../../Cargo.toml", import.meta.url), "utf8").match(/^version = "([^"]+)"/m)[1];
+  assert.equal(panel.snapshot().version, want);
+  page.send(panel.snapshot());
+  assert.equal(page.byId.get("version").textContent, `Cartographer ${want}`);
+});
+
