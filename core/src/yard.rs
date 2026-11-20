@@ -371,8 +371,17 @@ fn arc_len(pts: &[P]) -> Vec<f64> {
 /// Arc length at which `pts` first lies `dist` or more from the line through `t0` with unit direction `dir`.
 fn leaves(pts: &[P], t0: P, dir: P, dist: f64) -> f64 {
     let cum = arc_len(pts);
+    let off = |p: &P| ((p[0] - t0[0]) * dir[1] - (p[1] - t0[1]) * dir[0]).abs();
     for (i, p) in pts.iter().enumerate() {
-        if ((p[0] - t0[0]) * dir[1] - (p[1] - t0[1]) * dir[0]).abs() >= dist {
+        let d = off(p);
+        if d >= dist {
+            // Inside the segment that crosses the distance (a ladder's straight run is one long segment): the exact place, not its far end.
+            if i > 0 {
+                let d0 = off(&pts[i - 1]);
+                if d > d0 {
+                    return cum[i - 1] + (cum[i] - cum[i - 1]) * (dist - d0) / (d - d0);
+                }
+            }
             return cum[i];
         }
     }

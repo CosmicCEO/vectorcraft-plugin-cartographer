@@ -104,3 +104,22 @@ fn before_end_and_length_cannot_both_be_given() {
     assert!(e.contains("before_end") && e.contains("length") && e.contains("not both"), "{e}");
     assert!(set_yard_text(&input, &params(json!({}), r#"{"left": 1, "before_end": -1}"#)).is_err());
 }
+
+#[test]
+fn every_turnout_in_a_ladder_stands_on_ties() {
+    // Owner, 1.6 check: after the first turnout the ladder ran bare. The ladder's own ties must start where it is clear of the main,
+    // before the first spur leaves it, so every turnout along it has ties under it.
+    let input = json!({"objects": [line(1, "track.t1", &[[5.0, 50.0], [255.0, 50.0]])]});
+    let d = json!({"schema": 2, "yards": {"t1": {"mains": 1, "left": 3, "frog": 6}}});
+    let v: Value = serde_json::from_str(&build_text(&input, &params(d, "")).unwrap()).unwrap();
+    let start = |name: &str| v["objects"].as_array().unwrap().iter().find(|o| o["name"] == name).unwrap()["path"]["subpaths"].as_array().unwrap()
+        .iter().map(|s| s["anchors"][0]["p"][0].as_f64().unwrap()).fold(f64::MAX, f64::min);
+    let (switch_end, ladder, spur1) = (
+        v["objects"].as_array().unwrap().iter().find(|o| o["name"] == "gen.track.t1.m1.switch-ties").unwrap()["path"]["subpaths"].as_array().unwrap()
+            .iter().map(|s| s["anchors"][0]["p"][0].as_f64().unwrap()).fold(f64::MIN, f64::max),
+        start("gen.track.t1.L3.ties"),
+        start("gen.track.t1.L1.ties"),
+    );
+    assert!(ladder < spur1, "the ladder has ties before the first spur leaves it: ladder from {ladder}, spur 1 from {spur1}");
+    assert!(ladder - switch_end < 3.0, "the ladder's ties take over where the main's switch ties end: {switch_end} then {ladder}");
+}

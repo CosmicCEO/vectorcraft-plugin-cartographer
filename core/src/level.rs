@@ -10,7 +10,7 @@ use crate::crosssection::{layout, parse};
 use crate::geom::P;
 use crate::joint::Band;
 use crate::output::{Layer, Out};
-use crate::rail_builder::{crossing_half_mm, to_mm, track_id};
+use crate::rail_builder::{crossing_half_mm, crossing_sides_mm, to_mm, track_id};
 use crate::rail_standards::PT_PER_MM;
 use crate::roads::{Spec, segment_id};
 use crate::vcdoc::Item;
@@ -200,8 +200,10 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
         // How far a curving track wanders from its direction at the crossing while it is on the road.
         let drift = clip(&job.track_line, across_road, near - 1.0, far + 1.0).iter().map(|&p| across_track(p).abs()).fold(0.0, f64::max);
         if job.treatment == "road over" {
-            // Above everything on the track: the road's own surface, element by element, then a parapet along each edge.
+            // Above everything on the track: the road's own surface, element by element, then a parapet along each edge. The deck is part of
+            // the road, so it is drawn the road's way (a hand-drawn style makes its edges wander like the road's).
             out.layer(Layer::Rails);
+            out.displace(true);
             let hb = ht + 1.0 + drift;
             for (k, (l, r, fill)) in job.strips.iter().enumerate() {
                 out.polygon(&format!("{base}.deck.{k}"), &[corner(*r, hb), corner(*r, -hb), corner(*l, -hb), corner(*l, hb)], |p| p, *fill);
@@ -209,6 +211,7 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
             for (tag, a) in [("left", job.lo - 0.3), ("right", job.hi + 0.3)] {
                 out.path(&format!("{base}.bridge.{tag}"), &[line((a, -hb), (a, hb))], |p| p, SIGN, 0.3, false);
             }
+            out.displace(false);
             out.layer(Layer::Roadbed);
             continue;
         }
@@ -216,7 +219,9 @@ pub fn build(items: &[Item], spec: &Spec, data: &Map<String, Value>, out: &mut O
             // The track is already drawn over the road with every tie; a parapet runs along each side of it across the road.
             out.layer(Layer::Rails);
             // Along the track itself (it may curve), from one side of the road to the other.
-            for (tag, b) in [("left", -(ht + 0.2)), ("right", ht + 0.2)] {
+            // Each side at its own width (a yard may have spurs on one side only); `nt` points to the right of travel along the track.
+            let (hl, hr) = crossing_sides_mm(data, &job.track);
+            for (tag, b) in [("left", -(hl * PT_PER_MM + 0.5)), ("right", hr * PT_PER_MM + 0.5)] {
                 let side = clip(&shifted(&job.track_line, b), across_road, near - 1.0, far + 1.0);
                 if side.len() >= 2 {
                     out.path(&format!("{base}.bridge.{tag}"), &[side], |p| p, SIGN, 0.3, false);

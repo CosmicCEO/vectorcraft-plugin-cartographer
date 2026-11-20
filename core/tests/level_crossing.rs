@@ -292,3 +292,29 @@ fn a_rail_bridge_on_a_curve_keeps_its_parapets_beside_the_track() {
         }
     }
 }
+
+#[test]
+fn a_rail_bridge_over_a_lopsided_yard_keeps_each_parapet_beside_its_own_side() {
+    // A yard with three spurs on one side only crosses the road: the parapet on the spur side stands beyond the spurs, the other close to the main.
+    let rec = json!({"tracks": {}, "yards": {"t": {"mains": 1, "left": 3}}, "level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "track over"}}});
+    let objs = objects(&build_text(&input(), &params(data(rec), "")).unwrap());
+    let spur_x: Vec<f64> = named(&objs, "gen.track.t.L").iter().filter(|o| o["name"].as_str().unwrap().ends_with(".ties")).flat_map(|o| points(o)).filter(|p| (p[1] - 100.0).abs() < 5.0).map(|p| p[0]).collect();
+    assert!(!spur_x.is_empty(), "the spurs reach the road");
+    let spur_side = (spur_x.iter().sum::<f64>() / spur_x.len() as f64 - 300.0).signum();
+    let sides: Vec<f64> = named(&objs, "gen.track.t.level.lc1.bridge").iter().map(|o| points(o)[0][0] - 300.0).collect();
+    assert_eq!(sides.len(), 2);
+    let far = sides.iter().find(|d| d.signum() == spur_side).unwrap().abs();
+    let near = sides.iter().find(|d| d.signum() != spur_side).unwrap().abs();
+    assert!(far > 3.0 * 3.9 && near < 3.0, "spur side {far} m, other side {near} m");
+}
+
+#[test]
+fn a_road_bridge_deck_is_hand_drawn_like_its_road() {
+    let rec = |style: &str| json!({"settings": {"style": style}, "level_crossings": {"lc1": {"road": "a", "track": "t", "treatment": "road over"}}});
+    let deck = |style: &str| -> Vec<[f64; 2]> { named(&objects(&build_text(&input(), &params(data(rec(style)), "")).unwrap()), "gen.track.t.level.lc1.deck").iter().flat_map(|d| points(d)).collect() };
+    let (plain, hand) = (deck("medium-contrast"), deck("hand-drawn"));
+    assert_eq!(plain.len() % 4, 0, "plain decks are straight-sided");
+    // Hand-drawn: the edges wander like the road's, so they have more points and not all on the four straight edge lines (y = 96.5, 100, 103.5).
+    assert!(hand.len() > plain.len(), "{} points against {}", hand.len(), plain.len());
+    assert!(hand.iter().any(|p| [96.5, 100.0, 103.5].iter().all(|y| (p[1] - y).abs() > 0.01) && (p[0] - 300.0).abs() < 2.0), "the deck edges wander");
+}

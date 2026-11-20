@@ -309,7 +309,12 @@
      }
     }
    }
-  ]
+  ],
+  "fixed": [
+   "gen.track.t1.R1.ties",
+   "gen.track.t1.R1.switch-ties"
+  ],
+  "fixed_why": "the ladder's own ties start where it leaves the main, so each turnout on it gets its switch ties (1.7)"
  },
  {
   "name": "terminal",
@@ -347,7 +352,14 @@
      }
     }
    }
-  ]
+  ],
+  "fixed": [
+   "gen.track.t1.L6.ties",
+   "gen.track.t1.L6.switch-ties",
+   "gen.track.t1.R6.ties",
+   "gen.track.t1.R6.switch-ties"
+  ],
+  "fixed_why": "the ladder's own ties start where it leaves the main, so each turnout on it gets its switch ties (1.7)"
  },
  {
   "name": "turnouts",
