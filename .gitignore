@@ -5,3 +5,6 @@ target/
 dist/
 .superpowers/
 out/
+
+# The app's build output
+app/target/
