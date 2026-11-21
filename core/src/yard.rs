@@ -88,7 +88,7 @@ impl YardSpec {
                     }
                 }
                 "frog" => {
-                    s.frog = val.as_u64().filter(|n| (Frog::MIN as u64..=Frog::MAX as u64).contains(n)).ok_or("`frog` is the frog number, a whole number from 4 to 20 (the numbers NMRA RP-12.35 lists for N scale; 6 is typical for a yard).")? as u32;
+                    s.frog = val.as_u64().filter(|n| (Frog::MIN as u64..=Frog::MAX as u64).contains(n)).ok_or("`frog` is the frog number, a whole number from 4 to 20 (the numbers NMRA RP-12.35 lists; 6 is typical for a yard).")? as u32;
                 }
                 "spacing" => {
                     s.spacing = parse_spacing(val)?;
