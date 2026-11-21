@@ -408,10 +408,9 @@ export class Panel extends EventEmitter {
   /** What a plain line is: a road, a connection between two roads, water, or railway track. */
   setMode(mode) {
     if (mode !== "road" && mode !== "connection" && mode !== "transition" && mode !== "water" && mode !== "fill" && mode !== "track") return false;
-    const was = this.state.mode;
     this.#set({ mode, pending: null, message: null });
-    // A plain line described as track shows the track card, which is read from the document: look again now.
-    if (mode === "track" || was === "track") this.tick(true);
+    // Each mode's card (road, water, track, ...) is worked out when the selection is read: read it again, so only this mode's card shows.
+    this.tick(true);
     return true;
   }
 
