@@ -463,3 +463,17 @@ test("tie lines built without the panel (the plug-in menu, an agent) are dashed 
   assert.equal(sets().length, 1, "a line already dashed once is not dashed again");
   done();
 });
+
+test("changing the mode of a plain line shows only that mode's card", async () => {
+  // Owner, 2026-11-20: after work on water, picking rail (or road) left the water options on screen.
+  const vc = await fakeVectorCraft({ paths: [{ id: 5, name: "" }], selection: [5], spec: { tracks: {}, yards: {} } });
+  const { panel, done } = await setup(vc);
+  const shown = () => { const s = panel.snapshot(); return { water: !!s.water, track: !!s.track, road: !!s.road }; };
+  for (const [mode, want] of [["water", { water: true, track: false }], ["road", { water: false, track: false }], ["track", { water: false, track: true }], ["water", { water: true, track: false }], ["track", { water: false, track: true }], ["road", { water: false, track: false }]]) {
+    panel.setMode(mode);
+    await panel.tick(false);
+    const got = shown();
+    assert.deepEqual({ water: got.water, track: got.track }, want, `after choosing ${mode}`);
+  }
+  done();
+});
