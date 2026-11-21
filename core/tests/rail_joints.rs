@@ -206,3 +206,14 @@ fn all_roadbed_is_stacked_below_all_ties_below_all_rails_whatever_the_line_order
     let pos = |n: &str| names.iter().position(|x| *x == n).unwrap();
     assert!(pos("gen.track.b.ballast") < pos("gen.track.a.t1.ties"));
 }
+
+#[test]
+fn a_closed_shape_has_no_ends_so_a_track_through_its_corner_crosses_it() {
+    // Owner's check, 2026-11-20: a polygon, star or ellipse drawn as track starts and ends at one corner; when that corner lay on the other
+    // track the meeting was taken for a branch. A closed shape has no ends.
+    use cartographer_core::joint::{Found, find};
+    let square = vec![[0.0, 0.0], [100.0, 0.0], [100.0, 100.0], [0.0, 100.0], [0.0, 0.0]];
+    let diagonal = vec![[-50.0, -50.0], [150.0, 150.0]];
+    assert!(matches!(find(&square, &diagonal), Some(Found::Crossing { .. })), "{:?}", find(&square, &diagonal).map(|f| f.kind()));
+    assert!(matches!(find(&diagonal, &square), Some(Found::Crossing { .. })), "either way round");
+}

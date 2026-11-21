@@ -46,6 +46,9 @@ pub fn find(a: &[P], b: &[P]) -> Option<Found> {
         return None;
     }
     let (la, lb) = (pa.len(), pb.len());
+    // A closed shape (a polygon, star, ellipse ... drawn as track) arrives as a loop that ends where it began: it has no ends.
+    let loop_of = |p: &Poly| p.pts.len() >= 3 && p.pts[0].len2_to(*p.pts.last().unwrap()) < 1e-9;
+    let (ca, cb) = (loop_of(&pa), loop_of(&pb));
     // Where they cross, nearest the start of a. A crossing within TOLERANCE of an end of either line is a meeting at an end, not a crossing.
     let mut cum_a = 0.0;
     let mut best: Option<(f64, f64, P)> = None;
@@ -65,14 +68,18 @@ pub fn find(a: &[P], b: &[P]) -> Option<Found> {
         cum_a += sa;
     }
     if let Some((s_a, s_b, point)) = best {
-        if s_a > TOLERANCE && la - s_a > TOLERANCE && s_b > TOLERANCE && lb - s_b > TOLERANCE {
+        let clear = |s: f64, l: f64, closed: bool| closed || (s > TOLERANCE && l - s > TOLERANCE);
+        if clear(s_a, la, ca) && clear(s_b, lb, cb) {
             let angle_deg = angle_between(pa.at(s_a).1, pb.at(s_b).1);
             return Some(Found::Crossing { point, s_a, s_b, angle_deg });
         }
     }
     // An end of one line on, or at an end of, the other.
     let mut cand: Option<(f64, Found)> = None;
-    for (which, x, y) in [(0usize, &pa, &pb), (1, &pb, &pa)] {
+    for (which, x, y, x_closed, y_closed) in [(0usize, &pa, &pb, ca, cb), (1, &pb, &pa, cb, ca)] {
+        if x_closed {
+            continue;
+        }
         for at_end in [false, true] {
             let e = if at_end { *x.pts.last().unwrap() } else { x.pts[0] };
             let (s, _, dist) = y.project(e);
@@ -82,7 +89,7 @@ pub fn find(a: &[P], b: &[P]) -> Option<Found> {
             let t_end = if at_end { x.at(x.len()).1 } else { x.at(0.0).1 };
             let angle_deg = angle_between(t_end, y.at(s).1);
             let ends = [y.pts[0], *y.pts.last().unwrap()];
-            let to_end = ends.iter().map(|q| e.len2_to(*q)).fold(f64::INFINITY, f64::min);
+            let to_end = if y_closed { f64::INFINITY } else { ends.iter().map(|q| e.len2_to(*q)).fold(f64::INFINITY, f64::min) };
             let found = if to_end <= TOLERANCE {
                 Found::Join { point: e, gap: to_end, angle_deg }
             } else {
@@ -120,7 +127,7 @@ impl Found {
         let frog = |ang: f64| {
             let (n, deg) = nearest_frog(ang);
             if ang > ROWS[0].frog_angle_deg + 1.0 {
-                format!("{ang:.1} degrees, wider than any NMRA N frog (No. {n} is {deg:.2})")
+                format!("{ang:.1} degrees, wider than any NMRA frog (No. {n} is {deg:.2})")
             } else {
                 format!("{ang:.1} degrees; the nearest NMRA frog is No. {n} ({deg:.2})")
             }
